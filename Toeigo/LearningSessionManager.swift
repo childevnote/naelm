@@ -164,6 +164,20 @@ final class LearningSessionManager {
             context: context
         )
 
+        // 오답 → 복습 대기 마킹
+        if !isCorrect {
+            let grammarID = grammar.grammarID
+            let predicate = #Predicate<LearningProgress> {
+                $0.userID == userID &&
+                $0.itemType == "grammar" &&
+                $0.grammar?.grammarID == grammarID
+            }
+            let descriptor = FetchDescriptor<LearningProgress>(predicate: predicate)
+            if let progress = try? context.fetch(descriptor).first {
+                progress.markedForReview = true
+            }
+        }
+
         // 통계 업데이트
         stats.grammarStudied += 1
         if isCorrect {

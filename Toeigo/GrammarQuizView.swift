@@ -26,17 +26,39 @@ struct GrammarQuizView: View {
 
     @State private var viewModel: QuizViewModel
     @State private var sessionManager: LearningSessionManager
+    @State private var grammarTimerRemaining: Double = 15.0
+    @State private var grammarTimerRunning: Bool = false
+    @State private var grammarTimer: Timer? = nil
+    @State private var targetScore: Int = 700
+    @State private var showLeaveAlert = false
+    @State private var speedFeedback: String? = nil
 
-    init() {
+    /// 홈 탭으로 이동하는 콜백 (TabView selection 변경)
+    var goHome: () -> Void = {}
+
+    init(goHome: @escaping () -> Void = {}) {
+        self.goHome = goHome
         let sm = LearningSessionManager()
         _sessionManager = State(initialValue: sm)
         _viewModel = State(initialValue: QuizViewModel(sessionManager: sm))
     }
 
+    private var grammarTimerDuration: Double {
+        switch targetScore {
+        case ..<700: return 15.0
+        case 700..<800: return 12.0
+        case 800..<900: return 9.0
+        default: return 6.0
+        }
+    }
+
+    var isGrammarSessionActive: Bool {
+        !viewModel.questions.isEmpty && !viewModel.isQuizComplete && !viewModel.isLoading
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
-                // 배경
                 Color(.systemGroupedBackground)
                     .ignoresSafeArea()
 
@@ -48,6 +70,21 @@ struct GrammarQuizView: View {
                     emptyQuizView
                 } else if let question = viewModel.currentQuestion {
                     quizContentView(question: question)
+                }
+
+                // 속도 피드백 토스트
+                if let feedback = speedFeedback {
+                    VStack {
+                        Text(feedback)
+                            .font(.subheadline).fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20).padding(.vertical, 10)
+                            .background(Capsule().fill(BrandTheme.accent.opacity(0.85)))
+                        Spacer()
+                    }
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(100)
                 }
             }
             .navigationTitle("문법 퀴즈")
@@ -61,6 +98,7 @@ struct GrammarQuizView: View {
                     }
                 }
             }
+            .toolbar(isGrammarSessionActive ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $viewModel.showExplanation) {
                 if let question = viewModel.currentQuestion {
                     explanationSheet(question: question)
@@ -70,6 +108,28 @@ struct GrammarQuizView: View {
                 if viewModel.questions.isEmpty && !viewModel.isQuizComplete {
                     loadQuiz()
                 }
+                startGrammarTimer()
+            }
+            .onDisappear {
+                stopGrammarTimer()
+            }
+            .onChange(of: viewModel.currentIndex) { _, _ in
+                resetGrammarTimer()
+            }
+            .onChange(of: viewModel.isAnswerRevealed) { _, revealed in
+                if revealed {
+                    grammarTimerRunning = false
+                    // 정답 시 속도 피드백 표시
+                    if let q = viewModel.currentQuestion, viewModel.selectedAnswer == q.correctAnswer {
+                        showGrammarSpeedFeedback()
+                    }
+                }
+            }
+            .alert("학습 중단", isPresented: $showLeaveAlert) {
+                Button("계속 학습", role: .cancel) {}
+                Button("나가기", role: .destructive) { goHome() }
+            } message: {
+                Text("현재 진행 중인 학습 세션이 있습니다. 나가면 진행 상황이 저장되지 않습니다.")
             }
         }
     }
@@ -79,39 +139,23 @@ struct GrammarQuizView: View {
     @ViewBuilder
     private func quizContentView(question: QuizQuestion) -> some View {
         VStack(spacing: 0) {
-            // 진행 바
             progressBar
+
+            // 타이머 바 (숫자 없이 바만)
+            grammarTimerBar
 
             ScrollView {
                 VStack(spacing: 24) {
-                    // 문제 번호 + 카테고리
+                    // 문제 번호만 (카테고리/유형 숨김)
                     HStack {
                         Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.blue)
-
+                            .font(.caption).fontWeight(.bold)
+                            .foregroundStyle(BrandTheme.accent)
                         Spacer()
-
-                        Text(question.grammar.category)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
-                            .background(.orange.opacity(0.15))
-                            .clipShape(Capsule())
-
                         difficultyStars(level: question.grammar.difficultyLevel)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
-
-                    // 문법 규칙 제목
-                    Text(question.grammar.title)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .padding(.horizontal, 24)
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     // 문제 문장
                     sentenceView(question.sentenceWithBlank)
@@ -141,12 +185,8 @@ struct GrammarQuizView: View {
     private var progressBar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Rectangle()
-                    .fill(.quaternary)
-                    .frame(height: 6)
-
-                Rectangle()
-                    .fill(.blue)
+                Rectangle().fill(.quaternary).frame(height: 6)
+                Rectangle().fill(BrandTheme.accent)
                     .frame(width: geo.size.width * viewModel.progress, height: 6)
                     .animation(.smooth, value: viewModel.progress)
             }
@@ -154,11 +194,66 @@ struct GrammarQuizView: View {
         .frame(height: 6)
     }
 
+    // Grammar timer bar (bar only, no text)
+    private var grammarTimerBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.2)).frame(height: 5)
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(grammarTimerColor)
+                    .frame(width: geo.size.width * max(0, grammarTimerRemaining / grammarTimerDuration), height: 5)
+                    .animation(.linear(duration: 0.1), value: grammarTimerRemaining)
+            }
+        }
+        .frame(height: 5)
+        .padding(.horizontal, 16).padding(.top, 4)
+    }
+
+    private var grammarTimerColor: Color {
+        let ratio = grammarTimerRemaining / grammarTimerDuration
+        if ratio > 0.66 { return BrandTheme.knewIt }
+        if ratio > 0.33 { return .orange }
+        return .red
+    }
+
+    private func startGrammarTimer() {
+        grammarTimerRemaining = grammarTimerDuration
+        grammarTimerRunning = true
+        grammarTimer?.invalidate()
+        grammarTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            Task { @MainActor in
+                guard grammarTimerRunning else { return }
+                grammarTimerRemaining -= 0.1
+                if grammarTimerRemaining <= 0 {
+                    grammarTimerRunning = false
+                    // 시간 초과 → 자동으로 첫 번째 오답 선택
+                    if !viewModel.isAnswerRevealed, let q = viewModel.currentQuestion {
+                        let wrongAnswer = q.options.first(where: { $0 != q.correctAnswer }) ?? q.options.first ?? ""
+                        viewModel.selectAnswer(wrongAnswer, context: modelContext)
+                    }
+                }
+            }
+        }
+    }
+
+    private func resetGrammarTimer() {
+        grammarTimerRemaining = grammarTimerDuration
+        grammarTimerRunning = true
+        // 타이머가 invalidate된 경우를 대비해 재시작
+        if grammarTimer == nil || !grammarTimer!.isValid {
+            startGrammarTimer()
+        }
+    }
+
+    private func stopGrammarTimer() {
+        grammarTimerRunning = false
+        grammarTimer?.invalidate()
+        grammarTimer = nil
+    }
+
     // MARK: - Sentence View
 
     private func sentenceView(_ sentence: String) -> some View {
-        let parts = sentence.components(separatedBy: "___")
-
         return HStack(spacing: 0) {
             FlowLayout(spacing: 4) {
                 ForEach(Array(sentence.split(separator: " ").enumerated()), id: \.offset) { _, word in
@@ -258,7 +353,7 @@ struct GrammarQuizView: View {
             HStack {
                 Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .font(.title2)
-                Text(isCorrect ? "정답입니다! 👏" : "틀렸어요 😅")
+                Text(isCorrect ? "정답입니다!" : "틀렸어요")
                     .font(.headline)
                 Spacer()
             }
@@ -423,25 +518,27 @@ struct GrammarQuizView: View {
             // 오답 노트
             if viewModel.incorrectCount > 0 {
                 Button {
-                    // TODO: 오답 노트 화면 이동
+                    retryWrongAnswers()
                 } label: {
                     Label("오답 복습하기", systemImage: "arrow.counterclockwise")
+                        .font(.headline)
                         .frame(maxWidth: 280)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
             }
 
             Button {
-                loadQuiz()
+                goHome()
             } label: {
-                Label("한 번 더 풀기", systemImage: "arrow.clockwise")
+                Label("홈으로", systemImage: "house.fill")
                     .font(.headline)
                     .frame(maxWidth: 280)
                     .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.blue)
+            .buttonStyle(.bordered)
+            .tint(BrandTheme.accent)
 
             Spacer()
                 .frame(height: 40)
@@ -450,10 +547,10 @@ struct GrammarQuizView: View {
 
     private var quizResultMessage: String {
         switch viewModel.accuracy {
-        case 0.9...1.0: return "완벽해요! 🏆"
-        case 0.7..<0.9: return "잘했어요! 👏"
-        case 0.5..<0.7: return "조금만 더! 💪"
-        default: return "다시 도전해봐요! 📚"
+        case 0.9...1.0: return "완벽해요!"
+        case 0.7..<0.9: return "잘했어요!"
+        case 0.5..<0.7: return "조금만 더!"
+        default: return "다시 도전해봐요!"
         }
     }
 
@@ -509,7 +606,39 @@ struct GrammarQuizView: View {
 
     private func loadQuiz() {
         guard let userID = authManager.userID else { return }
-        viewModel.loadQuiz(userID: userID, context: modelContext)
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        let ts = (try? modelContext.fetch(descriptor).first?.targetScore) ?? 700
+        targetScore = ts
+        viewModel.loadQuiz(userID: userID, context: modelContext, targetScore: ts)
+        startGrammarTimer()
+    }
+
+    private func retryWrongAnswers() {
+        let wrongQuestions = viewModel.answers.filter { !$0.isCorrect }.map(\.question)
+        guard !wrongQuestions.isEmpty else { return }
+        viewModel.questions = wrongQuestions.shuffled()
+        viewModel.currentIndex = 0
+        viewModel.answers = []
+        viewModel.selectedAnswer = nil
+        viewModel.isAnswerRevealed = false
+        viewModel.isQuizComplete = false
+        viewModel.showExplanation = false
+        startGrammarTimer()
+    }
+
+    private func showGrammarSpeedFeedback() {
+        let elapsed = grammarTimerDuration - grammarTimerRemaining
+        let ratio = elapsed / grammarTimerDuration
+        let msg: String
+        if ratio <= 0.4 { msg = "빠르네요!" }
+        else if ratio <= 0.7 { msg = "적절해요." }
+        else { msg = "느리네요." }
+
+        withAnimation(.easeInOut(duration: 0.25)) { speedFeedback = msg }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.3)) { speedFeedback = nil }
+        }
     }
 }
 
