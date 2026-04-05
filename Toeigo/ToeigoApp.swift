@@ -32,6 +32,9 @@ struct ToeigoApp: App {
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,
+            UserProfile.self,
+            MonthlyScore.self,
+            Friendship.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -69,6 +72,9 @@ final class AuthenticationManager {
 
     /// 인증 여부 편의 프로퍼티
     var isAuthenticated: Bool { userID != nil }
+
+    /// 온보딩 재진행 플래그 (마이페이지 초기화 시 true)
+    var needsOnboarding: Bool = false
 
     /// Sign in with Apple 성공 시 호출
     func handleSignInSuccess(authorization: ASAuthorization) {
@@ -151,25 +157,38 @@ struct RootView: View {
     var body: some View {
         Group {
             if authManager.isAuthenticated {
-                // ── 인증됨 → 메인 대시보드 ──
-                MainDashboardView()
+                if authManager.needsOnboarding {
+                    OnboardingView(onComplete: {
+                        authManager.needsOnboarding = false
+                    })
                     .environment(authManager)
+                } else {
+                    MainDashboardView()
+                        .environment(authManager)
+                }
             } else {
-                // ── 미인증 → 로그인 화면 ──
                 SignInView()
                     .environment(authManager)
             }
         }
         .task {
-            // 앱 시작 시 한 번만 실행
             if !isDataLoaded {
-                // 1) 번들 JSON 시드 데이터 로딩
                 DataLoader.seedAllIfNeeded(context: modelContext)
-                // 2) 기존 인증 상태 복원 시도
                 authManager.restoreAuthState()
                 isDataLoaded = true
             }
         }
+        .onChange(of: authManager.userID) { _, newID in
+            if let uid = newID {
+                authManager.needsOnboarding = !isOnboardingComplete(userID: uid)
+            }
+        }
+    }
+
+    private func isOnboardingComplete(userID: String) -> Bool {
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        return (try? modelContext.fetch(descriptor).first?.hasCompletedOnboarding) ?? false
     }
 }
 
@@ -179,59 +198,114 @@ struct RootView: View {
 /// Sign in with Apple 버튼을 표시하는 로그인 화면.
 struct SignInView: View {
     @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isSigningIn = false
+    @State private var signInError: String? = nil
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        ZStack {
+            // 배경 그라디언트
+            (colorScheme == .dark ? BrandTheme.backgroundGradientDark : BrandTheme.backgroundGradient)
+                .ignoresSafeArea()
 
-            // ── 앱 로고 / 타이틀 ──
-            VStack(spacing: 12) {
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 72))
-                    .foregroundStyle(.blue)
+            VStack(spacing: 32) {
+                Spacer()
 
-                Text("Toeigo")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                // ── 앱 로고 / 타이틀 ──
+                VStack(spacing: 16) {
+                    Image(systemName: "book.closed.fill")
+                        .font(.system(size: 80))
+                        .foregroundStyle(BrandTheme.accent)
+                        .shadow(color: BrandTheme.accent.opacity(0.3), radius: 10, y: 4)
 
-                Text("TOEIC 영단어 · 문법 마스터")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+                    Text("Toeigo")
+                        .font(.system(size: 42, weight: .bold, design: .rounded))
+                        .foregroundStyle(BrandTheme.accent)
 
-            Spacer()
-
-            // ── Sign in with Apple 버튼 ──
-            SignInWithAppleButton(.signIn) { request in
-                // 요청할 정보 범위 설정
-                request.requestedScopes = [.fullName, .email]
-            } onCompletion: { result in
-                switch result {
-                case .success(let authorization):
-                    authManager.handleSignInSuccess(authorization: authorization)
-                case .failure(let error):
-                    authManager.handleSignInError(error)
+                    Text("TOEIC 영단어 · 문법 마스터")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-            }
-            .signInWithAppleButtonStyle(.black)
-            .frame(height: 52)
-            .frame(maxWidth: 320)
-            .cornerRadius(12)
 
-            // ── 개발 중: 인증 건너뛰기 버튼 ──
-            #if DEBUG
-            Button("Skip Sign-In (Dev Only)") {
-                authManager.userID = "dev_user_debug"
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .padding(.top, 8)
-            #endif
+                Spacer()
 
-            Spacer()
-                .frame(height: 60)
+                VStack(spacing: 16) {
+                    // ── Sign in with Apple 버튼 ──
+                    SignInWithAppleButton(.signIn) { request in
+                        isSigningIn = true
+                        signInError = nil
+                        request.requestedScopes = [.fullName, .email]
+                    } onCompletion: { result in
+                        isSigningIn = false
+                        switch result {
+                        case .success(let authorization):
+                            authManager.handleSignInSuccess(authorization: authorization)
+                        case .failure(let error):
+                            // ASAuthorizationError.canceled는 사용자가 취소한 것이므로 무시
+                            if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
+                                signInError = nil
+                            } else {
+                                signInError = error.localizedDescription
+                            }
+                            authManager.handleSignInError(error)
+                        }
+                    }
+                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                    .frame(height: 54)
+                    .frame(maxWidth: 320)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+
+                    if isSigningIn {
+                        ProgressView()
+                            .tint(BrandTheme.accent)
+                    }
+
+                    if let error = signInError {
+                        VStack(spacing: 4) {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+
+                            if error.contains("1000") {
+                                Text("⚠️ 시뮬레이터에서는 Apple 로그인이 지원되지 않습니다.\n아래 버튼으로 테스트하세요.")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                            }
+                        }
+                        .padding(.horizontal, 32)
+                    }
+                }
+
+                // ── 개발/시뮬레이터용: 인증 건너뛰기 ──
+                #if DEBUG
+                Button {
+                    authManager.userID = "dev_user_debug"
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                        Text("테스트 모드로 시작")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 320)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(BrandTheme.accentLight)
+                    )
+                }
+                .padding(.top, 4)
+                #endif
+
+                Spacer()
+                    .frame(height: 60)
+            }
+            .padding(.horizontal, 32)
         }
-        .padding(.horizontal, 32)
     }
 }
 
@@ -243,53 +317,51 @@ struct SignInView: View {
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
+    @State private var selectedTab: Int = 0
 
     var body: some View {
-        TabView {
-            // ── Tab 1: 학습 홈 (대시보드) ──
+        TabView(selection: $selectedTab) {
+            // ── Tab 1: 학습 홈 ──
             DashboardView()
                 .environment(authManager)
             .tabItem {
                 Label("홈", systemImage: "house.fill")
             }
+            .tag(0)
 
-            // ── Tab 2: 단어 학습 (스와이프 카드) ──
+            // ── Tab 2: 단어 학습 ──
             VocabularyStudyView()
                 .environment(authManager)
             .tabItem {
                 Label("단어", systemImage: "character.book.closed")
             }
+            .tag(1)
 
             // ── Tab 3: 문법 퀴즈 ──
-            GrammarQuizView()
+            GrammarQuizView(goHome: { selectedTab = 0 })
                 .environment(authManager)
             .tabItem {
                 Label("문법", systemImage: "text.book.closed")
             }
+            .tag(2)
 
-            // ── Tab 4: 설정 (Placeholder) ──
-            NavigationStack {
-                List {
-                    Section("계정") {
-                        if let uid = authManager.userID {
-                            Text("User ID: \(uid)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Button("로그아웃", role: .destructive) {
-                            authManager.signOut()
-                        }
-                    }
-                    Section("정보") {
-                        Label("버전 1.0.0 (Week 1)", systemImage: "info.circle")
-                    }
-                }
-                .navigationTitle("설정")
-            }
+            // ── Tab 4: 순위 ──
+            RankingView()
+                .environment(authManager)
             .tabItem {
-                Label("설정", systemImage: "gearshape.fill")
+                Label("순위", systemImage: "chart.bar.fill")
             }
+            .tag(3)
+
+            // ── Tab 5: 마이페이지 ──
+            MyPageView()
+                .environment(authManager)
+            .tabItem {
+                Label("마이", systemImage: "person.fill")
+            }
+            .tag(4)
         }
+        .tint(BrandTheme.accent)
     }
 }
 
@@ -303,6 +375,9 @@ struct MainDashboardView: View {
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,
+            UserProfile.self,
+            MonthlyScore.self,
+            Friendship.self,
         ], inMemory: true)
 }
 
@@ -319,5 +394,8 @@ struct MainDashboardView: View {
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,
+            UserProfile.self,
+            MonthlyScore.self,
+            Friendship.self,
         ], inMemory: true)
 }

@@ -45,6 +45,9 @@ private struct GrammarDTO: Decodable {
     let incorrectExample: String?
     let tip: String?
     let category: String?
+    let blankTarget: String?
+    let distractors: String?
+    let quizType: String?
     let dataVersion: Int?
 }
 
@@ -172,6 +175,9 @@ final class DataLoader {
                 incorrectExample: dto.incorrectExample ?? "",
                 tip: dto.tip ?? "",
                 category: dto.category ?? "",
+                blankTarget: dto.blankTarget ?? "",
+                distractors: dto.distractors ?? "",
+                quizType: dto.quizType ?? "grammar",
                 dataVersion: dto.dataVersion ?? 1
             )
             context.insert(grammar)

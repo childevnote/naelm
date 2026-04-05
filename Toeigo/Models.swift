@@ -16,7 +16,106 @@
 import Foundation
 import SwiftData
 
-// MARK: - 📚 Vocabulary (정적 데이터 — 번들 JSON에서 시딩)
+// MARK: - �📋 TOEIC Score Range (점수 구간 열거형)
+
+/// 토익 점수 구간 (600~900, 100점 단위)
+/// frequencyLevel 1→600, 2→700, 3→800, 4→900 매핑
+enum TOEICScoreRange: Int, CaseIterable, Codable {
+    case below600 = 0   // 600점 미만
+    case range600 = 1   // 600점대
+    case range700 = 2   // 700점대
+    case range800 = 3   // 800점대
+    case range900 = 4   // 900점대
+
+    var label: String {
+        switch self {
+        case .below600: return "600점 미만"
+        case .range600: return "600점대"
+        case .range700: return "700점대"
+        case .range800: return "800점대"
+        case .range900: return "900점대"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .below600: return "~600"
+        case .range600: return "600"
+        case .range700: return "700"
+        case .range800: return "800"
+        case .range900: return "900"
+        }
+    }
+
+    /// frequencyLevel → scoreRange 변환
+    static func from(frequencyLevel: Int) -> TOEICScoreRange {
+        switch frequencyLevel {
+        case 1: return .range600
+        case 2: return .range700
+        case 3: return .range800
+        case 4: return .range900
+        default: return .range600
+        }
+    }
+
+    /// 목표 점수에 해당하는 구간까지의 모든 구간 반환
+    /// 예: 800점 목표 → [.range600, .range700, .range800]
+    static func rangesUpTo(target: Int) -> [TOEICScoreRange] {
+        let targetRange: TOEICScoreRange
+        switch target {
+        case ..<600: targetRange = .below600
+        case 600..<700: targetRange = .range600
+        case 700..<800: targetRange = .range700
+        case 800..<900: targetRange = .range800
+        default: targetRange = .range900
+        }
+        return allCases.filter { $0.rawValue <= targetRange.rawValue && $0 != .below600 }
+    }
+
+    /// frequencyLevel 목록 반환
+    static func frequencyLevels(forTarget target: Int) -> [Int] {
+        rangesUpTo(target: target).map(\.rawValue)
+    }
+}
+
+// MARK: - 👤 UserProfile (사용자 프로필 — 목표 점수 + 수준)
+
+@Model
+final class UserProfile {
+
+    /// 사용자 식별자 (Sign in with Apple)
+    var userID: String = ""
+
+    /// 목표 토익 점수 (600, 700, 800, 900)
+    var targetScore: Int = 700
+
+    /// 추정 현재 수준 (수준 파악 테스트 결과)
+    /// 0=미측정, 1=600점미만, 2=600점대, 3=700점대, 4=800점대, 5=900점대
+    var estimatedLevel: Int = 0
+
+    /// 온보딩 완료 여부
+    var hasCompletedOnboarding: Bool = false
+
+    /// 수준 파악 테스트 완료 여부
+    var hasCompletedPlacementTest: Bool = false
+
+    /// 단어 일일 목표 개수 (AI 추천 또는 수동 설정)
+    var dailyVocabGoal: Int = 20
+
+    /// 문법 일일 목표 개수
+    var dailyGrammarGoal: Int = 10
+
+    /// 프로필 생성일
+    var createdAt: Date = Date()
+
+    init(userID: String, targetScore: Int = 700) {
+        self.userID = userID
+        self.targetScore = targetScore
+        self.createdAt = Date()
+    }
+}
+
+// MARK: - � Vocabulary (정적 데이터 — 번들 JSON에서 시딩)
 
 /// TOEIC 빈출 어휘 모델.
 /// 번들에서 시딩되며 사용자가 직접 수정하지 않는 정적 데이터입니다.
@@ -137,6 +236,15 @@ final class Grammar {
     /// 카테고리 (예: "Tense", "Preposition", "Conjunction")
     var category: String = ""
 
+    /// 퀴즈에서 빈칸으로 만들 정답 단어
+    var blankTarget: String = ""
+
+    /// 오답 보기 3개 (쉼표 구분 문자열, 예: "reaching,to reach,being reached")
+    var distractors: String = ""
+
+    /// 퀴즈 유형 (예: "form" = 형태변환, "meaning" = 의미, "grammar" = 문법구조)
+    var quizType: String = "grammar"
+
     // ── 메타 ────────────────────────────────
     var dataVersion: Int = 1
     var createdAt: Date = Date()
@@ -156,6 +264,9 @@ final class Grammar {
         incorrectExample: String = "",
         tip: String = "",
         category: String = "",
+        blankTarget: String = "",
+        distractors: String = "",
+        quizType: String = "grammar",
         dataVersion: Int = 1
     ) {
         self.grammarID = grammarID
@@ -167,6 +278,9 @@ final class Grammar {
         self.incorrectExample = incorrectExample
         self.tip = tip
         self.category = category
+        self.blankTarget = blankTarget
+        self.distractors = distractors
+        self.quizType = quizType
         self.dataVersion = dataVersion
         self.createdAt = Date()
     }
@@ -215,6 +329,9 @@ final class LearningProgress {
 
     /// 숙달 여부
     var isMastered: Bool = false
+
+    /// 사용자가 "학습할게요"로 표시한 복습 대상 단어
+    var markedForReview: Bool = false
 
     // ── 메타 ────────────────────────────────
     var createdAt: Date = Date()
@@ -294,6 +411,86 @@ final class UserActivity {
     ) {
         self.userID = userID
         self.activityDate = activityDate
+        self.createdAt = Date()
+    }
+}
+
+
+// MARK: - 📅 MonthlyScore (동적 데이터 — 월별 점수 기록)
+
+/// 사용자의 월별 토익 점수 기록.
+/// 매월 말일에 자동으로 생성되며, 수동 수정은 불가합니다.
+@Model
+final class MonthlyScore {
+
+    // ── 식별자 ──────────────────────────────
+    /// 사용자 식별자 (Sign in with Apple의 userIdentifier)
+    var userID: String = ""
+
+    /// 기록된 월 (예: 2023-03)
+    var month: String = ""
+
+    // ── 점수 ────────────────────────────────
+    /// 측정된 토익 점수
+    var score: Int = 0
+
+    /// 목표 대비 달성률 (예: 0.85 = 85% 달성)
+    var achievementRate: Double = 0.0
+
+    // ── 메타 ────────────────────────────────
+    var createdAt: Date = Date()
+
+    // ── 이니셜라이저 ────────────────────────
+    init(
+        userID: String,
+        month: String,
+        score: Int,
+        achievementRate: Double = 0.0
+    ) {
+        self.userID = userID
+        self.month = month
+        self.score = score
+        self.achievementRate = achievementRate
+        self.createdAt = Date()
+    }
+}
+
+
+// MARK: - 🤝 Friendship (동적 데이터 — 사용자 간 관계)
+
+/// 사용자 간의 친구 관계 모델.
+/// 친구 추가, 차단 등의 정보가 포함됩니다.
+@Model
+final class Friendship {
+
+    // ── 식별자 ──────────────────────────────
+    /// 사용자 식별자 (Sign in with Apple의 userIdentifier)
+    var userID: String = ""
+
+    /// 친구 사용자 식별자
+    var friendID: String = ""
+
+    // ── 관계 상태 ───────────────────────────
+    /// 차단 여부
+    var isBlocked: Bool = false
+
+    /// 친구 추가 여부
+    var isFriend: Bool = false
+
+    // ── 메타 ────────────────────────────────
+    var createdAt: Date = Date()
+
+    // ── 이니셜라이저 ────────────────────────
+    init(
+        userID: String,
+        friendID: String,
+        isBlocked: Bool = false,
+        isFriend: Bool = false
+    ) {
+        self.userID = userID
+        self.friendID = friendID
+        self.isBlocked = isBlocked
+        self.isFriend = isFriend
         self.createdAt = Date()
     }
 }
