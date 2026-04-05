@@ -2,17 +2,8 @@
 //  DashboardView.swift
 //  Toeigo
 //
-//  Created by 김동진 on 4/4/26.
+//  학습 대시보드 (Tab 1)
 //
-//  학습 대시보드 (Tab 1).
-//  ──────────────────────────────────────────────
-//  구성:
-//    • 오늘의 XP 진행 링
-//    • 연속 학습 스트릭 🔥
-//    • 복습 대기 항목 수
-//    • 7일 학습 활동 차트
-//    • 숙달 통계
-//  ──────────────────────────────────────────────
 
 import SwiftUI
 import SwiftData
@@ -21,6 +12,7 @@ struct DashboardView: View {
 
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     @Query private var vocabularies: [Vocabulary]
     @Query private var grammars: [Grammar]
@@ -28,10 +20,21 @@ struct DashboardView: View {
     @State private var streak: Int = 0
     @State private var todayXP: Int = 0
     @State private var totalXP: Int = 0
-    @State private var dueCount: Int = 0
-    @State private var masteredWords: Int = 0
-    @State private var masteredGrammar: Int = 0
+    @State private var dueVocabCount: Int = 0
+    @State private var dueGrammarCount: Int = 0
     @State private var weeklyHistory: [DailySummary] = []
+    @State private var todayWordsStudied: Int = 0
+    @State private var todayGrammarStudied: Int = 0
+    @State private var dailyVocabGoal: Int = 20
+    @State private var dailyGrammarGoal: Int = 10
+    @State private var targetScore: Int = 700
+    @State private var totalWordsStudied: Int = 0
+    @State private var totalDaysStudied: Int = 0
+    @State private var monthlyActivity: [Date: Int] = [:]
+
+    @State private var showReviewSession = false
+    @State private var showVocabSession = false
+    @State private var showGrammarSession = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -39,216 +42,222 @@ struct DashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // ── 상단: XP 링 + 스트릭 ──
+                    greetingBanner
                     topSection
-
-                    // ── 오늘의 할 일 카드 ──
-                    todayTaskCard
-
-                    // ── 7일 활동 차트 ──
+                    todayLearningSection
                     weeklyChartSection
-
-                    // ── 숙달 통계 ──
-                    masterySection
-
-                    // ── 데이터 현황 ──
-                    dataStatusSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
             .navigationTitle("학습 홈")
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        authManager.signOut()
-                    } label: {
-                        Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                }
-            }
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
+            .navigationDestination(isPresented: $showVocabSession) {
+                VocabularyStudyView().environment(authManager)
+            }
+            .navigationDestination(isPresented: $showGrammarSession) {
+                GrammarQuizView().environment(authManager)
+            }
+            .navigationDestination(isPresented: $showReviewSession) {
+                ReviewSessionView().environment(authManager)
+            }
         }
     }
 
-    // MARK: - Top Section (XP 링 + 스트릭)
+    // MARK: - Greeting Banner
+
+    private var greetingBanner: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                if totalDaysStudied > 0 {
+                    Text("학습 \(totalDaysStudied)일 만에 \(totalWordsStudied)개의 단어를 학습했어요!")
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundStyle(BrandTheme.accent)
+                } else {
+                    Text("오늘부터 토익 학습을 시작해보세요!")
+                        .font(.subheadline).fontWeight(.semibold)
+                        .foregroundStyle(BrandTheme.accent)
+                }
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 14).fill(BrandTheme.accent.opacity(0.08)))
+    }
+
+    // MARK: - Top Section (XP링 + 연속학습 + 잔디밭)
 
     private var topSection: some View {
-        HStack(spacing: 24) {
-            // XP 진행 링
-            VStack(spacing: 8) {
+        VStack(spacing: 12) {
+            // 상단: XP링 + 연속학습일
+            HStack(spacing: 20) {
+                // XP 진행 링
                 ZStack {
-                    Circle()
-                        .stroke(.quaternary, lineWidth: 8)
-                        .frame(width: 100, height: 100)
-
+                    Circle().stroke(.quaternary, lineWidth: 8).frame(width: 80, height: 80)
                     Circle()
                         .trim(from: 0, to: min(1.0, Double(todayXP) / Double(dailyGoal)))
-                        .stroke(
-                            todayXP >= dailyGoal ? .green : .blue,
-                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                        )
-                        .frame(width: 100, height: 100)
+                        .stroke(todayXP >= dailyGoal ? BrandTheme.knewIt : BrandTheme.accent,
+                                style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                        .frame(width: 80, height: 80)
                         .rotationEffect(.degrees(-90))
                         .animation(.smooth, value: todayXP)
-
                     VStack(spacing: 0) {
                         Text("\(todayXP)")
-                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .font(.system(size: 20, weight: .bold, design: .rounded))
                         Text("/ \(dailyGoal) XP")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 9)).foregroundStyle(.secondary)
                     }
                 }
 
-                Text("오늘의 목표")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            // 스트릭 + 레벨
-            VStack(spacing: 16) {
-                // 스트릭
-                HStack(spacing: 8) {
-                    Text("🔥")
-                        .font(.system(size: 36))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("\(streak)일")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                        Text("연속 학습")
-                            .font(.caption)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("연속 학습")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text("\(streak)")
+                            .font(.system(size: 32, weight: .bold, design: .rounded))
+                            .foregroundStyle(BrandTheme.accent)
+                        Text("일")
+                            .font(.subheadline).fontWeight(.semibold)
                             .foregroundStyle(.secondary)
                     }
                 }
-
-                // 레벨
-                let level = GamificationService.level(fromTotalXP: totalXP)
-                let levelProg = GamificationService.levelProgress(fromTotalXP: totalXP)
-
-                VStack(spacing: 4) {
-                    HStack {
-                        Text("Lv.\(level)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.purple)
-                        Spacer()
-                        Text("총 \(totalXP) XP")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    ProgressView(value: levelProg)
-                        .tint(.purple)
-                }
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(.ultraThinMaterial)
-        )
-    }
-
-    // MARK: - Today Task Card
-
-    private var todayTaskCard: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Image(systemName: "bell.badge")
-                    .foregroundStyle(.orange)
-                Text("오늘의 학습")
-                    .font(.headline)
                 Spacer()
             }
 
-            HStack(spacing: 16) {
-                taskChip(
-                    icon: "arrow.clockwise",
-                    label: "복습 대기",
-                    value: "\(dueCount)개",
-                    color: dueCount > 0 ? .red : .green
-                )
-
-                taskChip(
-                    icon: "character.book.closed",
-                    label: "전체 단어",
-                    value: "\(vocabularies.count)개",
-                    color: .blue
-                )
-
-                taskChip(
-                    icon: "text.book.closed",
-                    label: "전체 문법",
-                    value: "\(grammars.count)개",
-                    color: .orange
-                )
-            }
+            // 하단: 잔디밭 (28일, 풀 넓이로)
+            grassChart
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        )
+        .background(RoundedRectangle(cornerRadius: 20).fill(.ultraThinMaterial))
     }
 
-    private func taskChip(icon: String, label: String, value: String, color: Color) -> some View {
-        VStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundStyle(color)
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.bold)
-            Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+    // MARK: - Grass Chart (GitHub style, 넓게)
+
+    private var grassChart: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let days: [Date] = (0..<28).reversed().map {
+            calendar.date(byAdding: .day, value: -$0, to: today)!
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(color.opacity(0.08))
-        )
+
+        return VStack(spacing: 3) {
+            ForEach(0..<4, id: \.self) { row in
+                HStack(spacing: 3) {
+                    ForEach(0..<7, id: \.self) { col in
+                        let idx = row * 7 + col
+                        if idx < days.count {
+                            let day = days[idx]
+                            let xp = monthlyActivity[day] ?? 0
+                            let isToday = calendar.isDateInToday(day)
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(grassColor(xp: xp))
+                                .aspectRatio(1, contentMode: .fit)
+                                .overlay(
+                                    isToday ? RoundedRectangle(cornerRadius: 3).stroke(BrandTheme.accent, lineWidth: 1.5) : nil
+                                )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func grassColor(xp: Int) -> Color {
+        if xp == 0 { return Color.gray.opacity(0.15) }
+        if xp < 30 { return BrandTheme.accent.opacity(0.25) }
+        if xp < 60 { return BrandTheme.accent.opacity(0.50) }
+        if xp < 100 { return BrandTheme.accent.opacity(0.75) }
+        return BrandTheme.accent
+    }
+
+    // MARK: - Today Learning Section
+
+    private var todayLearningSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("오늘의 학습").font(.headline)
+
+            let totalDue = dueVocabCount + dueGrammarCount
+            Button {
+                showReviewSession = true
+                HapticManager.shared.playTap()
+            } label: {
+                todayTaskRow(
+                    icon: "arrow.clockwise", label: "복습 대기",
+                    progress: "\(totalDue)개",
+                    color: totalDue > 0 ? .red : BrandTheme.knewIt,
+                    subtitle: "단어 \(dueVocabCount)개 / 문법 \(dueGrammarCount)개"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showVocabSession = true
+                HapticManager.shared.playTap()
+            } label: {
+                todayTaskRow(
+                    icon: "character.book.closed", label: "단어",
+                    progress: "\(todayWordsStudied)/\(dailyVocabGoal)개",
+                    color: BrandTheme.accent,
+                    subtitle: "탭하여 단어 학습 시작"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                showGrammarSession = true
+                HapticManager.shared.playTap()
+            } label: {
+                todayTaskRow(
+                    icon: "text.book.closed", label: "문법",
+                    progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
+                    color: BrandTheme.studyIt,
+                    subtitle: "탭하여 문법 퀴즈 시작"
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+    }
+
+    private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon).font(.title3).foregroundStyle(color).frame(width: 36)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(label).font(.subheadline).fontWeight(.semibold)
+                    Spacer()
+                    Text(progress).font(.subheadline).fontWeight(.bold).foregroundStyle(color)
+                }
+                Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+            }
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.06)))
     }
 
     // MARK: - Weekly Chart
 
     private var weeklyChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("이번 주 활동")
-                .font(.headline)
-
+            Text("이번 주 활동").font(.headline)
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(weeklyHistory) { day in
                     VStack(spacing: 4) {
-                        // XP 바
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(day.goalMet ? Color.green : (day.xpEarned > 0 ? Color.blue : Color.gray.opacity(0.2)))
+                            .fill(day.goalMet ? BrandTheme.knewIt : (day.xpEarned > 0 ? BrandTheme.accent : Color.gray.opacity(0.2)))
                             .frame(width: 30, height: barHeight(xp: day.xpEarned))
-                            .animation(.smooth, value: day.xpEarned)
-
-                        // 요일
                         Text(day.weekdayShort)
                             .font(.system(size: 10))
-                            .foregroundStyle(
-                                Calendar.current.isDateInToday(day.date) ? .primary : .secondary
-                            )
-                            .fontWeight(
-                                Calendar.current.isDateInToday(day.date) ? .bold : .regular
-                            )
-
-                        // 목표 달성 표시
+                            .foregroundStyle(Calendar.current.isDateInToday(day.date) ? .primary : .secondary)
+                            .fontWeight(Calendar.current.isDateInToday(day.date) ? .bold : .regular)
                         if day.goalMet {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.green)
+                                .font(.system(size: 10)).foregroundStyle(BrandTheme.knewIt)
                         } else {
-                            Circle()
-                                .fill(.clear)
-                                .frame(width: 10, height: 10)
+                            Circle().fill(.clear).frame(width: 10, height: 10)
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -257,94 +266,13 @@ struct DashboardView: View {
             .frame(height: 120)
         }
         .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        )
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
     }
 
     private func barHeight(xp: Int) -> CGFloat {
         let maxHeight: CGFloat = 80
         let maxXP = max(weeklyHistory.map(\.xpEarned).max() ?? 1, dailyGoal)
         return max(4, CGFloat(xp) / CGFloat(maxXP) * maxHeight)
-    }
-
-    // MARK: - Mastery Section
-
-    private var masterySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("숙달 현황")
-                .font(.headline)
-
-            HStack(spacing: 16) {
-                masteryCard(
-                    title: "단어",
-                    mastered: masteredWords,
-                    total: vocabularies.count,
-                    color: .blue
-                )
-                masteryCard(
-                    title: "문법",
-                    mastered: masteredGrammar,
-                    total: grammars.count,
-                    color: .orange
-                )
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        )
-    }
-
-    private func masteryCard(title: String, mastered: Int, total: Int, color: Color) -> some View {
-        let progress = total > 0 ? Double(mastered) / Double(total) : 0
-
-        return VStack(spacing: 8) {
-            ZStack {
-                Circle()
-                    .stroke(.quaternary, lineWidth: 6)
-                    .frame(width: 60, height: 60)
-                Circle()
-                    .trim(from: 0, to: progress)
-                    .stroke(color, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                    .frame(width: 60, height: 60)
-                    .rotationEffect(.degrees(-90))
-
-                Text("\(mastered)")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-            }
-
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-
-            Text("\(mastered)/\(total)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-    }
-
-    // MARK: - Data Status
-
-    private var dataStatusSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 4) {
-                Label("단어 데이터: \(vocabularies.count)개", systemImage: "textformat.abc")
-                Label("문법 데이터: \(grammars.count)개", systemImage: "text.book.closed")
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } label: {
-            Label("데이터 현황", systemImage: "cylinder.split.1x2")
-                .font(.caption)
-        }
     }
 
     // MARK: - Refresh
@@ -355,9 +283,398 @@ struct DashboardView: View {
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         todayXP = GamificationService.todayXP(userID: userID, context: modelContext)
         totalXP = GamificationService.totalXP(userID: userID, context: modelContext)
-        dueCount = GamificationService.dueItemCount(userID: userID, context: modelContext)
-        masteredWords = GamificationService.masteredVocabularyCount(userID: userID, context: modelContext)
-        masteredGrammar = GamificationService.masteredGrammarCount(userID: userID, context: modelContext)
         weeklyHistory = GamificationService.weeklyHistory(userID: userID, context: modelContext)
+
+        if let activity = GamificationService.todayActivity(userID: userID, context: modelContext) {
+            todayWordsStudied = activity.wordsStudied
+            todayGrammarStudied = activity.grammarStudied
+        }
+
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        if let profile = try? modelContext.fetch(descriptor).first {
+            targetScore = profile.targetScore
+            dailyVocabGoal = profile.dailyVocabGoal
+            dailyGrammarGoal = profile.dailyGrammarGoal
+        }
+
+        // 복습 대기: 단어(markedForReview) + 문법(틀린 문제)
+        let vocabReviewPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "vocabulary"
+        }
+        dueVocabCount = (try? modelContext.fetchCount(FetchDescriptor<LearningProgress>(predicate: vocabReviewPred))) ?? 0
+
+        let grammarReviewPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "grammar"
+        }
+        dueGrammarCount = (try? modelContext.fetchCount(FetchDescriptor<LearningProgress>(predicate: grammarReviewPred))) ?? 0
+
+        // 총 학습일수 & 총 단어 수
+        let allActivityPred = #Predicate<UserActivity> { $0.userID == userID }
+        let allActivities = (try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: allActivityPred))) ?? []
+        totalDaysStudied = allActivities.filter { $0.wordsStudied > 0 || $0.grammarStudied > 0 }.count
+        totalWordsStudied = allActivities.reduce(0) { $0 + $1.wordsStudied }
+
+        // 잔디밭용 최근 28일 데이터
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .day, value: -27, to: today)!
+        var actMap: [Date: Int] = [:]
+        for a in allActivities {
+            let day = calendar.startOfDay(for: a.activityDate)
+            if day >= start { actMap[day, default: 0] += a.xpEarned }
+        }
+        monthlyActivity = actMap
+    }
+}
+
+// MARK: - Review Session View (단어/문법 선택)
+
+struct ReviewSessionView: View {
+    @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var selectedMode: ReviewMode? = nil
+
+    enum ReviewMode { case vocabulary, grammar }
+
+    var body: some View {
+        Group {
+            if let mode = selectedMode {
+                switch mode {
+                case .vocabulary:
+                    VocabReviewContent()
+                        .environment(authManager)
+                case .grammar:
+                    GrammarReviewContent()
+                        .environment(authManager)
+                }
+            } else {
+                reviewChoiceView
+            }
+        }
+        .navigationTitle("복습")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var reviewChoiceView: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 56))
+                .foregroundStyle(BrandTheme.accent)
+            Text("어떤 복습을 할까요?")
+                .font(.title3).fontWeight(.bold)
+
+            VStack(spacing: 12) {
+                Button { selectedMode = .vocabulary } label: {
+                    HStack {
+                        Image(systemName: "character.book.closed")
+                        Text("단어 복습")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(BrandTheme.accent.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+
+                Button { selectedMode = .grammar } label: {
+                    HStack {
+                        Image(systemName: "text.book.closed")
+                        Text("문법 오답 복습")
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .padding(16)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(BrandTheme.studyIt.opacity(0.08)))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 32)
+            Spacer()
+        }
+    }
+}
+
+// MARK: - Vocab Review (기존 스와이프 복습)
+
+struct VocabReviewContent: View {
+    @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
+
+    @State private var reviewWords: [Vocabulary] = []
+    @State private var sessionManager = LearningSessionManager()
+    @State private var isComplete = false
+
+    var body: some View {
+        ZStack {
+            (colorScheme == .dark ? BrandTheme.backgroundGradientDark : BrandTheme.backgroundGradient)
+                .ignoresSafeArea()
+            if reviewWords.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(BrandTheme.knewIt)
+                    Text("복습할 단어가 없어요!").font(.title3).fontWeight(.bold)
+                }
+            } else if isComplete {
+                VStack(spacing: 20) {
+                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(BrandTheme.studyIt)
+                    Text("복습 완료!").font(.title).fontWeight(.bold)
+                }
+            } else {
+                SwipeableCardStack(
+                    items: reviewWords,
+                    onSwiped: { vocab, direction in
+                        let knewIt = direction == .left
+                        sessionManager.recordVocabularySwipe(vocabulary: vocab, knewIt: knewIt, context: modelContext)
+                        if knewIt { removeFromReview(vocabulary: vocab) }
+                    },
+                    onAllSwiped: {
+                        sessionManager.endSession(context: modelContext)
+                        isComplete = true
+                        HapticManager.shared.playCelebration()
+                    }
+                ) { vocab in VocabularyCardView(vocabulary: vocab) }
+            }
+        }
+        .onAppear { loadReviewWords() }
+    }
+
+    private func loadReviewWords() {
+        guard let userID = authManager.userID else { return }
+        sessionManager.startSession(userID: userID)
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "vocabulary"
+        }
+        reviewWords = ((try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? [])
+            .compactMap(\.vocabulary).shuffled()
+    }
+
+    private func removeFromReview(vocabulary: Vocabulary) {
+        guard let userID = authManager.userID else { return }
+        let wordID = vocabulary.wordID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.vocabulary?.wordID == wordID
+        }
+        if let progress = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+            progress.markedForReview = false
+        }
+    }
+}
+
+// MARK: - Grammar Review (오답 재풀기, 시도 횟수 표시)
+
+struct GrammarReviewContent: View {
+    @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var wrongGrammars: [(grammar: Grammar, attempts: Int)] = []
+    @State private var currentIndex: Int = 0
+    @State private var selectedAnswer: String? = nil
+    @State private var isAnswerRevealed: Bool = false
+    @State private var isComplete: Bool = false
+    @State private var currentQuestion: QuizQuestion? = nil
+
+    var body: some View {
+        VStack {
+            if wrongGrammars.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(BrandTheme.knewIt)
+                    Text("복습할 문법이 없어요!").font(.title3).fontWeight(.bold)
+                }
+            } else if isComplete {
+                VStack(spacing: 20) {
+                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(BrandTheme.studyIt)
+                    Text("오답 복습 완료!").font(.title).fontWeight(.bold)
+                }
+            } else if let q = currentQuestion {
+                reviewQuizView(question: q)
+            }
+        }
+        .onAppear { loadWrongGrammars(); loadCurrentQuestion() }
+    }
+
+    private func reviewQuizView(question: QuizQuestion) -> some View {
+        ScrollView {
+            VStack(spacing: 20) {
+                // 진행률
+                ProgressView(value: Double(currentIndex), total: Double(wrongGrammars.count))
+                    .tint(BrandTheme.accent)
+                    .padding(.horizontal, 24)
+
+                HStack {
+                    Text("Q\(currentIndex + 1)/\(wrongGrammars.count)")
+                        .font(.caption).fontWeight(.bold).foregroundStyle(BrandTheme.accent)
+                    Spacer()
+                    if currentIndex < wrongGrammars.count {
+                        let attempts = wrongGrammars[currentIndex].attempts
+                        Text("시도 \(attempts)회")
+                            .font(.caption2).fontWeight(.medium)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Capsule().fill(.orange.opacity(0.15)))
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                // 문장
+                Text(question.sentenceWithBlank)
+                    .font(.title3).padding(20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+                    .padding(.horizontal, 24)
+
+                // 보기
+                VStack(spacing: 10) {
+                    ForEach(question.options, id: \.self) { option in
+                        Button {
+                            guard !isAnswerRevealed else { return }
+                            selectedAnswer = option
+                            isAnswerRevealed = true
+                            let isCorrect = option == question.correctAnswer
+                            if isCorrect {
+                                HapticManager.shared.playCorrect()
+                                markGrammarReviewCorrect(grammar: question.grammar)
+                            } else {
+                                HapticManager.shared.playIncorrect()
+                                incrementAttempt(grammar: question.grammar)
+                            }
+                        } label: {
+                            HStack {
+                                Text(option).font(.body).fontWeight(.medium)
+                                Spacer()
+                                if isAnswerRevealed {
+                                    if option == question.correctAnswer {
+                                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                                    } else if option == selectedAnswer {
+                                        Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                                    }
+                                }
+                            }
+                            .padding(16)
+                            .background(optionBg(option: option, correct: question.correctAnswer))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isAnswerRevealed)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                if isAnswerRevealed {
+                    Button {
+                        moveToNext()
+                    } label: {
+                        Text(currentIndex + 1 >= wrongGrammars.count ? "완료" : "다음 문제")
+                            .fontWeight(.semibold).frame(maxWidth: .infinity).padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent).tint(BrandTheme.accent)
+                    .padding(.horizontal, 24)
+                }
+            }
+            .padding(.vertical, 16)
+        }
+    }
+
+    private func optionBg(option: String, correct: String) -> some ShapeStyle {
+        guard isAnswerRevealed else { return AnyShapeStyle(Color(.secondarySystemBackground)) }
+        if option == correct { return AnyShapeStyle(Color.green.opacity(0.15)) }
+        if option == selectedAnswer { return AnyShapeStyle(Color.red.opacity(0.15)) }
+        return AnyShapeStyle(Color(.secondarySystemBackground))
+    }
+
+    private func moveToNext() {
+        selectedAnswer = nil
+        isAnswerRevealed = false
+        if currentIndex + 1 >= wrongGrammars.count {
+            isComplete = true
+        } else {
+            currentIndex += 1
+            loadCurrentQuestion()
+        }
+    }
+
+    private func loadWrongGrammars() {
+        guard let userID = authManager.userID else { return }
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "grammar"
+        }
+        let progresses = (try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? []
+        wrongGrammars = progresses.compactMap { p in
+            guard let g = p.grammar else { return nil as (Grammar, Int)? }
+            return (g, p.incorrectCount)
+        }.shuffled()
+    }
+
+    private func loadCurrentQuestion() {
+        guard currentIndex < wrongGrammars.count else { return }
+        let grammar = wrongGrammars[currentIndex].grammar
+        // Generate question from grammar
+        let sentence = grammar.correctExample
+        guard !sentence.isEmpty else { currentQuestion = nil; return }
+
+        var sentenceWithBlank = sentence
+        var correctAnswer = grammar.blankTarget
+        if !correctAnswer.isEmpty {
+            sentenceWithBlank = sentence.replacingOccurrences(of: correctAnswer, with: "___")
+        } else {
+            // fallback
+            let words = sentence.split(separator: " ").map(String.init)
+            let skip = Set(["the","a","an","is","are","was","were","in","on","at","to","of","for","and","or","but","by","it","be"])
+            let candidates = words.enumerated().filter { $0.element.lowercased().trimmingCharacters(in: .punctuationCharacters).count >= 3 && !skip.contains($0.element.lowercased().trimmingCharacters(in: .punctuationCharacters)) }
+            if let target = candidates.randomElement() {
+                var blanked = words; blanked[target.offset] = "___"
+                sentenceWithBlank = blanked.joined(separator: " ")
+                correctAnswer = target.element.trimmingCharacters(in: .punctuationCharacters)
+            }
+        }
+
+        var distractors = grammar.distractors.components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && $0 != correctAnswer }
+        while distractors.count < 3 {
+            distractors.append(["however","therefore","although","moreover"].randomElement()!)
+        }
+        var options = [correctAnswer] + Array(distractors.prefix(3))
+        options.shuffle()
+
+        currentQuestion = QuizQuestion(
+            grammar: grammar,
+            sentenceWithBlank: sentenceWithBlank,
+            correctAnswer: correctAnswer,
+            options: options,
+            incorrectExample: grammar.incorrectExample,
+            tip: grammar.tip
+        )
+    }
+
+    private func markGrammarReviewCorrect(grammar: Grammar) {
+        guard let userID = authManager.userID else { return }
+        let grammarID = grammar.grammarID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.grammar?.grammarID == grammarID
+        }
+        if let progress = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+            progress.markedForReview = false
+            progress.correctCount += 1
+        }
+    }
+
+    private func incrementAttempt(grammar: Grammar) {
+        guard let userID = authManager.userID else { return }
+        let grammarID = grammar.grammarID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.grammar?.grammarID == grammarID
+        }
+        if let progress = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+            progress.incorrectCount += 1
+            // Update local display
+            if currentIndex < wrongGrammars.count {
+                wrongGrammars[currentIndex].attempts = progress.incorrectCount
+            }
+        }
     }
 }
