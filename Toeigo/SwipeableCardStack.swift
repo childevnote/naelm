@@ -74,17 +74,29 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
         let yOffset = CGFloat(relativeIndex) * 10
         let backScale = isTop ? 1.0 : min(scale + abs(Double(dragOffset.width)) * 0.0001, 1.0)
 
-        cardContent(item)
-            .scaleEffect(isTop ? 1.0 : backScale)
-            .offset(y: isTop ? 0 : yOffset)
-            .offset(x: isTop ? dragOffset.width : 0,
-                    y: isTop ? dragOffset.height * 0.2 : 0)
-            .rotationEffect(isTop ? .degrees(Double(dragOffset.width) / 15) : .zero)
-            .opacity(relativeIndex < visibleCardCount ? 1.0 : 0)
-            .overlay(isTop ? swipeOverlay : nil)
-            .gesture(isTop ? dragGesture : nil)
-            .animation(isDragging ? nil : .interpolatingSpring(stiffness: 350, damping: 28), value: dragOffset)
-            .allowsHitTesting(isTop)
+        // 드래그 중이면 뒤 카드 내용 숨기고 빈 카드만 표시
+        Group {
+            if isTop {
+                cardContent(item)
+            } else if isDragging {
+                // 스와이프 중: 카드 틀만 보이고 내용은 숨김
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color(.secondarySystemBackground))
+                    .shadow(color: .black.opacity(0.06), radius: 8, y: 4)
+            } else {
+                cardContent(item)
+            }
+        }
+        .scaleEffect(isTop ? 1.0 : backScale)
+        .offset(y: isTop ? 0 : yOffset)
+        .offset(x: isTop ? dragOffset.width : 0,
+                y: isTop ? dragOffset.height * 0.2 : 0)
+        .rotationEffect(isTop ? .degrees(Double(dragOffset.width) / 15) : .zero)
+        .opacity(relativeIndex < visibleCardCount ? 1.0 : 0)
+        .overlay(isTop ? swipeOverlay : nil)
+        .gesture(isTop ? dragGesture : nil)
+        .animation(isDragging ? nil : .interpolatingSpring(stiffness: 350, damping: 28), value: dragOffset)
+        .allowsHitTesting(isTop)
     }
 
     // MARK: - Swipe Overlay
@@ -231,7 +243,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 56))
                 .foregroundStyle(BrandTheme.accent)
-            Text("대단해요! 🎉")
+            Text("대단해요!")
                 .font(.title2).fontWeight(.bold)
             Text("오늘의 단어를 모두 학습했습니다.")
                 .font(.subheadline).foregroundStyle(.secondary)

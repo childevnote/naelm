@@ -20,16 +20,23 @@ struct VocabularyCardView: View {
 
     var body: some View {
         ZStack {
+            // 뒷면: isFlipped일 때만 보임, 앞면 위에 렌더링
             cardBack
                 .opacity(isFlipped ? 1 : 0)
                 .rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0))
+                .allowsHitTesting(isFlipped)
+
+            // 앞면: 뒤집히면 숨김
             cardFront
                 .opacity(isFlipped ? 0 : 1)
                 .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
+                .allowsHitTesting(!isFlipped)
         }
         .frame(width: cardWidth, height: cardHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .drawingGroup()
         .onTapGesture {
-            withAnimation(.interpolatingSpring(stiffness: 300, damping: 25)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 isFlipped.toggle()
             }
             HapticManager.shared.playTap()
@@ -154,8 +161,8 @@ struct VocabularyCardView: View {
 
     private var cardBg: some View {
         RoundedRectangle(cornerRadius: 20)
-            .fill(.ultraThickMaterial)
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.4 : 0.12), radius: 16, y: 8)
+            .fill(colorScheme == .dark ? BrandTheme.cardBackgroundDark : BrandTheme.cardBackground)
+            .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.12), radius: 16, y: 8)
     }
 
     private var categoryBadge: some View {
@@ -168,13 +175,13 @@ struct VocabularyCardView: View {
     }
 
     private var difficultyBadge: some View {
-        HStack(spacing: 2) {
-            ForEach(1...3, id: \.self) { i in
-                Circle()
-                    .fill(i <= vocabulary.frequencyLevel ? BrandTheme.accent : Color.gray.opacity(0.3))
-                    .frame(width: 8, height: 8)
-            }
-        }
+        let range = TOEICScoreRange.from(frequencyLevel: vocabulary.frequencyLevel)
+        return Text(range.shortLabel + "점")
+            .font(.caption2).fontWeight(.bold)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(range.rawValue >= 4 ? Color.purple : BrandTheme.accent)
+            .clipShape(Capsule())
     }
 
     private var categoryColor: Color {
