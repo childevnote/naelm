@@ -1,5 +1,6 @@
 # Toeigo — TOEIC 학습 앱
 
+---
 
 ## 주요 기능
 
@@ -131,3 +132,64 @@ Toeigo/
 - Xcode Cloud 자동 배포 (TestFlight)
 
 ---
+
+## 커밋 컨벤션
+
+[Conventional Commits](https://www.conventionalcommits.org/) 기반으로 작성한다.
+
+### 형식
+
+```
+<type>(<scope>): <subject>
+```
+
+### Type
+
+| Type | 설명 |
+|------|------|
+| `feat` | 새로운 기능 추가 |
+| `fix` | 버그 수정 |
+| `refactor` | 기능 변경 없는 코드 구조 개선 |
+| `style` | UI/UX 디자인 변경 (레이아웃, 색상, 애니메이션 등) |
+| `data` | 정적 데이터(JSON) 추가/수정 |
+| `docs` | 문서(README, devlog 등) 추가/수정 |
+| `chore` | 빌드 설정, 프로젝트 구성 등 기타 변경 |
+| `test` | 테스트 코드 추가/수정 |
+
+### Scope (선택)
+
+`quiz`, `vocab`, `dashboard`, `mypage`, `onboarding`, `auth`, `model`, `session`, `review`, `ranking` 등 변경 대상 모듈.
+
+### 예시
+
+```
+feat(quiz): add timer bar to grammar quiz session
+fix(quiz): fix goHome not working after quiz complete
+style(dashboard): redesign grass chart layout
+data(grammar): rewrite 100 questions for TOEIC Part 5
+docs: add commit convention to README
+```
+
+### 규칙
+
+- 커밋 메시지는 **영문**으로 작성한다.
+- subject는 **소문자**로 시작하고, 마침표를 붙이지 않는다.
+- 하나의 커밋은 **하나의 논리적 변경 단위**로 구성한다.
+- 여러 파일에 걸친 변경이라도 하나의 기능/버그에 해당하면 하나의 커밋으로 묶는다.
+
+---
+
+## 코딩 규칙
+
+- **SwiftUI + @Observable 패턴**: ViewModel은 `@Observable` 클래스, View에서는 `@State`로 소유.
+- **네이밍**: Swift API Design Guidelines 준수. 타입은 PascalCase, 변수/함수는 camelCase.
+- **이모지 금지**: UI 텍스트에 이모지를 사용하지 않는다. SF Symbols 아이콘만 사용.
+- **CloudKit 호환**: SwiftData `@Model`의 모든 프로퍼티는 기본값 또는 Optional. `@Attribute(.unique)` 적극 활용.
+- **다크모드**: 모든 화면은 라이트/다크 모두 대응. `BrandTheme`의 색상 시스템 사용.
+- **브랜드 컬러**: Forest Green 계열 (`BrandTheme.accent`). 흰색과 조화.
+
+---
+
+## 라이선스
+
+Private — All rights reserved.
