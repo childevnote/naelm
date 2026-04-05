@@ -2,10 +2,7 @@
 //  VocabularyStudyView.swift
 //  Toeigo
 //
-//  Created by 김동진 on 4/4/26.
-//
-//  단어 학습 탭 — 스와이프 카드 학습 화면.
-//  왼쪽 = 알고있어요 (초록), 오른쪽 = 학습할게요 (주황)
+//  단어 학습 탭 — 스와이프 카드 + 15초 타이머 + 오늘 학습 카운트
 //
 
 import SwiftUI
@@ -16,9 +13,18 @@ struct VocabularyStudyView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: CardViewModel
     @State private var sessionManager: LearningSessionManager
+    @State private var cardStackID = UUID()
+    @State private var showLeaveAlert = false
+    @State private var speedFeedback: String? = nil
+
+    /// 세션 활성 상태 (탭바 숨김용)
+    var isSessionActive: Bool {
+        !viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete && !viewModel.isLoading
+    }
 
     init() {
         let sm = LearningSessionManager()
@@ -29,7 +35,6 @@ struct VocabularyStudyView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // 배경
                 (colorScheme == .dark ? BrandTheme.backgroundGradientDark : BrandTheme.backgroundGradient)
                     .ignoresSafeArea()
 
@@ -40,14 +45,18 @@ struct VocabularyStudyView: View {
                 } else if viewModel.cardDeck.isEmpty {
                     emptyDeckView
                 } else {
-                    VStack(spacing: 12) {
-                        // 난이도 선택 + 진행 상황
-                        difficultyPicker
+                    VStack(spacing: 8) {
+                        todayProgressHeader
+                        timerBar
                         progressHeader
 
                         SwipeableCardStack(
                             items: viewModel.cardDeck,
                             onSwiped: { vocab, direction in
+                                // 속도 피드백 계산 (알고있어요 = left일 때만)
+                                if direction == .left {
+                                    showSpeedFeedback()
+                                }
                                 viewModel.handleSwipe(
                                     vocabulary: vocab,
                                     direction: direction,
@@ -60,45 +69,100 @@ struct VocabularyStudyView: View {
                         ) { vocab in
                             VocabularyCardView(vocabulary: vocab)
                         }
+                        .id(cardStackID)
                     }
                     .padding(.top, 4)
+                }
+
+                // 속도 피드백 토스트
+                if let feedback = speedFeedback {
+                    VStack {
+                        Text(feedback)
+                            .font(.subheadline).fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 20).padding(.vertical, 10)
+                            .background(Capsule().fill(BrandTheme.accent.opacity(0.85)))
+                        Spacer()
+                    }
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .zIndex(100)
                 }
             }
             .navigationTitle("단어 학습")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
-                    Button { loadDeck() } label: {
-                        Label("새로고침", systemImage: "arrow.clockwise")
-                    }
-                    .tint(BrandTheme.accent)
+                    scoreBadge
                 }
             }
+            .toolbar(isSessionActive ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete {
                     loadDeck()
                 }
+                viewModel.onTimerExpired = {
+                    triggerAutoStudy()
+                }
+            }
+            .onDisappear {
+                viewModel.stopTimer()
+            }
+            .alert("학습 중단", isPresented: $showLeaveAlert) {
+                Button("계속 학습", role: .cancel) {}
+                Button("나가기", role: .destructive) { dismiss() }
+            } message: {
+                Text("현재 진행 중인 학습 세션이 있습니다. 나가면 진행 상황이 저장되지 않습니다.")
             }
         }
     }
 
-    // MARK: - Difficulty Picker
+    // MARK: - Today Progress
 
-    private var difficultyPicker: some View {
-        Picker("난이도", selection: Binding(
-            get: { viewModel.selectedDifficulty },
-            set: { newValue in
-                viewModel.selectedDifficulty = newValue
-                loadDeck()
-            }
-        )) {
-            Text("전체").tag(0)
-            Text("초급 ●").tag(1)
-            Text("중급 ●●").tag(2)
-            Text("고급 ●●●").tag(3)
+    private var todayProgressHeader: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "calendar")
+                .foregroundStyle(BrandTheme.accent)
+            Text("오늘 \(viewModel.todayWordCount)/\(viewModel.dailyGoal)개 학습")
+                .font(.caption).fontWeight(.semibold)
+
+            Spacer()
+
+            // 목표 점수 표시
+            Text("목표 \(viewModel.targetScore)점")
+                .font(.caption2).fontWeight(.bold)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(BrandTheme.accent)
+                .clipShape(Capsule())
         }
-        .pickerStyle(.segmented)
         .padding(.horizontal, 20)
+    }
+
+    // MARK: - Timer Bar
+
+    private var timerBar: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(height: 6)
+
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(timerColor)
+                    .frame(width: geo.size.width * max(0, viewModel.timerRemaining / viewModel.timerDuration), height: 6)
+                    .animation(.linear(duration: 0.1), value: viewModel.timerRemaining)
+            }
+        }
+        .frame(height: 6)
+        .padding(.horizontal, 20)
+    }
+
+    private var timerColor: Color {
+        let ratio = viewModel.timerRemaining / viewModel.timerDuration
+        if ratio > 0.66 { return BrandTheme.knewIt }
+        if ratio > 0.33 { return .orange }
+        return .red
     }
 
     // MARK: - Progress Header
@@ -110,20 +174,21 @@ struct VocabularyStudyView: View {
 
             Spacer()
 
-            if !viewModel.cardDeck.isEmpty {
-                Text("남은 카드: \(max(0, viewModel.cardDeck.count - viewModel.sessionStats.wordsStudied))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
             Label("+\(viewModel.sessionStats.xpEarned) XP", systemImage: "star.fill")
                 .foregroundStyle(BrandTheme.studyIt)
         }
         .font(.subheadline)
         .fontWeight(.medium)
         .padding(.horizontal, 24)
+    }
+
+    // MARK: - Score Badge
+
+    private var scoreBadge: some View {
+        Button { loadDeck() } label: {
+            Label("새로고침", systemImage: "arrow.clockwise")
+        }
+        .tint(BrandTheme.accent)
     }
 
     // MARK: - Session Complete
@@ -136,14 +201,23 @@ struct VocabularyStudyView: View {
                 .font(.system(size: 72))
                 .foregroundStyle(BrandTheme.studyIt)
 
-            Text("학습 완료! 🎉")
+            Text("학습 완료!")
                 .font(.title).fontWeight(.bold)
+
+            // 오늘 진행률
+            let progress = min(1.0, Double(viewModel.todayWordCount) / Double(viewModel.dailyGoal))
+            VStack(spacing: 8) {
+                Text("오늘 \(viewModel.todayWordCount)/\(viewModel.dailyGoal)개 학습")
+                    .font(.headline)
+                ProgressView(value: progress)
+                    .tint(BrandTheme.accent)
+                    .frame(maxWidth: 200)
+            }
 
             VStack(spacing: 12) {
                 statRow(icon: "character.book.closed", label: "학습한 단어", value: "\(viewModel.sessionStats.wordsStudied)개")
                 statRow(icon: "checkmark.circle", label: "알고있어요", value: "\(viewModel.sessionStats.correctCount)개")
                 statRow(icon: "bookmark", label: "학습할게요", value: "\(viewModel.sessionStats.incorrectCount)개")
-                statRow(icon: "percent", label: "숙달률", value: "\(Int(viewModel.sessionStats.accuracy * 100))%")
                 statRow(icon: "star.fill", label: "획득 XP", value: "+\(viewModel.sessionStats.xpEarned)")
             }
             .padding(20)
@@ -196,8 +270,38 @@ struct VocabularyStudyView: View {
         }
     }
 
+    // MARK: - Helpers
+
     private func loadDeck() {
         guard let userID = authManager.userID else { return }
         viewModel.loadDeck(userID: userID, context: modelContext)
+        cardStackID = UUID()
+    }
+
+    private func triggerAutoStudy() {
+        guard !viewModel.cardDeck.isEmpty,
+              viewModel.sessionStats.wordsStudied < viewModel.cardDeck.count else { return }
+        let currentIndex = viewModel.sessionStats.wordsStudied
+        guard currentIndex < viewModel.cardDeck.count else { return }
+        let vocab = viewModel.cardDeck[currentIndex]
+        viewModel.handleSwipe(vocabulary: vocab, direction: .right, context: modelContext)
+        cardStackID = UUID()
+        if viewModel.sessionStats.wordsStudied >= viewModel.cardDeck.count {
+            viewModel.handleAllCardsSwiped(context: modelContext)
+        }
+    }
+
+    private func showSpeedFeedback() {
+        let elapsed = viewModel.timerDuration - viewModel.timerRemaining
+        let ratio = elapsed / viewModel.timerDuration
+        let msg: String
+        if ratio <= 0.4 { msg = "빠르네요!" }
+        else if ratio <= 0.7 { msg = "적절해요." }
+        else { msg = "느리네요." }
+
+        withAnimation(.easeInOut(duration: 0.25)) { speedFeedback = msg }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            withAnimation(.easeOut(duration: 0.3)) { speedFeedback = nil }
+        }
     }
 }
