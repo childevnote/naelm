@@ -12,6 +12,8 @@ import SwiftUI
 struct VocabularyCardView: View {
 
     let vocabulary: Vocabulary
+    var isBookmarked: Bool = false
+    var onBookmarkToggle: (() -> Void)? = nil
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
@@ -31,6 +33,32 @@ struct VocabularyCardView: View {
                 .opacity(isFlipped ? 0 : 1)
                 .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
                 .allowsHitTesting(!isFlipped)
+
+            // 북마크 버튼 (카드 하단 중앙)
+            if let toggle = onBookmarkToggle {
+                VStack {
+                    Spacer()
+                    Button {
+                        toggle()
+                        HapticManager.shared.playTap()
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: isBookmarked ? "star.fill" : "star")
+                                .font(.system(size: 20))
+                            Text("저장")
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundStyle(isBookmarked ? BrandTheme.accent : .gray.opacity(0.6))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(.ultraThinMaterial)
+                        )
+                    }
+                    .padding(.bottom, 44)
+                }
+            }
         }
         .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 20))

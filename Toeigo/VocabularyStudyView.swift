@@ -20,6 +20,8 @@ struct VocabularyStudyView: View {
     @State private var cardStackID = UUID()
     @State private var showLeaveAlert = false
     @State private var speedFeedback: String? = nil
+    @State private var autoSwipeTrigger = UUID()
+    @State private var bookmarkedIDs: Set<String> = []
 
     /// 세션 활성 상태 (탭바 숨김용)
     var isSessionActive: Bool {
@@ -52,6 +54,7 @@ struct VocabularyStudyView: View {
 
                         SwipeableCardStack(
                             items: viewModel.cardDeck,
+                            externalSwipeTrigger: $autoSwipeTrigger,
                             onSwiped: { vocab, direction in
                                 // 속도 피드백 계산 (알고있어요 = left일 때만)
                                 if direction == .left {
@@ -67,7 +70,11 @@ struct VocabularyStudyView: View {
                                 viewModel.handleAllCardsSwiped(context: modelContext)
                             }
                         ) { vocab in
-                            VocabularyCardView(vocabulary: vocab)
+                            VocabularyCardView(
+                                vocabulary: vocab,
+                                isBookmarked: bookmarkedIDs.contains(vocab.wordID),
+                                onBookmarkToggle: { toggleBookmark(vocab) }
+                            )
                         }
                         .id(cardStackID)
                     }
@@ -91,18 +98,15 @@ struct VocabularyStudyView: View {
             }
             .navigationTitle("단어 학습")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    scoreBadge
-                }
-            }
             .toolbar(isSessionActive ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete {
                     loadDeck()
                 }
+                loadBookmarkIDs()
                 viewModel.onTimerExpired = {
-                    triggerAutoStudy()
+                    // 시간 초과 → 학습할게요(오른쪽) 자동 스와이프
+                    autoSwipeTrigger = UUID()
                 }
             }
             .onDisappear {
@@ -182,15 +186,6 @@ struct VocabularyStudyView: View {
         .padding(.horizontal, 24)
     }
 
-    // MARK: - Score Badge
-
-    private var scoreBadge: some View {
-        Button { loadDeck() } label: {
-            Label("새로고침", systemImage: "arrow.clockwise")
-        }
-        .tint(BrandTheme.accent)
-    }
-
     // MARK: - Session Complete
 
     private var sessionCompleteView: some View {
@@ -226,13 +221,41 @@ struct VocabularyStudyView: View {
 
             Spacer()
 
-            Button { loadDeck() } label: {
-                Label("한 번 더 학습하기", systemImage: "arrow.clockwise")
+            // 복습할 단어가 있으면 → 복습 진행, 없으면 → 새 단어 학습
+            if viewModel.hasReviewWords(context: modelContext) {
+                Button {
+                    viewModel.loadReviewDeck(context: modelContext)
+                    cardStackID = UUID()
+                } label: {
+                    Label("복습 진행하기", systemImage: "arrow.counterclockwise")
+                        .font(.headline)
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+            } else {
+                Button {
+                    loadDeck()
+                } label: {
+                    Label("다른 단어 학습하기", systemImage: "arrow.right.circle")
+                        .font(.headline)
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, 14)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(BrandTheme.accent)
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Label("홈으로", systemImage: "house.fill")
                     .font(.headline)
                     .frame(maxWidth: 280)
                     .padding(.vertical, 14)
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.bordered)
             .tint(BrandTheme.accent)
 
             Spacer().frame(height: 40)
@@ -278,19 +301,6 @@ struct VocabularyStudyView: View {
         cardStackID = UUID()
     }
 
-    private func triggerAutoStudy() {
-        guard !viewModel.cardDeck.isEmpty,
-              viewModel.sessionStats.wordsStudied < viewModel.cardDeck.count else { return }
-        let currentIndex = viewModel.sessionStats.wordsStudied
-        guard currentIndex < viewModel.cardDeck.count else { return }
-        let vocab = viewModel.cardDeck[currentIndex]
-        viewModel.handleSwipe(vocabulary: vocab, direction: .right, context: modelContext)
-        cardStackID = UUID()
-        if viewModel.sessionStats.wordsStudied >= viewModel.cardDeck.count {
-            viewModel.handleAllCardsSwiped(context: modelContext)
-        }
-    }
-
     private func showSpeedFeedback() {
         let elapsed = viewModel.timerDuration - viewModel.timerRemaining
         let ratio = elapsed / viewModel.timerDuration
@@ -303,5 +313,33 @@ struct VocabularyStudyView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
             withAnimation(.easeOut(duration: 0.3)) { speedFeedback = nil }
         }
+    }
+
+    // MARK: - Bookmarks
+
+    private func loadBookmarkIDs() {
+        guard let userID = authManager.userID else { return }
+        let predicate = #Predicate<BookmarkedWord> { $0.userID == userID }
+        let bms = (try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: predicate))) ?? []
+        bookmarkedIDs = Set(bms.map(\.wordID))
+    }
+
+    private func toggleBookmark(_ vocab: Vocabulary) {
+        guard let userID = authManager.userID else { return }
+        let wordID = vocab.wordID
+        if bookmarkedIDs.contains(wordID) {
+            // 제거
+            let predicate = #Predicate<BookmarkedWord> { $0.userID == userID && $0.wordID == wordID }
+            if let bm = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: predicate)).first {
+                modelContext.delete(bm)
+            }
+            bookmarkedIDs.remove(wordID)
+        } else {
+            // 추가
+            let bm = BookmarkedWord(userID: userID, wordID: wordID, vocabulary: vocab)
+            modelContext.insert(bm)
+            bookmarkedIDs.insert(wordID)
+        }
+        try? modelContext.save()
     }
 }
