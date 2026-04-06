@@ -15,6 +15,7 @@
 
 import Foundation
 import SwiftData
+import os
 
 // MARK: - Daily Summary
 
@@ -125,7 +126,7 @@ final class GamificationService {
 
             return streak
         } catch {
-            print("❌ [Gamification] Failed to calculate streak: \(error)")
+            AppLogger.session.error("Failed to calculate streak: \(error)")
             return 0
         }
     }
@@ -145,7 +146,7 @@ final class GamificationService {
             let activities = try context.fetch(descriptor)
             return activities.reduce(0) { $0 + $1.xpEarned }
         } catch {
-            print("❌ [Gamification] Failed to calculate total XP: \(error)")
+            AppLogger.session.error("Failed to calculate total XP: \(error)")
             return 0
         }
     }

@@ -13,6 +13,7 @@
 
 import Foundation
 import Security
+import os
 
 /// Keychain 기본 CRUD 래퍼.
 final class KeychainHelper {
@@ -47,10 +48,10 @@ final class KeychainHelper {
         let status = SecItemAdd(query as CFDictionary, nil)
 
         if status == errSecSuccess {
-            print("✅ [Keychain] Saved key: \(key)")
+            AppLogger.keychain.debug("Saved key: \(key)")
             return true
         } else {
-            print("❌ [Keychain] Save failed for key: \(key), status: \(status)")
+            AppLogger.keychain.error("Save failed for key: \(key), status: \(status)")
             return false
         }
     }

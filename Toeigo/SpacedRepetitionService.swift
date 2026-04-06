@@ -17,6 +17,7 @@
 
 import Foundation
 import SwiftData
+import os
 
 // MARK: - SM-2 Algorithm Result
 
@@ -209,7 +210,7 @@ final class SpacedRepetitionService {
             let progresses = try context.fetch(descriptor)
             return progresses.compactMap(\.vocabulary)
         } catch {
-            print("❌ [SRS] Failed to fetch due vocabulary: \(error)")
+            AppLogger.srs.error("Failed to fetch due vocabulary: \(error)")
             return []
         }
     }
@@ -235,7 +236,7 @@ final class SpacedRepetitionService {
             let progresses = try context.fetch(descriptor)
             return progresses.compactMap(\.grammar)
         } catch {
-            print("❌ [SRS] Failed to fetch due grammar: \(error)")
+            AppLogger.srs.error("Failed to fetch due grammar: \(error)")
             return []
         }
     }
@@ -254,19 +255,21 @@ final class SpacedRepetitionService {
 
         do {
             let existingProgresses = try context.fetch(existingDescriptor)
+            // 이미 학습한 단어 중 숙달(isMastered)된 것은 완전히 제외
+            let masteredWordIDs = Set(existingProgresses.filter(\.isMastered).compactMap { $0.vocabulary?.wordID })
             let studiedWordIDs = Set(existingProgresses.compactMap { $0.vocabulary?.wordID })
 
-            // 전체 단어에서 학습하지 않은 것만 필터링
+            // 전체 단어에서 숙달된 것을 제외하고 아직 학습하지 않은 것만 필터링
             var allDescriptor = FetchDescriptor<Vocabulary>(
                 sortBy: [SortDescriptor(\.frequencyLevel)]
             )
             allDescriptor.fetchLimit = limit + studiedWordIDs.count
 
             let allVocab = try context.fetch(allDescriptor)
-            let newVocab = allVocab.filter { !studiedWordIDs.contains($0.wordID) }
+            let newVocab = allVocab.filter { !studiedWordIDs.contains($0.wordID) && !masteredWordIDs.contains($0.wordID) }
             return Array(newVocab.prefix(limit))
         } catch {
-            print("❌ [SRS] Failed to fetch new vocabulary: \(error)")
+            AppLogger.srs.error("Failed to fetch new vocabulary: \(error)")
             return []
         }
     }
@@ -318,7 +321,7 @@ final class SpacedRepetitionService {
                 return existing
             }
         } catch {
-            print("⚠️ [SRS] Fetch error: \(error)")
+            AppLogger.srs.warning("Fetch error: \(error)")
         }
 
         // 기존 기록 없음 → 새로 생성

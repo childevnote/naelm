@@ -14,6 +14,7 @@
 
 import Foundation
 import SwiftData
+import os
 
 // MARK: - Session Statistics
 
@@ -85,7 +86,7 @@ final class LearningSessionManager {
         self.userID = userID
         self.stats = SessionStats()
         self.isSessionActive = true
-        print("🎯 [Session] Started for user: \(userID)")
+        AppLogger.session.info("Session started")
     }
 
     /// 세션을 종료하고 UserActivity에 결과를 기록합니다.
@@ -96,7 +97,7 @@ final class LearningSessionManager {
         // UserActivity에 오늘 학습 기록 저장
         saveUserActivity(context: context)
 
-        print("✅ [Session] Ended — Words: \(stats.wordsStudied), Grammar: \(stats.grammarStudied), XP: \(stats.xpEarned)")
+        AppLogger.session.info("Session ended — Words: \(self.stats.wordsStudied), Grammar: \(self.stats.grammarStudied), XP: \(self.stats.xpEarned)")
     }
 
     // MARK: - 단어 학습 기록
@@ -123,6 +124,20 @@ final class LearningSessionManager {
             userID: userID,
             context: context
         )
+
+        // "알고있어요" → 즉시 숙달 처리 (재출제 방지)
+        if knewIt {
+            let wordID = vocabulary.wordID
+            let predicate = #Predicate<LearningProgress> {
+                $0.userID == userID &&
+                $0.itemType == "vocabulary" &&
+                $0.vocabulary?.wordID == wordID
+            }
+            if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+                progress.isMastered = true
+                progress.markedForReview = false
+            }
+        }
 
         // 통계 업데이트
         stats.wordsStudied += 1
@@ -164,16 +179,18 @@ final class LearningSessionManager {
             context: context
         )
 
-        // 오답 → 복습 대기 마킹
-        if !isCorrect {
-            let grammarID = grammar.grammarID
-            let predicate = #Predicate<LearningProgress> {
-                $0.userID == userID &&
-                $0.itemType == "grammar" &&
-                $0.grammar?.grammarID == grammarID
-            }
-            let descriptor = FetchDescriptor<LearningProgress>(predicate: predicate)
-            if let progress = try? context.fetch(descriptor).first {
+        // 복습 마킹 또는 숙달 처리
+        let grammarID = grammar.grammarID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID &&
+            $0.itemType == "grammar" &&
+            $0.grammar?.grammarID == grammarID
+        }
+        if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+            if isCorrect {
+                progress.isMastered = true
+                progress.markedForReview = false
+            } else {
                 progress.markedForReview = true
             }
         }
@@ -214,7 +231,7 @@ final class LearningSessionManager {
                 context.insert(activity)
             }
         } catch {
-            print("⚠️ [Session] Failed to fetch UserActivity: \(error)")
+            AppLogger.session.error("Failed to fetch UserActivity: \(error)")
             activity = UserActivity(userID: userID, activityDate: today)
             context.insert(activity)
         }
@@ -237,6 +254,8 @@ final class LearningSessionManager {
             activity.dailyGoalMet = true
         }
 
-        print("📊 [Session] UserActivity updated — Total XP today: \(activity.xpEarned)")
+        try? context.save()
+
+        AppLogger.session.info("UserActivity updated — XP today: \(activity.xpEarned)")
     }
 }

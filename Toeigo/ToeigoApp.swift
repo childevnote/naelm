@@ -17,6 +17,7 @@
 import SwiftUI
 import SwiftData
 import AuthenticationServices
+import os
 
 // MARK: - App Entry Point
 
@@ -35,6 +36,7 @@ struct ToeigoApp: App {
             UserProfile.self,
             MonthlyScore.self,
             Friendship.self,
+            BookmarkedWord.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
@@ -85,13 +87,12 @@ final class AuthenticationManager {
 
         // Keychain에 userIdentifier 저장
         KeychainHelper.save(key: KeychainHelper.userIDKey, value: credential.user)
-
-        print("✅ [Auth] Signed in: \(credential.user)")
+        AppLogger.auth.info("Signed in successfully")
     }
 
     /// Sign in 실패 시 호출
     func handleSignInError(_ error: Error) {
-        print("❌ [Auth] Sign in failed: \(error.localizedDescription)")
+        AppLogger.auth.error("Sign in failed: \(error.localizedDescription)")
     }
 
     /// 로그아웃
@@ -100,8 +101,7 @@ final class AuthenticationManager {
 
         // Keychain에서 userIdentifier 삭제
         KeychainHelper.delete(key: KeychainHelper.userIDKey)
-
-        print("ℹ️ [Auth] Signed out.")
+        AppLogger.auth.info("Signed out")
     }
 
     /// 앱 재실행 시 기존 인증 상태 복원.
@@ -110,7 +110,7 @@ final class AuthenticationManager {
     /// 3) 유효하면 자동 로그인, 취소/무효면 로그아웃
     func restoreAuthState() {
         guard let savedUserID = KeychainHelper.read(key: KeychainHelper.userIDKey) else {
-            print("ℹ️ [Auth] No saved credentials in Keychain.")
+            AppLogger.auth.info("No saved credentials in Keychain")
             return
         }
 
@@ -123,17 +123,17 @@ final class AuthenticationManager {
                 case .authorized:
                     // 유효한 credential → 자동 로그인
                     self.userID = savedUserID
-                    print("✅ [Auth] Restored session for: \(savedUserID)")
+                    AppLogger.auth.info("Restored session")
 
                 case .revoked, .notFound:
                     // 사용자가 Apple ID 설정에서 앱 권한을 취소했거나 찾을 수 없음
                     self.userID = nil
                     KeychainHelper.delete(key: KeychainHelper.userIDKey)
-                    print("⚠️ [Auth] Credential revoked or not found. Signed out.")
+                    AppLogger.auth.warning("Credential revoked or not found. Signed out.")
 
                 case .transferred:
                     // 팀 이전 시나리오 (일반적으로 발생하지 않음)
-                    print("ℹ️ [Auth] Credential transferred.")
+                    AppLogger.auth.info("Credential transferred")
 
                 @unknown default:
                     break
@@ -150,9 +150,18 @@ final class AuthenticationManager {
 struct RootView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var authManager = AuthenticationManager()
+    @AppStorage("appearanceMode") private var appearanceMode: Int = 0
 
     /// 시드 데이터 로딩 완료 여부
     @State private var isDataLoaded = false
+
+    private var colorSchemeOverride: ColorScheme? {
+        switch appearanceMode {
+        case 1: return .light
+        case 2: return .dark
+        default: return nil  // 시스템 설정 따름
+        }
+    }
 
     var body: some View {
         Group {
@@ -171,6 +180,7 @@ struct RootView: View {
                     .environment(authManager)
             }
         }
+        .preferredColorScheme(colorSchemeOverride)
         .task {
             if !isDataLoaded {
                 DataLoader.seedAllIfNeeded(context: modelContext)
@@ -316,7 +326,6 @@ struct SignInView: View {
 /// Week 1에서는 기본 탭 구조와 데이터 확인용 placeholder를 구성합니다.
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
-    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: Int = 0
 
     var body: some View {
@@ -329,37 +338,29 @@ struct MainDashboardView: View {
             }
             .tag(0)
 
-            // ── Tab 2: 단어 학습 ──
-            VocabularyStudyView()
-                .environment(authManager)
-            .tabItem {
-                Label("단어", systemImage: "character.book.closed")
-            }
-            .tag(1)
-
-            // ── Tab 3: 문법 퀴즈 ──
-            GrammarQuizView(goHome: { selectedTab = 0 })
-                .environment(authManager)
-            .tabItem {
-                Label("문법", systemImage: "text.book.closed")
-            }
-            .tag(2)
-
-            // ── Tab 4: 순위 ──
+            // ── Tab 2: 순위 ──
             RankingView()
                 .environment(authManager)
             .tabItem {
                 Label("순위", systemImage: "chart.bar.fill")
             }
-            .tag(3)
+            .tag(1)
 
-            // ── Tab 5: 마이페이지 ──
+            // ── Tab 3: 저장 ──
+            BookmarkListView()
+                .environment(authManager)
+            .tabItem {
+                Label("저장", systemImage: "star.fill")
+            }
+            .tag(2)
+
+            // ── Tab 4: 마이페이지 ──
             MyPageView()
                 .environment(authManager)
             .tabItem {
                 Label("마이", systemImage: "person.fill")
             }
-            .tag(4)
+            .tag(3)
         }
         .tint(BrandTheme.accent)
     }
@@ -378,6 +379,7 @@ struct MainDashboardView: View {
             UserProfile.self,
             MonthlyScore.self,
             Friendship.self,
+            BookmarkedWord.self,
         ], inMemory: true)
 }
 
@@ -397,5 +399,6 @@ struct MainDashboardView: View {
             UserProfile.self,
             MonthlyScore.self,
             Friendship.self,
+            BookmarkedWord.self,
         ], inMemory: true)
 }
