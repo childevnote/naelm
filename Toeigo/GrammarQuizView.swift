@@ -23,6 +23,7 @@ struct GrammarQuizView: View {
 
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var viewModel: QuizViewModel
     @State private var sessionManager: LearningSessionManager
@@ -33,11 +34,7 @@ struct GrammarQuizView: View {
     @State private var showLeaveAlert = false
     @State private var speedFeedback: String? = nil
 
-    /// 홈 탭으로 이동하는 콜백 (TabView selection 변경)
-    var goHome: () -> Void = {}
-
-    init(goHome: @escaping () -> Void = {}) {
-        self.goHome = goHome
+    init() {
         let sm = LearningSessionManager()
         _sessionManager = State(initialValue: sm)
         _viewModel = State(initialValue: QuizViewModel(sessionManager: sm))
@@ -89,15 +86,6 @@ struct GrammarQuizView: View {
             }
             .navigationTitle("문법 퀴즈")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button {
-                        loadQuiz()
-                    } label: {
-                        Label("새로고침", systemImage: "arrow.clockwise")
-                    }
-                }
-            }
             .toolbar(isGrammarSessionActive ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $viewModel.showExplanation) {
                 if let question = viewModel.currentQuestion {
@@ -116,6 +104,12 @@ struct GrammarQuizView: View {
             .onChange(of: viewModel.currentIndex) { _, _ in
                 resetGrammarTimer()
             }
+            .onChange(of: viewModel.isQuizComplete) { _, complete in
+                if complete {
+                    stopGrammarTimer()
+                    grammarTimerRemaining = 0
+                }
+            }
             .onChange(of: viewModel.isAnswerRevealed) { _, revealed in
                 if revealed {
                     grammarTimerRunning = false
@@ -127,7 +121,7 @@ struct GrammarQuizView: View {
             }
             .alert("학습 중단", isPresented: $showLeaveAlert) {
                 Button("계속 학습", role: .cancel) {}
-                Button("나가기", role: .destructive) { goHome() }
+                Button("나가기", role: .destructive) { dismiss() }
             } message: {
                 Text("현재 진행 중인 학습 세션이 있습니다. 나가면 진행 상황이 저장되지 않습니다.")
             }
@@ -146,13 +140,12 @@ struct GrammarQuizView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    // 문제 번호만 (카테고리/유형 숨김)
+                    // 문제 번호만
                     HStack {
                         Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
                             .font(.caption).fontWeight(.bold)
                             .foregroundStyle(BrandTheme.accent)
                         Spacer()
-                        difficultyStars(level: question.grammar.difficultyLevel)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
@@ -165,6 +158,20 @@ struct GrammarQuizView: View {
                     VStack(spacing: 12) {
                         ForEach(question.options, id: \.self) { option in
                             optionButton(option: option, question: question)
+                        }
+
+                        // 모르겠다 버튼
+                        if !viewModel.isAnswerRevealed {
+                            Button {
+                                viewModel.skipAsDontKnow(context: modelContext)
+                            } label: {
+                                Text("모르겠어요.")
+                                    .font(.body).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 14)
+                                    .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 24)
@@ -226,10 +233,9 @@ struct GrammarQuizView: View {
                 grammarTimerRemaining -= 0.1
                 if grammarTimerRemaining <= 0 {
                     grammarTimerRunning = false
-                    // 시간 초과 → 자동으로 첫 번째 오답 선택
-                    if !viewModel.isAnswerRevealed, let q = viewModel.currentQuestion {
-                        let wrongAnswer = q.options.first(where: { $0 != q.correctAnswer }) ?? q.options.first ?? ""
-                        viewModel.selectAnswer(wrongAnswer, context: modelContext)
+                    // 시간 초과 → 오답 선택하지 않고 복습 추가 후 다음 문제로 넘어감
+                    if !viewModel.isAnswerRevealed {
+                        viewModel.skipAsTimeout(context: modelContext)
                     }
                 }
             }
@@ -392,7 +398,9 @@ struct GrammarQuizView: View {
     // MARK: - Explanation Sheet
 
     private func explanationSheet(question: QuizQuestion) -> some View {
-        NavigationStack {
+        let isCorrect = viewModel.selectedAnswer == question.correctAnswer
+
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // 문법 규칙
@@ -407,28 +415,16 @@ struct GrammarQuizView: View {
 
                     Divider()
 
-                    // 올바른 예문
-                    VStack(alignment: .leading, spacing: 6) {
-                        Label("올바른 예문", systemImage: "checkmark.circle")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.green)
-                        Text(question.grammar.correctExample)
-                            .font(.body)
-                            .italic()
-                    }
-
-                    // 틀린 예문
-                    if !question.incorrectExample.isEmpty {
+                    // 틀렸을 때만 올바른 예문 표시
+                    if !isCorrect {
                         VStack(alignment: .leading, spacing: 6) {
-                            Label("틀린 예문", systemImage: "xmark.circle")
+                            Label("올바른 예문", systemImage: "checkmark.circle")
                                 .font(.subheadline)
                                 .fontWeight(.semibold)
-                                .foregroundStyle(.red)
-                            Text(question.incorrectExample)
+                                .foregroundStyle(.green)
+                            Text(question.grammar.correctExample)
                                 .font(.body)
                                 .italic()
-                                .strikethrough()
                         }
                     }
 
@@ -530,7 +526,7 @@ struct GrammarQuizView: View {
             }
 
             Button {
-                goHome()
+                dismiss()
             } label: {
                 Label("홈으로", systemImage: "house.fill")
                     .font(.headline)
@@ -563,18 +559,6 @@ struct GrammarQuizView: View {
                 .fontWeight(.semibold)
         }
         .font(.subheadline)
-    }
-
-    // MARK: - Difficulty Stars
-
-    private func difficultyStars(level: Int) -> some View {
-        HStack(spacing: 2) {
-            ForEach(0..<3, id: \.self) { i in
-                Image(systemName: i < level ? "star.fill" : "star")
-                    .font(.system(size: 10))
-            }
-        }
-        .foregroundStyle(.orange)
     }
 
     // MARK: - Empty Quiz
