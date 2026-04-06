@@ -30,14 +30,32 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     let onAllSwiped: () -> Void
     @ViewBuilder let cardContent: (Item) -> CardContent
 
+    /// 외부에서 스와이프를 트리거할 때 사용 (값이 변경되면 자동 오른쪽 스와이프)
+    @Binding var externalSwipeTrigger: UUID
+
     @State private var currentIndex: Int = 0
     @State private var dragOffset: CGSize = .zero
     @State private var isDragging: Bool = false
     @State private var hapticTriggered: Bool = false
+    @State private var isAnimating: Bool = false
 
     private let swipeThreshold: CGFloat = 100
     private let flyAwayDistance: CGFloat = 600
     private let visibleCardCount: Int = 3
+
+    init(
+        items: [Item],
+        externalSwipeTrigger: Binding<UUID> = .constant(UUID()),
+        onSwiped: @escaping (Item, SwipeDirection) -> Void,
+        onAllSwiped: @escaping () -> Void,
+        @ViewBuilder cardContent: @escaping (Item) -> CardContent
+    ) {
+        self.items = items
+        self._externalSwipeTrigger = externalSwipeTrigger
+        self.onSwiped = onSwiped
+        self.onAllSwiped = onAllSwiped
+        self.cardContent = cardContent
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -53,6 +71,9 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: externalSwipeTrigger) { _, _ in
+                triggerSwipe(direction: .right)
+            }
 
             if !items.isEmpty && currentIndex < items.count {
                 actionButtons
@@ -93,7 +114,9 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 y: isTop ? dragOffset.height * 0.2 : 0)
         .rotationEffect(isTop ? .degrees(Double(dragOffset.width) / 15) : .zero)
         .opacity(relativeIndex < visibleCardCount ? 1.0 : 0)
-        .overlay(isTop ? swipeOverlay : nil)
+        .overlay {
+            if isTop { swipeOverlay }
+        }
         .gesture(isTop ? dragGesture : nil)
         .animation(isDragging ? nil : .interpolatingSpring(stiffness: 350, damping: 28), value: dragOffset)
         .allowsHitTesting(isTop)
@@ -195,9 +218,12 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             .onEnded { value in
                 isDragging = false
                 hapticTriggered = false
+                guard !isAnimating else { return }
                 if value.translation.width > swipeThreshold {
+                    isAnimating = true
                     completeSwipe(direction: .right)
                 } else if value.translation.width < -swipeThreshold {
+                    isAnimating = true
                     completeSwipe(direction: .left)
                 } else {
                     withAnimation(.interpolatingSpring(stiffness: 350, damping: 28)) {
@@ -209,7 +235,8 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     }
 
     private func triggerSwipe(direction: SwipeDirection) {
-        guard currentIndex < items.count else { return }
+        guard currentIndex < items.count, !isAnimating else { return }
+        isAnimating = true
         HapticManager.shared.playSwipe()
         let moveX: CGFloat = direction == .right ? 60 : -60
         withAnimation(.interpolatingSpring(stiffness: 400, damping: 30)) {
@@ -221,7 +248,10 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     }
 
     private func completeSwipe(direction: SwipeDirection) {
-        guard currentIndex < items.count else { return }
+        guard currentIndex < items.count else {
+            isAnimating = false
+            return
+        }
         let item = items[currentIndex]
         let flyX: CGFloat = direction == .right ? flyAwayDistance : -flyAwayDistance
         withAnimation(.interpolatingSpring(stiffness: 250, damping: 22)) {
@@ -232,9 +262,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             onSwiped(item, direction)
             currentIndex += 1
             dragOffset = .zero
-            if currentIndex >= items.count {
-                onAllSwiped()
-            }
+            isAnimating = false
         }
     }
 

@@ -20,11 +20,15 @@ struct OnboardingView: View {
 
     @State private var step: OnboardingStep = .targetScore
     @State private var selectedTarget: Int = 700
-    @State private var placementAnswers: [Bool] = []
+    @State private var placementAnswers: [(level: Int, correct: Bool)] = []
     @State private var currentQ: Int = 0
     @State private var placementQuestions: [PlacementQuestion] = []
-    @State private var showResult = false
     @State private var estimatedLevel: Int = 0
+
+    // 타이머
+    @State private var timerRemaining: Double = 10.0
+    @State private var timerRunning: Bool = false
+    @State private var timer: Timer? = nil
 
     enum OnboardingStep {
         case targetScore, placementIntro, placementTest, result
@@ -75,11 +79,6 @@ struct OnboardingView: View {
                             Text("\(score)점 이상")
                                 .font(.headline)
                             Spacer()
-                            if score == 900 {
-                                Image(systemName: "crown.fill")
-                                    .foregroundStyle(.yellow)
-                                    .font(.caption)
-                            }
                             if selectedTarget == score {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(BrandTheme.accent)
@@ -129,7 +128,7 @@ struct OnboardingView: View {
             Text("간단한 수준 파악 테스트")
                 .font(.title2).fontWeight(.bold)
 
-            Text("단어 10문제 + 문법 10문제로\n현재 실력을 진단합니다.\n약 3분 소요됩니다.")
+            Text("20문제로 현재 실력을 진단합니다.\n문제당 10초 제한이 있습니다.\n약 3분 소요됩니다.")
                 .font(.subheadline).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
@@ -139,6 +138,7 @@ struct OnboardingView: View {
                 Button {
                     loadPlacementQuestions()
                     step = .placementTest
+                    startTimer()
                 } label: {
                     Text("테스트 시작")
                         .font(.headline).frame(maxWidth: 280)
@@ -148,8 +148,7 @@ struct OnboardingView: View {
                 .tint(BrandTheme.accent)
 
                 Button {
-                    // 테스트 건너뛰기 → 기본 수준 설정
-                    finishOnboarding(level: 2) // 600점대로 기본 설정
+                    finishOnboarding(level: 2)
                 } label: {
                     Text("건너뛰기")
                         .font(.subheadline)
@@ -165,22 +164,47 @@ struct OnboardingView: View {
     // MARK: - Step 3: Placement Test
 
     private var placementTestView: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) {
             // Progress
             ProgressView(value: Double(currentQ), total: Double(placementQuestions.count))
                 .tint(BrandTheme.accent)
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
 
-            Text("\(currentQ + 1) / \(placementQuestions.count)")
-                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Text("\(currentQ + 1) / \(placementQuestions.count)")
+                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if currentQ < placementQuestions.count {
+                    let lvl = placementQuestions[currentQ].difficulty
+                    let scoreLbl = lvl == 1 ? "600" : lvl == 2 ? "700" : lvl == 3 ? "800" : "900"
+                    Text("\(scoreLbl)점대")
+                        .font(.caption2).fontWeight(.bold)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(BrandTheme.accent.opacity(0.15)))
+                }
+            }
+            .padding(.horizontal, 24)
+
+            // 타이머 바
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.2)).frame(height: 5)
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(timerRemaining > 5 ? BrandTheme.knewIt : timerRemaining > 3 ? .orange : .red)
+                        .frame(width: geo.size.width * max(0, timerRemaining / 10.0), height: 5)
+                        .animation(.linear(duration: 0.1), value: timerRemaining)
+                }
+            }
+            .frame(height: 5)
+            .padding(.horizontal, 24)
 
             if currentQ < placementQuestions.count {
                 let q = placementQuestions[currentQ]
 
                 VStack(spacing: 16) {
                     // 문제 유형 표시
-                    Text(q.type == .vocabulary ? "📖 단어" : "📝 문법")
+                    Text(q.type == .vocabulary ? "단어" : "문법")
                         .font(.caption).fontWeight(.bold)
                         .foregroundStyle(BrandTheme.accent)
 
@@ -190,21 +214,11 @@ struct OnboardingView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
 
-                    // 4지선다
+                    // 보기 (5지선다: 4개 + 모르겠다)
                     VStack(spacing: 10) {
                         ForEach(q.options, id: \.self) { option in
                             Button {
-                                let correct = option == q.correctAnswer
-                                placementAnswers.append(correct)
-                                if correct { HapticManager.shared.playCorrect() }
-                                else { HapticManager.shared.playIncorrect() }
-
-                                if currentQ + 1 >= placementQuestions.count {
-                                    calculateLevel()
-                                    step = .result
-                                } else {
-                                    withAnimation { currentQ += 1 }
-                                }
+                                answerQuestion(option: option, question: q)
                             } label: {
                                 Text(option)
                                     .font(.body)
@@ -214,14 +228,27 @@ struct OnboardingView: View {
                             }
                             .buttonStyle(.plain)
                         }
+
+                        // 모르겠다 버튼
+                        Button {
+                            answerQuestion(option: nil, question: q)
+                        } label: {
+                            Text("모르겠다")
+                                .font(.body).foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 24)
                 }
-                .padding(.top, 20)
+                .padding(.top, 8)
             }
 
             Spacer()
         }
+        .onDisappear { stopTimer() }
     }
 
     // MARK: - Step 4: Result
@@ -237,11 +264,27 @@ struct OnboardingView: View {
             Text("수준 파악 완료!")
                 .font(.title).fontWeight(.bold)
 
-            let correctCount = placementAnswers.filter { $0 }.count
+            let correctCount = placementAnswers.filter(\.correct).count
             let total = placementAnswers.count
 
             Text("\(total)문제 중 \(correctCount)문제 정답")
                 .font(.headline).foregroundStyle(.secondary)
+
+            // 구간별 결과 표시
+            VStack(spacing: 8) {
+                ForEach([1, 2, 3, 4], id: \.self) { lvl in
+                    let lvlAnswers = placementAnswers.filter { $0.level == lvl }
+                    let lvlCorrect = lvlAnswers.filter(\.correct).count
+                    let scoreLbl = lvl == 1 ? "600점대" : lvl == 2 ? "700점대" : lvl == 3 ? "800점대" : "900점대"
+                    HStack {
+                        Text(scoreLbl).font(.caption).frame(width: 60, alignment: .leading)
+                        ProgressView(value: Double(lvlCorrect), total: 5.0)
+                            .tint(lvlCorrect >= 3 ? BrandTheme.knewIt : .orange)
+                        Text("\(lvlCorrect)/5").font(.caption).fontWeight(.bold).frame(width: 30)
+                    }
+                }
+            }
+            .padding(.horizontal, 32)
 
             let levelRange = TOEICScoreRange(rawValue: estimatedLevel) ?? .range600
             Text("추정 수준: \(levelRange.label)")
@@ -268,105 +311,209 @@ struct OnboardingView: View {
         .padding(.horizontal, 24)
     }
 
-    // MARK: - Logic
+    // MARK: - Timer
+
+    private func startTimer() {
+        timerRemaining = 10.0
+        timerRunning = true
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            Task { @MainActor in
+                guard timerRunning else { return }
+                timerRemaining -= 0.1
+                if timerRemaining <= 0 {
+                    // 시간 초과 → 오답 처리 후 다음
+                    if currentQ < placementQuestions.count {
+                        let q = placementQuestions[currentQ]
+                        placementAnswers.append((level: q.difficulty, correct: false))
+                        HapticManager.shared.playIncorrect()
+                        moveToNextQuestion()
+                    }
+                }
+            }
+        }
+    }
+
+    private func resetTimer() {
+        timerRemaining = 10.0
+    }
+
+    private func stopTimer() {
+        timerRunning = false
+        timer?.invalidate()
+        timer = nil
+    }
+
+    // MARK: - Answer Logic
+
+    private func answerQuestion(option: String?, question: PlacementQuestion) {
+        let correct: Bool
+        if let opt = option {
+            correct = opt == question.correctAnswer
+        } else {
+            correct = false // "모르겠다" → 오답
+        }
+
+        placementAnswers.append((level: question.difficulty, correct: correct))
+
+        if correct { HapticManager.shared.playCorrect() }
+        else { HapticManager.shared.playIncorrect() }
+
+        moveToNextQuestion()
+    }
+
+    private func moveToNextQuestion() {
+        if currentQ + 1 >= placementQuestions.count {
+            stopTimer()
+            calculateLevel()
+            step = .result
+        } else {
+            withAnimation { currentQ += 1 }
+            resetTimer()
+        }
+    }
+
+    // MARK: - Question Loading
 
     private func loadPlacementQuestions() {
-        // 번들의 Vocabulary/Grammar에서 난이도별로 골고루 뽑아 20문제 생성
-        let vocabs = fetchVocabSample()
-        let grammars = fetchGrammarSample()
+        // 각 수준별 5문제씩 = 20문제
+        // Vocab 수준: 1→600, 2→700, 3→800/900
+        // Grammar 수준: 1→600, 2→700, 3→800, 4→900
+        let vocabs = fetchAllVocab()
+        let grammars = fetchAllGrammar()
 
         var qs: [PlacementQuestion] = []
 
-        // 단어 10문제: 영어→한국어 사지선다
-        for v in vocabs {
-            let wrongOptions = generateVocabDistractors(correct: v.korean, allVocabs: vocabs)
-            var options = [v.korean] + wrongOptions
-            options.shuffle()
-            qs.append(PlacementQuestion(
-                type: .vocabulary,
-                question: "'\(v.english)'의 뜻은?",
-                options: options,
-                correctAnswer: v.korean,
-                difficulty: v.frequencyLevel
-            ))
-        }
+        // 600점대 5문제: vocab level 1 (3) + grammar level 1 (2)
+        qs += makeVocabQuestions(from: vocabs, level: 1, count: 3, targetLevel: 1, allVocabs: vocabs)
+        qs += makeGrammarQuestions(from: grammars, level: 1, count: 2, targetLevel: 1)
 
-        // 문법 10문제: 빈칸 채우기
-        for g in grammars {
-            let words = g.correctExample.split(separator: " ").map(String.init)
-            let skip = Set(["the","a","an","is","are","was","were","in","on","at","to","of","for","and","or","but","by","it","be"])
-            let candidates = words.enumerated().filter { $0.element.lowercased().trimmingCharacters(in: .punctuationCharacters).count >= 3 && !skip.contains($0.element.lowercased().trimmingCharacters(in: .punctuationCharacters)) }
+        // 700점대 5문제: vocab level 2 (3) + grammar level 2 (2)
+        qs += makeVocabQuestions(from: vocabs, level: 2, count: 3, targetLevel: 2, allVocabs: vocabs)
+        qs += makeGrammarQuestions(from: grammars, level: 2, count: 2, targetLevel: 2)
 
-            if let target = candidates.randomElement() {
-                var blanked = words
-                blanked[target.offset] = "___"
-                let correct = target.element.trimmingCharacters(in: .punctuationCharacters)
-                let fallbacks = ["however", "therefore", "although", "nevertheless", "moreover", "consequently"]
-                var wrongs = Array(fallbacks.filter { $0 != correct.lowercased() }.shuffled().prefix(3))
-                while wrongs.count < 3 { wrongs.append("otherwise") }
-                var options = [correct] + wrongs
-                options.shuffle()
-                qs.append(PlacementQuestion(
-                    type: .grammar,
-                    question: blanked.joined(separator: " "),
-                    options: options,
-                    correctAnswer: correct,
-                    difficulty: g.difficultyLevel
-                ))
-            }
-        }
+        // 800점대 5문제: vocab level 3 (3) + grammar level 3 (2)
+        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 3, allVocabs: vocabs)
+        qs += makeGrammarQuestions(from: grammars, level: 3, count: 2, targetLevel: 3)
 
-        placementQuestions = qs.shuffled()
+        // 900점대 5문제: vocab level 3 고급 (3) + grammar level 4 (2)
+        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 4, allVocabs: vocabs)
+        qs += makeGrammarQuestions(from: grammars, level: 4, count: 2, targetLevel: 4)
+
+        // 600→700→800→900 순서대로 배치 (섞지 않고 점점 어려워지게)
+        placementQuestions = qs
         currentQ = 0
         placementAnswers = []
     }
 
-    private func fetchVocabSample() -> [Vocabulary] {
+    private func makeVocabQuestions(from vocabs: [Vocabulary], level: Int, count: Int, targetLevel: Int, allVocabs: [Vocabulary]) -> [PlacementQuestion] {
+        let filtered = vocabs.filter { $0.frequencyLevel == level }.shuffled()
+        let selected = Array(filtered.prefix(count))
+        return selected.map { v in
+            // 같은 품사에서 오답을 뽑아 더 어렵게
+            let samePOS = allVocabs.filter { $0.partOfSpeech == v.partOfSpeech && $0.korean != v.korean }
+            var distractors = Array(samePOS.map(\.korean).shuffled().prefix(3))
+            // 부족하면 다른 단어에서 채움
+            if distractors.count < 3 {
+                let others = allVocabs.filter { $0.korean != v.korean && !distractors.contains($0.korean) }
+                distractors += Array(others.map(\.korean).shuffled().prefix(3 - distractors.count))
+            }
+            var options = [v.korean] + Array(distractors.prefix(3))
+            options.shuffle()
+            return PlacementQuestion(
+                type: .vocabulary,
+                question: "'\(v.english)'의 뜻은?",
+                options: options,
+                correctAnswer: v.korean,
+                difficulty: targetLevel
+            )
+        }
+    }
+
+    private func makeGrammarQuestions(from grammars: [Grammar], level: Int, count: Int, targetLevel: Int) -> [PlacementQuestion] {
+        let filtered = grammars.filter { $0.difficultyLevel == level }.shuffled()
+        let selected = Array(filtered.prefix(count))
+        return selected.compactMap { g -> PlacementQuestion? in
+            guard !g.blankTarget.isEmpty else { return nil }
+            let sentenceWithBlank = g.correctExample.replacingOccurrences(of: g.blankTarget, with: "___")
+            guard sentenceWithBlank != g.correctExample else { return nil }
+
+            var distractors = g.distractors.components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && $0 != g.blankTarget }
+            while distractors.count < 3 {
+                distractors.append(["however", "therefore", "although", "moreover"].randomElement()!)
+            }
+            var options = [g.blankTarget] + Array(distractors.prefix(3))
+            options.shuffle()
+
+            return PlacementQuestion(
+                type: .grammar,
+                question: sentenceWithBlank,
+                options: options,
+                correctAnswer: g.blankTarget,
+                difficulty: targetLevel
+            )
+        }
+    }
+
+    private func fetchAllVocab() -> [Vocabulary] {
         let descriptor = FetchDescriptor<Vocabulary>(sortBy: [SortDescriptor(\.frequencyLevel)])
-        guard let all = try? modelContext.fetch(descriptor), !all.isEmpty else { return [] }
-        // 난이도별로 골고루 뽑기
-        let grouped = Dictionary(grouping: all, by: \.frequencyLevel)
-        var result: [Vocabulary] = []
-        for level in grouped.keys.sorted() {
-            let items = grouped[level] ?? []
-            result.append(contentsOf: items.shuffled().prefix(4))
-        }
-        return Array(result.shuffled().prefix(10))
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
-    private func fetchGrammarSample() -> [Grammar] {
+    private func fetchAllGrammar() -> [Grammar] {
         let descriptor = FetchDescriptor<Grammar>(sortBy: [SortDescriptor(\.difficultyLevel)])
-        guard let all = try? modelContext.fetch(descriptor), !all.isEmpty else { return [] }
-        let grouped = Dictionary(grouping: all, by: \.difficultyLevel)
-        var result: [Grammar] = []
-        for level in grouped.keys.sorted() {
-            let items = grouped[level] ?? []
-            result.append(contentsOf: items.shuffled().prefix(4))
-        }
-        return Array(result.shuffled().prefix(10))
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
-    private func generateVocabDistractors(correct: String, allVocabs: [Vocabulary]) -> [String] {
-        let pool = allVocabs.map(\.korean).filter { $0 != correct }
-        return Array(pool.shuffled().prefix(3))
-    }
+    // MARK: - Level Calculation
 
     private func calculateLevel() {
-        let correctCount = placementAnswers.filter { $0 }.count
-        // 20문제 중 정답 수에 따라 수준 결정
-        switch correctCount {
-        case 0..<5:   estimatedLevel = 1  // 600점 미만
-        case 5..<10:  estimatedLevel = 2  // 600점대
-        case 10..<14: estimatedLevel = 3  // 700점대
-        case 14..<18: estimatedLevel = 4  // 800점대
-        default:      estimatedLevel = 5  // 900점대
+        // 각 구간별 정답 수 계산
+        var scoreByLevel: [Int: Int] = [1: 0, 2: 0, 3: 0, 4: 0]
+        for a in placementAnswers {
+            if a.correct { scoreByLevel[a.level, default: 0] += 1 }
         }
+
+        let s600 = scoreByLevel[1] ?? 0  // /5
+        let s700 = scoreByLevel[2] ?? 0  // /5
+        let s800 = scoreByLevel[3] ?? 0  // /5
+        let s900 = scoreByLevel[4] ?? 0  // /5
+        let totalCorrect = s600 + s700 + s800 + s900
+
+        // 수준 결정 알고리즘:
+        // 1) 해당 구간 3개 이상 맞춰야 해당 구간 인정
+        // 2) 하위 구간 기본 점수 조건: 해당 구간 인정하려면 바로 아래 구간도 2개 이상 맞춰야 함
+        // 3) 가장 높은 인정 구간을 수준으로 결정
+        // 4) 어디도 인정 안되면 600점 미만
+
+        var level = 1  // 기본: 600점 미만 → estimatedLevel 1
+
+        if s600 >= 3 {
+            level = 2  // 600점대
+        }
+        if s600 >= 2 && s700 >= 3 {
+            level = 3  // 700점대
+        }
+        if s700 >= 2 && s800 >= 3 {
+            level = 4  // 800점대
+        }
+        if s800 >= 2 && s900 >= 3 {
+            level = 5  // 900점대
+        }
+
+        // 보정: 전체 정답이 매우 적으면 하향
+        if totalCorrect < 4 { level = 1 }
+
+        estimatedLevel = level
     }
+
+    // MARK: - Finish
 
     private func finishOnboarding(level: Int) {
         guard let userID = authManager.userID else { return }
 
-        // UserProfile 생성 또는 업데이트
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         let profile: UserProfile
@@ -382,14 +529,11 @@ struct OnboardingView: View {
         profile.hasCompletedOnboarding = true
         profile.hasCompletedPlacementTest = (step == .result)
 
-        // 목표 점수와 수준에 따른 일일 학습량 자동 설정
         let gap = max(0, selectedTarget - level * 100 - 400)
         profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
         profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
 
         try? modelContext.save()
-
-        // RootView에 온보딩 완료 알림 → MainDashboardView로 전환
         onComplete()
     }
 }
@@ -402,7 +546,7 @@ struct PlacementQuestion: Identifiable {
     let question: String
     let options: [String]
     let correctAnswer: String
-    let difficulty: Int
+    let difficulty: Int  // 1=600, 2=700, 3=800, 4=900
 
     enum QuestionType {
         case vocabulary, grammar
