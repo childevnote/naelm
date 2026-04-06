@@ -1,0 +1,34 @@
+# === Xcode ===
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Build
+build/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# CocoaPods / SPM
+Pods/
+.build/
+
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# === 개발일지 / 문서 (Git 제외) ===
+*.md
+!README.md
+
+# === Secrets / 환경 ===
+*.env
+*.pem
+*.p12
+*.key
