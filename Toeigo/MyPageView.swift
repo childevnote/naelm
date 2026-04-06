@@ -21,6 +21,8 @@ struct MyPageView: View {
     // 문제유형별 통계
     @State private var categoryCorrect: [String: Int] = [:]
     @State private var categoryIncorrect: [String: Int] = [:]
+    // 다크모드 설정
+    @AppStorage("appearanceMode") private var appearanceMode: Int = 0  // 0=시스템, 1=라이트, 2=다크
 
     var body: some View {
         NavigationStack {
@@ -107,7 +109,7 @@ struct MyPageView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
     }
 
-    // MARK: - Quiz Category Chart (도넛 그래프)
+    // MARK: - Quiz Category Chart (수평 바 차트)
 
     private var quizCategoryChart: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -118,48 +120,58 @@ struct MyPageView: View {
             if allCategories.isEmpty {
                 Text("아직 풀어본 문제가 없어요.").font(.caption).foregroundStyle(.secondary)
             } else {
-                HStack(alignment: .top, spacing: 16) {
-                    // 맞힌 문제 도넛
-                    VStack(spacing: 8) {
-                        Text("맞힌 문제").font(.caption).fontWeight(.semibold).foregroundStyle(BrandTheme.knewIt)
-                        donutChart(data: categoryCorrect, colors: correctPalette)
-                    }
-                    .frame(maxWidth: .infinity)
+                VStack(spacing: 10) {
+                    ForEach(allCategories, id: \.self) { cat in
+                        let correct = categoryCorrect[cat] ?? 0
+                        let incorrect = categoryIncorrect[cat] ?? 0
+                        let total = correct + incorrect
+                        let maxTotal = allCategories.map { (categoryCorrect[$0] ?? 0) + (categoryIncorrect[$0] ?? 0) }.max() ?? 1
 
-                    // 틀린 문제 도넛
-                    VStack(spacing: 8) {
-                        Text("틀린 문제").font(.caption).fontWeight(.semibold).foregroundStyle(.red)
-                        let hasIncorrect = categoryIncorrect.values.reduce(0, +) > 0
-                        if hasIncorrect {
-                            donutChart(data: categoryIncorrect, colors: incorrectPalette)
-                        } else {
-                            ZStack {
-                                Circle().stroke(Color.gray.opacity(0.15), lineWidth: 14)
-                                    .frame(width: 100, height: 100)
-                                Text("없음").font(.caption).foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(cat)
+                                    .font(.caption).fontWeight(.medium)
+                                Spacer()
+                                Text("\(correct)")
+                                    .font(.caption).fontWeight(.bold).foregroundStyle(BrandTheme.knewIt)
+                                Text("/")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                                Text("\(incorrect)")
+                                    .font(.caption).fontWeight(.bold).foregroundStyle(.red)
                             }
+                            GeometryReader { geo in
+                                let barWidth = geo.size.width * (Double(total) / Double(max(1, maxTotal)))
+                                let correctWidth = total > 0 ? barWidth * (Double(correct) / Double(total)) : 0
+
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.gray.opacity(0.1))
+                                        .frame(height: 10)
+
+                                    HStack(spacing: 0) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(BrandTheme.knewIt)
+                                            .frame(width: max(0, correctWidth), height: 10)
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color.red.opacity(0.6))
+                                            .frame(width: max(0, barWidth - correctWidth), height: 10)
+                                    }
+                                }
+                            }
+                            .frame(height: 10)
                         }
                     }
-                    .frame(maxWidth: .infinity)
                 }
 
                 // 범례
-                let total = categoryCorrect.merging(categoryIncorrect) { $0 + $1 }
-                let sorted = total.sorted { $0.value > $1.value }
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(sorted.prefix(6)), id: \.key) { cat, count in
-                        let idx = allCategories.firstIndex(of: cat) ?? 0
-                        HStack(spacing: 6) {
-                            Circle().fill(chartColor(index: idx)).frame(width: 8, height: 8)
-                            Text(cat).font(.caption2)
-                            Spacer()
-                            Text("\(categoryCorrect[cat] ?? 0)")
-                                .font(.caption2).fontWeight(.bold).foregroundStyle(BrandTheme.knewIt)
-                            Text("/")
-                                .font(.caption2).foregroundStyle(.secondary)
-                            Text("\(categoryIncorrect[cat] ?? 0)")
-                                .font(.caption2).fontWeight(.bold).foregroundStyle(.red)
-                        }
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Circle().fill(BrandTheme.knewIt).frame(width: 8, height: 8)
+                        Text("정답").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    HStack(spacing: 4) {
+                        Circle().fill(Color.red.opacity(0.6)).frame(width: 8, height: 8)
+                        Text("오답").font(.caption2).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.top, 4)
@@ -169,51 +181,28 @@ struct MyPageView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
     }
 
-    private func donutChart(data: [String: Int], colors: [Color]) -> some View {
-        let sorted = data.sorted { $0.value > $1.value }
-        let total = max(1, sorted.reduce(0) { $0 + $1.value })
-        let allCats = Set(Array(categoryCorrect.keys) + Array(categoryIncorrect.keys)).sorted()
-
-        return ZStack {
-            ForEach(Array(sorted.enumerated()), id: \.element.key) { i, entry in
-                let idx = allCats.firstIndex(of: entry.key) ?? i
-                let startAngle = angleFor(data: sorted, upTo: i, total: total)
-                let endAngle = angleFor(data: sorted, upTo: i + 1, total: total)
-                DonutSlice(startAngle: startAngle, endAngle: endAngle)
-                    .fill(chartColor(index: idx))
-            }
-            Circle().fill(Color(.systemBackground)).frame(width: 60, height: 60)
-            Text("\(total)")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(.secondary)
-        }
-        .frame(width: 100, height: 100)
-    }
-
-    private func angleFor(data: [(key: String, value: Int)], upTo index: Int, total: Int) -> Angle {
-        let sum = data.prefix(index).reduce(0) { $0 + $1.value }
-        return .degrees(Double(sum) / Double(total) * 360 - 90)
-    }
-
-    private func chartColor(index: Int) -> Color {
-        let palette: [Color] = [
-            BrandTheme.accent, .blue, .purple, .orange, .pink, .cyan, .indigo, .brown, .mint, .teal
-        ]
-        return palette[index % palette.count]
-    }
-
-    private var correctPalette: [Color] {
-        [BrandTheme.knewIt, .green.opacity(0.7), .green.opacity(0.5), .green.opacity(0.3)]
-    }
-    private var incorrectPalette: [Color] {
-        [.red, .red.opacity(0.7), .red.opacity(0.5), .red.opacity(0.3)]
-    }
-
     // MARK: - Settings
 
     private var learningSettings: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("설정").font(.headline)
+
+            // 화면 모드
+            HStack {
+                Label("화면 모드", systemImage: "circle.lefthalf.filled")
+                    .font(.subheadline)
+                Spacer()
+                Picker("", selection: $appearanceMode) {
+                    Text("시스템").tag(0)
+                    Text("라이트").tag(1)
+                    Text("다크").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 200)
+            }
+
+            Divider()
+
             Button { showResetAlert = true } label: {
                 HStack {
                     Label("전체 초기화", systemImage: "arrow.counterclockwise")
@@ -289,22 +278,3 @@ struct MyPageView: View {
     }
 }
 
-// MARK: - Donut Slice Shape
-
-struct DonutSlice: Shape {
-    var startAngle: Angle
-    var endAngle: Angle
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let outerRadius = min(rect.width, rect.height) / 2
-        let innerRadius = outerRadius * 0.6
-        var path = Path()
-        path.addArc(center: center, radius: outerRadius,
-                    startAngle: startAngle, endAngle: endAngle, clockwise: false)
-        path.addArc(center: center, radius: innerRadius,
-                    startAngle: endAngle, endAngle: startAngle, clockwise: true)
-        path.closeSubpath()
-        return path
-    }
-}

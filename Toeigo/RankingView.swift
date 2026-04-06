@@ -204,7 +204,7 @@ struct RankingView: View {
             ZStack {
                 if rank <= 3 {
                     Image(systemName: rank == 1 ? "crown.fill" : "medal.fill")
-                        .foregroundStyle(rank == 1 ? .yellow : rank == 2 ? .gray : .brown)
+                        .foregroundStyle(rank == 1 ? BrandTheme.accent : rank == 2 ? .gray : .brown)
                         .font(.title3)
                 }
                 Text("\(rank)")
