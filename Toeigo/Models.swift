@@ -16,7 +16,7 @@
 import Foundation
 import SwiftData
 
-// MARK: - �📋 TOEIC Score Range (점수 구간 열거형)
+// MARK: - TOEIC Score Range (점수 구간 열거형)
 
 /// 토익 점수 구간 (600~900, 100점 단위)
 /// frequencyLevel 1→600, 2→700, 3→800, 4→900 매핑
@@ -491,6 +491,25 @@ final class Friendship {
         self.friendID = friendID
         self.isBlocked = isBlocked
         self.isFriend = isFriend
+        self.createdAt = Date()
+    }
+}
+
+// MARK: - BookmarkedWord (저장한 단어)
+
+@Model
+final class BookmarkedWord {
+    var userID: String = ""
+    var wordID: String = ""
+
+    @Relationship var vocabulary: Vocabulary?
+
+    var createdAt: Date = Date()
+
+    init(userID: String, wordID: String, vocabulary: Vocabulary? = nil) {
+        self.userID = userID
+        self.wordID = wordID
+        self.vocabulary = vocabulary
         self.createdAt = Date()
     }
 }

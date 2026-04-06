@@ -31,6 +31,8 @@ final class CardViewModel {
     var dailyGoal: Int = 20
     /// 사용자 목표 점수
     var targetScore: Int = 700
+    /// 사용자 추정 수준 (frequencyLevel 1~5)
+    var estimatedLevel: Int = 2
 
     /// 15초 카드 타이머
     var timerRemaining: Double = 15.0
@@ -61,48 +63,51 @@ final class CardViewModel {
         isLoading = true
         isSessionComplete = false
 
-        // 1) 사용자 프로필에서 목표 점수 & 일일 목표 로드
+        // 1) 사용자 프로필에서 목표 점수 & 일일 목표 & 수준 로드
         loadUserProfile(userID: userID, context: context)
 
-        // 2) 목표 점수에 맞는 frequencyLevel 범위
+        // 2) 이미 숙달한 단어 ID 가져오기
+        let masteredPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.itemType == "vocabulary" && $0.isMastered == true
+        }
+        let masteredIDs = Set((try? context.fetch(FetchDescriptor<LearningProgress>(predicate: masteredPred)))?.compactMap { $0.vocabulary?.wordID } ?? [])
+
+        // 3) 전체 비숙달 단어 가져오기
+        let allDescriptor = FetchDescriptor<Vocabulary>(sortBy: [SortDescriptor(\.frequencyLevel)])
+        let allVocab = (try? context.fetch(allDescriptor))?.filter { !masteredIDs.contains($0.wordID) } ?? []
+
+        // 4) 수준 40% + 목표 60% 구성
+        let currentLevelFreq = max(1, estimatedLevel)  // estimatedLevel → frequencyLevel
         let targetLevels = TOEICScoreRange.frequencyLevels(forTarget: targetScore)
 
-        // 3) 복습 대상 단어
-        let dueWords = SpacedRepetitionService.fetchDueVocabulary(
-            userID: userID,
-            context: context
-        )
+        let currentLevelWords = allVocab.filter { $0.frequencyLevel == currentLevelFreq }.shuffled()
+        let targetLevelWords = allVocab.filter {
+            targetLevels.contains($0.frequencyLevel) && $0.frequencyLevel != currentLevelFreq
+        }.shuffled()
 
-        // 4) 새 단어
-        let newWordLimit = max(5, 15 - dueWords.count)
-        let newWords = SpacedRepetitionService.fetchNewVocabulary(
-            userID: userID,
-            limit: newWordLimit,
-            context: context
-        )
+        let currentCount = max(1, Int(Double(dailyGoal) * 0.4))
+        let targetCount = dailyGoal - currentCount
 
-        // 5) 합쳐서 목표 점수에 맞는 것만 필터
-        var deck = (dueWords + newWords).filter { vocab in
-            targetLevels.isEmpty || targetLevels.contains(vocab.frequencyLevel)
+        var deck: [Vocabulary] = []
+        deck += Array(currentLevelWords.prefix(currentCount))
+        deck += Array(targetLevelWords.prefix(targetCount))
+
+        // 부족하면 전체에서 채움
+        if deck.count < dailyGoal {
+            let existing = Set(deck.map(\.wordID))
+            let more = allVocab.filter { !existing.contains($0.wordID) }.shuffled()
+            deck += Array(more.prefix(dailyGoal - deck.count))
         }
 
-        // 6) Fallback
+        // Fallback: 아직 빈 덱
         if deck.isEmpty {
-            let allDescriptor = FetchDescriptor<Vocabulary>(
-                sortBy: [SortDescriptor(\.frequencyLevel)]
-            )
-            if let allVocab = try? context.fetch(allDescriptor) {
-                deck = allVocab.filter { targetLevels.isEmpty || targetLevels.contains($0.frequencyLevel) }
-                if deck.isEmpty { deck = Array(allVocab.prefix(20)) }
-                else { deck = Array(deck.prefix(20)) }
-            }
+            deck = Array(allVocab.prefix(dailyGoal))
         }
 
-        // 중복 제거
+        // 중복 제거 + 셔플
         var seen = Set<String>()
         deck = deck.filter { seen.insert($0.wordID).inserted }
         deck.shuffle()
-        // 세션 크기를 dailyGoal에 맞춤 (매 세션마다 일정 수 학습)
         cardDeck = Array(deck.prefix(dailyGoal))
 
         // 오늘 학습 카운트 로드
@@ -129,14 +134,44 @@ final class CardViewModel {
         }
 
         todayWordCount += 1
-        resetTimer()
+
+        // 마지막 카드가 아닐 때만 타이머 리셋 (마지막이면 handleAllCardsSwiped에서 정지)
+        let swipedCount = sessionStats.wordsStudied
+        if swipedCount < cardDeck.count {
+            resetTimer()
+        }
     }
 
     func handleAllCardsSwiped(context: ModelContext) {
         sessionManager.endSession(context: context)
         isSessionComplete = true
         stopTimer()
+        timerRemaining = 0
         HapticManager.shared.playCelebration()
+    }
+
+    /// 복습 대기 단어가 있는지 체크
+    func hasReviewWords(context: ModelContext) -> Bool {
+        let userID = sessionManager.userID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "vocabulary"
+        }
+        return ((try? context.fetchCount(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? 0) > 0
+    }
+
+    /// 복습 대기 단어로 덱 구성
+    func loadReviewDeck(context: ModelContext) {
+        isSessionComplete = false
+        let userID = sessionManager.userID
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "vocabulary"
+        }
+        let progresses = (try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? []
+        var deck = progresses.compactMap(\.vocabulary).shuffled()
+        deck = Array(deck.prefix(dailyGoal))
+        cardDeck = deck
+        sessionManager.startSession(userID: userID)
+        startTimer()
     }
 
     // MARK: - Timer
@@ -146,8 +181,7 @@ final class CardViewModel {
         isTimerRunning = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            Task { @MainActor [weak self] in
+            Task { @MainActor in
                 guard let self, self.isTimerRunning else { return }
                 self.timerRemaining -= 0.1
                 if self.timerRemaining <= 0 {
@@ -183,6 +217,10 @@ final class CardViewModel {
         if let profile = try? context.fetch(descriptor).first {
             targetScore = profile.targetScore
             dailyGoal = profile.dailyVocabGoal
+            estimatedLevel = profile.estimatedLevel
+            estimatedLevel = profile.estimatedLevel
+            estimatedLevel = profile.estimatedLevel
+            estimatedLevel = profile.estimatedLevel
         }
     }
 

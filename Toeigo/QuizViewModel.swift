@@ -79,25 +79,49 @@ final class QuizViewModel {
         selectedAnswer = nil
         isAnswerRevealed = false
 
+        // 사용자 프로필에서 수준 로드
+        let profilePred = #Predicate<UserProfile> { $0.userID == userID }
+        let estimatedLevel = (try? context.fetch(FetchDescriptor<UserProfile>(predicate: profilePred)).first?.estimatedLevel) ?? 2
+
         let targetLevels = TOEICScoreRange.frequencyLevels(forTarget: targetScore)
 
-        // 복습 대상
-        let dueGrammar = SpacedRepetitionService.fetchDueGrammar(userID: userID, context: context)
+        // 이미 숙달한 문법 ID 가져오기
+        let masteredPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.itemType == "grammar" && $0.isMastered == true
+        }
+        let masteredIDs = Set((try? context.fetch(FetchDescriptor<LearningProgress>(predicate: masteredPred)))?.compactMap { $0.grammar?.grammarID } ?? [])
 
-        // 전체
+        // 전체 문법 가져오기
         let allDescriptor = FetchDescriptor<Grammar>(sortBy: [SortDescriptor(\.difficultyLevel)])
         let allGrammar: [Grammar]
         do { allGrammar = try context.fetch(allDescriptor) }
         catch { isLoading = false; return }
 
-        // 목표 점수에 맞는 문법만
-        let filtered = allGrammar.filter { targetLevels.isEmpty || targetLevels.contains($0.difficultyLevel) }
+        // 비숙달 문법만
+        let nonMastered = allGrammar.filter { !masteredIDs.contains($0.grammarID) }
 
-        var quizItems = dueGrammar.filter { targetLevels.isEmpty || targetLevels.contains($0.difficultyLevel) }
-        let dueIDs = Set(quizItems.map(\.grammarID))
-        let newItems = filtered.filter { !dueIDs.contains($0.grammarID) }
-        let needed = max(0, 10 - quizItems.count)
-        quizItems += Array(newItems.shuffled().prefix(needed))
+        // 40% 현재수준 + 60% 목표수준
+        let currentLevelFreq = max(1, estimatedLevel)
+        let currentLevel = nonMastered.filter { $0.difficultyLevel == currentLevelFreq }.shuffled()
+        let targetLevel = nonMastered.filter {
+            targetLevels.contains($0.difficultyLevel) && $0.difficultyLevel != currentLevelFreq
+        }.shuffled()
+
+        let totalQuiz = 10
+        let currentCount = max(1, Int(Double(totalQuiz) * 0.4))
+        let targetCount = totalQuiz - currentCount
+
+        var quizItems: [Grammar] = []
+        quizItems += Array(currentLevel.prefix(currentCount))
+        quizItems += Array(targetLevel.prefix(targetCount))
+
+        // 부족하면 전체에서 채움
+        if quizItems.count < totalQuiz {
+            let existingIDs = Set(quizItems.map(\.grammarID))
+            let more = nonMastered.filter { !existingIDs.contains($0.grammarID) }.shuffled()
+            quizItems += Array(more.prefix(totalQuiz - quizItems.count))
+        }
+
         quizItems.shuffle()
 
         questions = quizItems.compactMap { grammar in
@@ -129,6 +153,35 @@ final class QuizViewModel {
             HapticManager.shared.playCelebration()
         } else {
             currentIndex += 1
+        }
+    }
+
+    /// 시간 초과 시: 복습에 추가하고 다음 문제로 넘어감
+    func skipAsTimeout(context: ModelContext) {
+        skipQuestion(reason: "(시간 초과)", context: context)
+    }
+
+    /// "모르겠다" 선택 시: 복습 추가 후 다음 문제로 넘어감
+    func skipAsDontKnow(context: ModelContext) {
+        skipQuestion(reason: "(모르겠다)", context: context)
+    }
+
+    /// 문제를 건너뛰는 공통 로직 (시간 초과 / 모르겠다)
+    private func skipQuestion(reason: String, context: ModelContext) {
+        guard let question = currentQuestion else { return }
+        answers.append(QuizAnswer(question: question, selectedAnswer: reason, isCorrect: false))
+        sessionManager.recordGrammarQuiz(grammar: question.grammar, isCorrect: false, context: context)
+        HapticManager.shared.playIncorrect()
+
+        if currentIndex + 1 >= questions.count {
+            sessionManager.endSession(context: context)
+            isQuizComplete = true
+            HapticManager.shared.playCelebration()
+        } else {
+            currentIndex += 1
+            selectedAnswer = nil
+            isAnswerRevealed = false
+            showExplanation = false
         }
     }
 
