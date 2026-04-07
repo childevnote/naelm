@@ -2,13 +2,13 @@
 //  SwipeableCardStack.swift
 //  Toeigo
 //
-//  단일 카드 스와이프 컴포넌트 v3.
+//  단일 카드 스와이프 컴포넌트 v4.
 //  ──────────────────────────────────────────────
-//  설계 원칙:
-//    · 화면에는 항상 카드 1장만 보임 (뒤에 희미한 다음 카드 힌트)
-//    · 스와이프/버튼 처리 완료 전까지 모든 입력 잠금
-//    · 오버레이(알고있어요/학습할게요) 표시 → 카드 날아감 → 다음 카드 페이드인
-//    · items 변경 시 currentIndex 자동 리셋 (복습 무한루프 지원)
+//  수정 포인트:
+//    · 드래그 후 손 뗄 때 이미 이동한 위치에서 그대로 날아감 (되돌아오지 않음)
+//    · 오버레이 → 날아감 → opacity 0 → 인덱스 증가 → 앞면으로 페이드인 순서 보장
+//    · 다음 카드는 항상 앞면으로 등장 (id 기반 VocabularyCardView 재생성)
+//    · 복습 세션 items 교체 시 currentIndex 리셋 (이중 트리거 방지)
 //  ──────────────────────────────────────────────
 
 import SwiftUI
@@ -23,11 +23,8 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     let items: [Item]
     let onSwiped: (Item, SwipeDirection) -> Void
     let onAllSwiped: () -> Void
-    @ViewBuilder let cardContent: (Item) -> CardContent
-
+    let cardContent: (Item) -> CardContent
     @Binding var externalSwipeTrigger: UUID
-
-    /// 카드와 버튼 사이에 표시할 추가 뷰 (현재 아이템 전달)
     var bookmarkContent: ((Item) -> AnyView)? = nil
 
     // MARK: - State
@@ -35,14 +32,16 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     @State private var currentIndex: Int = 0
     @State private var dragOffset: CGSize = .zero
     @State private var cardOpacity: Double = 1.0
-    @State private var isLocked: Bool = false       // 입력 완전 잠금
-    @State private var showOverlay: Bool = false
+    @State private var isLocked: Bool = false
+    /// 오버레이 표시 여부 및 방향 (드래그 중 / 버튼 확정 후)
+    @State private var overlayOpacity: Double = 0
     @State private var overlayDirection: SwipeDirection = .left
     @State private var hapticFired: Bool = false
-    @State private var itemsID: String = ""          // items 변경 감지용
+    /// items 교체 감지용 (복습 무한루프)
+    @State private var lastItemsID: String = ""
 
     private let swipeThreshold: CGFloat = 90
-    private let flyDistance: CGFloat = 700
+    private let flyDistance: CGFloat = 600
 
     init(
         items: [Item],
@@ -63,59 +62,42 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack {
-                // ── 다음 카드 (뒤에 희미하게) ──────────────────
-                if currentIndex + 1 < items.count {
-                    cardContent(items[currentIndex + 1])
-                        .scaleEffect(0.94)
-                        .opacity(0.35)
-                        .offset(y: 14)
-                        .allowsHitTesting(false)
-                        // 드래그 중에만 약간 앞으로 나오는 효과
-                        .scaleEffect(dragProgress > 0 ? 0.94 + dragProgress * 0.06 : 0.94)
-                        .animation(.easeOut(duration: 0.15), value: dragProgress)
-                }
+                // ── 다음 카드: 항상 뒤에 고정, 내용만 표시 (hitTest 없음) ──
+                nextCardView
 
-                // ── 현재 카드 ───────────────────────────────────
-                if currentIndex < items.count {
-                    cardContent(items[currentIndex])
-                        .overlay(swipeOverlayView)
-                        .offset(x: dragOffset.width, y: dragOffset.height * 0.12)
-                        .rotationEffect(.degrees(Double(dragOffset.width) / 18))
-                        .opacity(cardOpacity)
-                        .scaleEffect(isLocked && showOverlay ? 0.97 : 1.0)
-                        .animation(isLocked ? nil : .interpolatingSpring(stiffness: 320, damping: 26), value: dragOffset)
-                        .gesture(isLocked ? nil : dragGesture)
-                        .allowsHitTesting(!isLocked)
-                }
+                // ── 현재 카드 ──────────────────────────────────────────────
+                currentCardView
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                lastItemsID = makeItemsID()
+            }
+            .onChange(of: makeItemsID()) { _, newID in
+                guard newID != lastItemsID else { return }
+                lastItemsID = newID
+                // 복습 라운드 교체: 부드럽게 리셋
+                withAnimation(.easeOut(duration: 0.2)) {
+                    currentIndex = 0
+                    dragOffset = .zero
+                    cardOpacity = 1.0
+                    overlayOpacity = 0
+                    isLocked = false
+                }
+            }
             .onChange(of: externalSwipeTrigger) { _, _ in
                 guard !isLocked else { return }
-                performSwipe(direction: .right)
-            }
-            // items 배열이 교체되면 (복습 라운드 변경) currentIndex 리셋
-            .onChange(of: itemsID) { _, _ in
-                currentIndex = 0
-                dragOffset = .zero
-                cardOpacity = 1.0
-                isLocked = false
-            }
-            .onAppear {
-                itemsID = items.map { "\($0.id)" }.joined()
-            }
-            .onChange(of: items.count) { _, _ in
-                let newID = items.map { "\($0.id)" }.joined()
-                if newID != itemsID { itemsID = newID }
+                performSwipe(direction: .right, fromDrag: false, dragEndX: 0)
             }
 
-            // ── 저장 버튼 슬롯 ──────────────────────────────
+            // ── 저장 버튼 슬롯 ──────────────────────────────────────────
             if currentIndex < items.count, let bm = bookmarkContent {
                 bm(items[currentIndex])
-                    .opacity(isLocked ? 0.4 : 1.0)
+                    .opacity(isLocked ? 0.35 : 1.0)
                     .allowsHitTesting(!isLocked)
+                    .animation(.easeInOut(duration: 0.15), value: isLocked)
             }
 
-            // ── 버튼 영역 ────────────────────────────────────
+            // ── 액션 버튼 ───────────────────────────────────────────────
             if currentIndex < items.count {
                 actionButtons
                     .padding(.bottom, 16)
@@ -123,31 +105,61 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
         }
     }
 
-    // MARK: - Swipe Overlay
+    // MARK: - Next Card View
 
     @ViewBuilder
-    private var swipeOverlayView: some View {
-        if isDragging || (isLocked && showOverlay) {
-            let dir: SwipeDirection = isLocked ? overlayDirection : (dragOffset.width > 0 ? .right : .left)
-            let opacity: Double = isLocked ? 1.0 : min(1, abs(Double(dragOffset.width)) / Double(swipeThreshold))
+    private var nextCardView: some View {
+        if currentIndex + 1 < items.count {
+            cardContent(items[currentIndex + 1])
+                .id("next-\(items[currentIndex + 1].id)")   // 항상 앞면으로 재생성
+                .scaleEffect(0.94)
+                .opacity(isLocked ? 0 : 0.30)               // 잠금 중엔 완전히 숨김
+                .offset(y: 14)
+                .allowsHitTesting(false)
+                .animation(.easeOut(duration: 0.2), value: isLocked)
+        }
+    }
 
+    // MARK: - Current Card View
+
+    @ViewBuilder
+    private var currentCardView: some View {
+        if currentIndex < items.count {
+            cardContent(items[currentIndex])
+                .id("card-\(items[currentIndex].id)")       // 카드 교체 시 앞면으로 재생성
+                .overlay(overlayView)
+                .offset(x: dragOffset.width, y: dragOffset.height * 0.1)
+                .rotationEffect(.degrees(Double(dragOffset.width) / 20))
+                .opacity(cardOpacity)
+                .gesture(isLocked ? nil : dragGesture)
+                .allowsHitTesting(!isLocked)
+                // 드래그 중엔 즉시 반응, 아닐 땐 spring 복귀
+                .animation(isDragging ? nil : .interpolatingSpring(stiffness: 300, damping: 28),
+                           value: dragOffset)
+        }
+    }
+
+    // MARK: - Overlay (드래그 중 + 버튼 확정 공통)
+
+    @ViewBuilder
+    private var overlayView: some View {
+        if overlayOpacity > 0 {
             ZStack {
                 RoundedRectangle(cornerRadius: 24)
-                    .fill(
-                        dir == .left ? BrandTheme.knewIt.opacity(opacity * 0.3) : BrandTheme.studyIt.opacity(opacity * 0.3)
-                    )
+                    .fill(overlayDirection == .left
+                          ? BrandTheme.knewIt.opacity(overlayOpacity * 0.28)
+                          : BrandTheme.studyIt.opacity(overlayOpacity * 0.28))
 
                 VStack(spacing: 10) {
-                    Image(systemName: dir == .left ? "checkmark.seal.fill" : "bookmark.fill")
-                        .font(.system(size: 56, weight: .bold))
-                    Text(dir == .left ? "알고있어요!" : "학습할게요")
+                    Image(systemName: overlayDirection == .left ? "checkmark.seal.fill" : "bookmark.fill")
+                        .font(.system(size: 60, weight: .bold))
+                    Text(overlayDirection == .left ? "알고있어요!" : "학습할게요")
                         .font(.title2).fontWeight(.heavy)
                 }
-                .foregroundStyle(dir == .left ? BrandTheme.knewIt : BrandTheme.studyIt)
-                .opacity(opacity)
+                .foregroundStyle(overlayDirection == .left ? BrandTheme.knewIt : BrandTheme.studyIt)
+                .opacity(overlayOpacity)
             }
             .allowsHitTesting(false)
-            .transition(.opacity)
         }
     }
 
@@ -155,18 +167,21 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
 
     private var isDragging: Bool { dragOffset != .zero && !isLocked }
 
-    private var dragProgress: Double {
-        min(1.0, abs(Double(dragOffset.width)) / Double(swipeThreshold))
+    private func makeItemsID() -> String {
+        items.prefix(8).map { "\($0.id)" }.joined()
     }
 
     // MARK: - Drag Gesture
 
     private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
+        DragGesture(minimumDistance: 6)
             .onChanged { value in
                 dragOffset = value.translation
                 let ratio = abs(value.translation.width) / swipeThreshold
-                if ratio > 0.7 && !hapticFired {
+                // 드래그 중 실시간 오버레이
+                overlayDirection = value.translation.width > 0 ? .right : .left
+                overlayOpacity = min(1.0, ratio)
+                if ratio > 0.75 && !hapticFired {
                     hapticFired = true
                     HapticManager.shared.playSwipe()
                 }
@@ -174,80 +189,79 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             }
             .onEnded { value in
                 hapticFired = false
-                if value.translation.width > swipeThreshold {
-                    performSwipe(direction: .right)
-                } else if value.translation.width < -swipeThreshold {
-                    performSwipe(direction: .left)
+                let dx = value.translation.width
+                if abs(dx) > swipeThreshold {
+                    let dir: SwipeDirection = dx > 0 ? .right : .left
+                    // 손 뗀 위치 그대로 넘김 (되돌리지 않음)
+                    performSwipe(direction: dir, fromDrag: true, dragEndX: dx)
                 } else {
-                    // 취소 — 제자리로
-                    withAnimation(.interpolatingSpring(stiffness: 350, damping: 28)) {
+                    // 미달 → 오버레이 + 카드 제자리로
+                    withAnimation(.interpolatingSpring(stiffness: 350, damping: 26)) {
                         dragOffset = .zero
+                    }
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        overlayOpacity = 0
                     }
                 }
             }
     }
 
-    // MARK: - Swipe 실행 (버튼 + 드래그 + 외부 트리거 공통)
+    // MARK: - Swipe 실행
 
-    private func performSwipe(direction: SwipeDirection) {
+    private func performSwipe(direction: SwipeDirection, fromDrag: Bool, dragEndX: CGFloat) {
         guard currentIndex < items.count, !isLocked else { return }
         isLocked = true
         overlayDirection = direction
         HapticManager.shared.playSwipeComplete()
 
-        // 1) 드래그 오프셋 즉시 해제 (이미 손가락 뗀 상태)
-        withAnimation(.easeOut(duration: 0.05)) {
-            dragOffset = .zero
+        // 버튼 tap이면 오버레이 즉시 최대로
+        if !fromDrag {
+            withAnimation(.easeIn(duration: 0.12)) {
+                overlayOpacity = 1.0
+            }
         }
 
-        // 2) 오버레이 표시 (0.35초)
-        withAnimation(.easeIn(duration: 0.1)) {
-            showOverlay = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            // 3) 카드 날아가기
+        // 오버레이 표시 유지 후 카드 날아가기
+        let delay: Double = fromDrag ? 0.05 : 0.18
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             let flyX: CGFloat = direction == .right ? flyDistance : -flyDistance
-            withAnimation(.easeIn(duration: 0.22)) {
+            withAnimation(.easeIn(duration: 0.20)) {
                 dragOffset = CGSize(width: flyX, height: 0)
                 cardOpacity = 0
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                // 4) 콜백 호출 + 인덱스 증가
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
+                // 콜백 + 인덱스 증가
                 let item = items[currentIndex]
                 onSwiped(item, direction)
                 currentIndex += 1
+
+                // 오버레이·오프셋 초기화 (페이드인 전)
                 dragOffset = .zero
+                overlayOpacity = 0
                 cardOpacity = 0
-                showOverlay = false
 
                 if currentIndex >= items.count {
-                    // 완료
                     isLocked = false
                     onAllSwiped()
                 } else {
-                    // 5) 다음 카드 페이드인
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    // 다음 카드 페이드인
+                    withAnimation(.easeOut(duration: 0.22)) {
                         cardOpacity = 1.0
                     }
-                    isLocked = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                        isLocked = false
+                    }
                 }
             }
         }
-    }
-
-    // MARK: - Trigger (버튼용)
-
-    private func triggerSwipe(direction: SwipeDirection) {
-        performSwipe(direction: direction)
     }
 
     // MARK: - Action Buttons
 
     private var actionButtons: some View {
         HStack(spacing: 12) {
-            Button { triggerSwipe(direction: .left) } label: {
+            Button { performSwipe(direction: .left, fromDrag: false, dragEndX: 0) } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 20))
                     Text("알고있어요").font(.subheadline).fontWeight(.semibold)
@@ -263,7 +277,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             }
             .disabled(isLocked)
 
-            Button { triggerSwipe(direction: .right) } label: {
+            Button { performSwipe(direction: .right, fromDrag: false, dragEndX: 0) } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "bookmark.fill").font(.system(size: 20))
                     Text("학습할게요").font(.subheadline).fontWeight(.semibold)
@@ -280,8 +294,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             .disabled(isLocked)
         }
         .padding(.horizontal, 20)
-        // 잠금 중 블러 처리
-        .blur(radius: isLocked ? 1.5 : 0)
+        .opacity(isLocked ? 0.4 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isLocked)
     }
 }
