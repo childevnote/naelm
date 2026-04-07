@@ -23,6 +23,10 @@ struct MyPageView: View {
     @State private var categoryIncorrect: [String: Int] = [:]
     // 다크모드 설정
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0  // 0=시스템, 1=라이트, 2=다크
+    // 타이머 설정
+    @State private var timerEnabled: Bool = true
+    @State private var vocabTimerSeconds: Int = 15
+    @State private var grammarTimerSeconds: Int = 15
 
     var body: some View {
         NavigationStack {
@@ -30,6 +34,7 @@ struct MyPageView: View {
                 VStack(spacing: 20) {
                     profileCard
                     goalSection
+                    timerSettings
                     quizCategoryChart
                     learningSettings
                     accountSection
@@ -118,7 +123,9 @@ struct MyPageView: View {
             let allCategories = Set(Array(categoryCorrect.keys) + Array(categoryIncorrect.keys)).sorted()
 
             if allCategories.isEmpty {
-                Text("아직 풀어본 문제가 없어요.").font(.caption).foregroundStyle(.secondary)
+                Text("아직 풀어본 문제가 없어요.")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(spacing: 10) {
                     ForEach(allCategories, id: \.self) { cat in
@@ -181,6 +188,77 @@ struct MyPageView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
     }
 
+    // MARK: - Timer Settings
+
+    private var timerSettings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("시간 제한 설정").font(.headline)
+
+            // 시간 제한 ON/OFF 토글
+            HStack {
+                Label("시간 제한 기능", systemImage: "timer")
+                    .font(.subheadline)
+                Spacer()
+                Toggle("", isOn: $timerEnabled)
+                    .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
+            }
+
+            if timerEnabled {
+                Divider()
+
+                // 단어 타이머
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("단어 학습 시간", systemImage: "character.book.closed")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(vocabTimerSeconds)초")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(BrandTheme.accent)
+                            .frame(width: 44)
+                    }
+                    Slider(value: Binding(
+                        get: { Double(vocabTimerSeconds) },
+                        set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
+                    ), in: 5...25, step: 1)
+                    .tint(BrandTheme.accent)
+                    HStack {
+                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+
+                Divider()
+
+                // 문법 타이머
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("문법 학습 시간", systemImage: "text.book.closed")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(grammarTimerSeconds)초")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(BrandTheme.accent)
+                            .frame(width: 44)
+                    }
+                    Slider(value: Binding(
+                        get: { Double(grammarTimerSeconds) },
+                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
+                    ), in: 5...25, step: 1)
+                    .tint(BrandTheme.accent)
+                    HStack {
+                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+    }
+
     // MARK: - Settings
 
     private var learningSettings: some View {
@@ -235,6 +313,13 @@ struct MyPageView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
 
+        // 타이머 설정 로드
+        if let p = profile {
+            timerEnabled = p.timerEnabled
+            vocabTimerSeconds = p.vocabTimerSeconds
+            grammarTimerSeconds = p.grammarTimerSeconds
+        }
+
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         totalXP = GamificationService.totalXP(userID: userID, context: modelContext)
 
@@ -252,6 +337,14 @@ struct MyPageView: View {
         }
         categoryCorrect = correctMap
         categoryIncorrect = incorrectMap
+    }
+
+    private func saveTimerSettings() {
+        guard let p = profile else { return }
+        p.timerEnabled = timerEnabled
+        p.vocabTimerSeconds = vocabTimerSeconds
+        p.grammarTimerSeconds = grammarTimerSeconds
+        try? modelContext.save()
     }
 
     private func resetOnboarding() {
@@ -272,6 +365,10 @@ struct MyPageView: View {
         let scorePred = #Predicate<MonthlyScore> { $0.userID == userID }
         if let scores = try? modelContext.fetch(FetchDescriptor<MonthlyScore>(predicate: scorePred)) {
             for s in scores { modelContext.delete(s) }
+        }
+        let bookmarkPred = #Predicate<BookmarkedWord> { $0.userID == userID }
+        if let bookmarks = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: bookmarkPred)) {
+            for b in bookmarks { modelContext.delete(b) }
         }
         try? modelContext.save()
         authManager.needsOnboarding = true
