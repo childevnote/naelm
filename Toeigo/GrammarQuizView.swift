@@ -33,6 +33,8 @@ struct GrammarQuizView: View {
     @State private var targetScore: Int = 700
     @State private var speedFeedback: String? = nil
     @State private var showLeaveAlert = false
+    @State private var timerEnabled: Bool = true
+    @State private var grammarTimerDurationOverride: Double = 15.0
 
     init() {
         let sm = LearningSessionManager()
@@ -40,14 +42,7 @@ struct GrammarQuizView: View {
         _viewModel = State(initialValue: QuizViewModel(sessionManager: sm))
     }
 
-    private var grammarTimerDuration: Double {
-        switch targetScore {
-        case ..<700: return 15.0
-        case 700..<800: return 12.0
-        case 800..<900: return 9.0
-        default: return 6.0
-        }
-    }
+    private var grammarTimerDuration: Double { grammarTimerDurationOverride }
 
     var isGrammarSessionActive: Bool {
         !viewModel.questions.isEmpty && !viewModel.isQuizComplete && !viewModel.isLoading
@@ -149,22 +144,19 @@ struct GrammarQuizView: View {
     @ViewBuilder
     private func quizContentView(question: QuizQuestion) -> some View {
         VStack(spacing: 0) {
-            progressBar
-
-            // 타이머 바 (숫자 없이 바만)
-            grammarTimerBar
+            // 타이머 바 (활성화된 경우만 표시)
+            if timerEnabled {
+                grammarTimerBar
+            }
 
             ScrollView {
                 VStack(spacing: 24) {
-                    // 문제 번호 + XP 표시
+                    // 문제 번호
                     HStack {
                         Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
                             .font(.caption).fontWeight(.bold)
                             .foregroundStyle(BrandTheme.accent)
                         Spacer()
-                        Label("+\(sessionManager.stats.xpEarned) XP", systemImage: "star.fill")
-                            .font(.caption).fontWeight(.semibold)
-                            .foregroundStyle(BrandTheme.studyIt)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
@@ -244,6 +236,7 @@ struct GrammarQuizView: View {
     }
 
     private func startGrammarTimer() {
+        guard timerEnabled else { return }
         grammarTimerRemaining = grammarTimerDuration
         grammarTimerRunning = true
         grammarTimer?.invalidate()
@@ -253,8 +246,7 @@ struct GrammarQuizView: View {
                 grammarTimerRemaining -= 0.1
                 if grammarTimerRemaining <= 0 {
                     grammarTimerRunning = false
-                    // 시간 초과 → 오답 선택하지 않고 복습 추가 후 다음 문제로 넘어감
-                    if !viewModel.isAnswerRevealed {
+                    if !viewModel.isAnswerRevealed && timerEnabled {
                         viewModel.skipAsTimeout(context: modelContext)
                     }
                 }
@@ -612,9 +604,12 @@ struct GrammarQuizView: View {
         guard let userID = authManager.userID else { return }
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-        let ts = (try? modelContext.fetch(descriptor).first?.targetScore) ?? 700
-        targetScore = ts
-        viewModel.loadQuiz(userID: userID, context: modelContext, targetScore: ts)
+        if let p = try? modelContext.fetch(descriptor).first {
+            targetScore = p.targetScore
+            timerEnabled = p.timerEnabled
+            grammarTimerDurationOverride = Double(p.grammarTimerSeconds)
+        }
+        viewModel.loadQuiz(userID: userID, context: modelContext, targetScore: targetScore)
         startGrammarTimer()
     }
 
