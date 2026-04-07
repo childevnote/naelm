@@ -179,6 +179,10 @@ final class Vocabulary {
     @Relationship(deleteRule: .cascade, inverse: \LearningProgress.vocabulary)
     var learningProgress: [LearningProgress] = []
 
+    /// 다중 의미/품사 목록 (순서: order 필드 기준)
+    @Relationship(deleteRule: .cascade, inverse: \VocabularyMeaning.vocabulary)
+    var meanings: [VocabularyMeaning] = []
+
     // ── 이니셜라이저 ────────────────────────
     init(
         wordID: String,
@@ -530,25 +534,13 @@ final class VocabularyMeaning {
     @Attribute(.spotlight)
     var meaningID: String = ""
 
-    /// 품사 (예: "noun", "verb")
     var pos: String = ""
-
-    /// 한국어 의미
     var korean: String = ""
-
-    /// 예문 (영어)
     var exampleSentence: String = ""
-
-    /// 예문 (한국어)
     var exampleTranslation: String = ""
-
-    /// 유의어 목록
     var synonyms: String = ""
-
-    /// 표시 순서
     var order: Int = 1
 
-    /// 연결된 단어
     var vocabulary: Vocabulary?
 
     init(
