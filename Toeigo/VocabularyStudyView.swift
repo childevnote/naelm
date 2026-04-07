@@ -18,10 +18,10 @@ struct VocabularyStudyView: View {
     @State private var viewModel: CardViewModel
     @State private var sessionManager: LearningSessionManager
     @State private var cardStackID = UUID()
-    @State private var showLeaveAlert = false
     @State private var speedFeedback: String? = nil
     @State private var autoSwipeTrigger = UUID()
     @State private var bookmarkedIDs: Set<String> = []
+    @State private var showLeaveAlert = false
 
     /// 세션 활성 상태 (탭바 숨김용)
     var isSessionActive: Bool {
@@ -47,19 +47,15 @@ struct VocabularyStudyView: View {
                 } else if viewModel.cardDeck.isEmpty {
                     emptyDeckView
                 } else {
-                    VStack(spacing: 8) {
-                        todayProgressHeader
+                    VStack(spacing: 0) {
                         timerBar
-                        progressHeader
+                            .padding(.top, 4)
 
                         SwipeableCardStack(
                             items: viewModel.cardDeck,
                             externalSwipeTrigger: $autoSwipeTrigger,
                             onSwiped: { vocab, direction in
-                                // 속도 피드백 계산 (알고있어요 = left일 때만)
-                                if direction == .left {
-                                    showSpeedFeedback()
-                                }
+                                if direction == .left { showSpeedFeedback() }
                                 viewModel.handleSwipe(
                                     vocabulary: vocab,
                                     direction: direction,
@@ -70,15 +66,16 @@ struct VocabularyStudyView: View {
                                 viewModel.handleAllCardsSwiped(context: modelContext)
                             }
                         ) { vocab in
-                            VocabularyCardView(
-                                vocabulary: vocab,
-                                isBookmarked: bookmarkedIDs.contains(vocab.wordID),
-                                onBookmarkToggle: { toggleBookmark(vocab) }
-                            )
+                            VocabularyCardView(vocabulary: vocab)
                         }
                         .id(cardStackID)
+
+                        // 저장 버튼 — 카드와 알고있어요/학습할게요 사이
+                        if let currentVocab = viewModel.cardDeck.indices.contains(0) ? viewModel.cardDeck.first : nil {
+                            let _ = currentVocab // suppress warning; actual current card tracked via stack
+                        }
+                        bookmarkBarForCurrentCard
                     }
-                    .padding(.top, 4)
                 }
 
                 // 속도 피드백 토스트
@@ -98,6 +95,22 @@ struct VocabularyStudyView: View {
             }
             .navigationTitle("단어 학습")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(isSessionActive)
+            .toolbar {
+                if isSessionActive {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            showLeaveAlert = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("나가기")
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+                }
+            }
             .toolbar(isSessionActive ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete {
@@ -105,42 +118,56 @@ struct VocabularyStudyView: View {
                 }
                 loadBookmarkIDs()
                 viewModel.onTimerExpired = {
-                    // 시간 초과 → 학습할게요(오른쪽) 자동 스와이프
                     autoSwipeTrigger = UUID()
                 }
             }
             .onDisappear {
                 viewModel.stopTimer()
             }
-            .alert("학습 중단", isPresented: $showLeaveAlert) {
+            .alert("학습을 종료할까요?", isPresented: $showLeaveAlert) {
                 Button("계속 학습", role: .cancel) {}
                 Button("나가기", role: .destructive) { dismiss() }
             } message: {
-                Text("현재 진행 중인 학습 세션이 있습니다. 나가면 진행 상황이 저장되지 않습니다.")
+                Text("지금까지 학습한 내용이 저장되지 않습니다.")
             }
         }
     }
 
-    // MARK: - Today Progress
+    // MARK: - Bookmark Bar (카드·버튼 사이)
 
-    private var todayProgressHeader: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "calendar")
-                .foregroundStyle(BrandTheme.accent)
-            Text("오늘 \(viewModel.todayWordCount)/\(viewModel.dailyGoal)개 학습")
-                .font(.caption).fontWeight(.semibold)
+    @State private var currentCardIndex: Int = 0
 
-            Spacer()
-
-            // 목표 점수 표시
-            Text("목표 \(viewModel.targetScore)점")
-                .font(.caption2).fontWeight(.bold)
-                .foregroundStyle(.white)
-                .padding(.horizontal, 8).padding(.vertical, 3)
-                .background(BrandTheme.accent)
-                .clipShape(Capsule())
+    private var bookmarkBarForCurrentCard: some View {
+        Group {
+            if currentCardIndex < viewModel.cardDeck.count {
+                let vocab = viewModel.cardDeck[currentCardIndex]
+                let isBookmarked = bookmarkedIDs.contains(vocab.wordID)
+                Button {
+                    toggleBookmark(vocab)
+                    HapticManager.shared.playTap()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isBookmarked ? "star.fill" : "star")
+                            .font(.system(size: 16))
+                        Text(isBookmarked ? "저장됨" : "저장하기")
+                            .font(.subheadline).fontWeight(.medium)
+                    }
+                    .foregroundStyle(isBookmarked ? BrandTheme.accent : .secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(isBookmarked ? BrandTheme.accent.opacity(0.1) : Color(.secondarySystemBackground))
+                    )
+                    .padding(.horizontal, 20)
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
+        .onChange(of: viewModel.sessionStats.wordsStudied) { _, new in
+            currentCardIndex = new
+        }
     }
 
     // MARK: - Timer Bar
