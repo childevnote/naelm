@@ -279,7 +279,6 @@ struct DashboardView: View {
     // MARK: - Refresh
 
     private func refreshStats() {
-        Task { @MainActor in
         guard let userID = authManager.userID else { return }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
@@ -312,11 +311,11 @@ struct DashboardView: View {
         }
         dueGrammarCount = (try? modelContext.fetchCount(FetchDescriptor<LearningProgress>(predicate: grammarReviewPred))) ?? 0
 
-        // 총 학습일수 & 총 단어 수
+        // 총 학습일수 & 총 단어 수 (correctCount = 알고있어요만 카운트)
         let allActivityPred = #Predicate<UserActivity> { $0.userID == userID }
         let allActivities = (try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: allActivityPred))) ?? []
         totalDaysStudied = allActivities.filter { $0.wordsStudied > 0 || $0.grammarStudied > 0 }.count
-        totalWordsStudied = allActivities.reduce(0) { $0 + $1.wordsStudied }
+        totalWordsStudied = allActivities.reduce(0) { $0 + $1.quizCorrect }
 
         // 잔디밭용 최근 28일 데이터
         let calendar = Calendar.current
@@ -328,7 +327,6 @@ struct DashboardView: View {
             if day >= start { actMap[day, default: 0] += a.xpEarned }
         }
         monthlyActivity = actMap
-        }
     }
 }
 
@@ -410,16 +408,23 @@ struct VocabReviewContent: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
     @State private var reviewWords: [Vocabulary] = []
     @State private var sessionManager = LearningSessionManager()
     @State private var isComplete = false
+    @State private var cardStackID = UUID()
+    @State private var showLeaveAlert = false
+    /// 이번 라운드에서 학습할게요(오른쪽)를 선택한 단어들
+    @State private var currentRoundStudyWords: [Vocabulary] = []
+    /// 현재 라운드 남은 단어 수 (스와이프마다 감소)
+    @State private var remainingCount: Int = 0
 
     var body: some View {
         ZStack {
             (colorScheme == .dark ? BrandTheme.backgroundGradientDark : BrandTheme.backgroundGradient)
                 .ignoresSafeArea()
-            if reviewWords.isEmpty {
+            if reviewWords.isEmpty && !isComplete {
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(BrandTheme.knewIt)
                     Text("복습할 단어가 없어요!").font(.title3).fontWeight(.bold)
@@ -428,24 +433,75 @@ struct VocabReviewContent: View {
                 VStack(spacing: 20) {
                     Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(BrandTheme.studyIt)
                     Text("복습 완료!").font(.title).fontWeight(.bold)
+                    Text("모든 단어를 숙달했어요 🎉").font(.subheadline).foregroundStyle(.secondary)
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("홈으로", systemImage: "house.fill")
+                            .font(.headline)
+                            .frame(maxWidth: 280)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(BrandTheme.accent)
                 }
             } else {
-                SwipeableCardStack(
-                    items: reviewWords,
-                    onSwiped: { vocab, direction in
-                        let knewIt = direction == .left
-                        sessionManager.recordVocabularySwipe(vocabulary: vocab, knewIt: knewIt, context: modelContext)
-                        if knewIt { removeFromReview(vocabulary: vocab) }
-                    },
-                    onAllSwiped: {
-                        sessionManager.endSession(context: modelContext)
-                        isComplete = true
-                        HapticManager.shared.playCelebration()
+                VStack(spacing: 0) {
+                    // 남은 단어 수 표시
+                    HStack {
+                        Spacer()
+                        Text("남은 단어: \(remainingCount)개")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Spacer()
                     }
-                ) { vocab in VocabularyCardView(vocabulary: vocab) }
+                    .padding(.horizontal, 20).padding(.top, 8)
+
+                    SwipeableCardStack(
+                        items: reviewWords,
+                        onSwiped: { vocab, direction in
+                            let knewIt = direction == .left
+                            sessionManager.recordVocabularySwipe(vocabulary: vocab, knewIt: knewIt, context: modelContext)
+                            // 알고있어요든 학습할게요든 스와이프하면 남은 수 감소
+                            remainingCount = max(0, remainingCount - 1)
+                            if !knewIt {
+                                currentRoundStudyWords.append(vocab)
+                            }
+                        },
+                        onAllSwiped: {
+                            handleRoundComplete()
+                        }
+                    ) { vocab in VocabularyCardView(vocabulary: vocab) }
+                    .id(cardStackID)
+                }
+            }
+        }
+        .navigationBarBackButtonHidden(!isComplete)
+        .toolbar {
+            if !isComplete {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        showLeaveAlert = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("뒤로")
+                        }
+                        .font(.subheadline)
+                    }
+                }
             }
         }
         .onAppear { loadReviewWords() }
+        .alert("복습을 종료할까요?", isPresented: $showLeaveAlert) {
+            Button("계속 진행하기", role: .cancel) {}
+            Button("종료하기", role: .destructive) {
+                sessionManager.endSession(context: modelContext)
+                dismiss()
+            }
+        } message: {
+            Text("지금까지의 복습 결과가 저장됩니다.")
+        }
     }
 
     private func loadReviewWords() {
@@ -456,16 +512,20 @@ struct VocabReviewContent: View {
         }
         reviewWords = ((try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? [])
             .compactMap(\.vocabulary).shuffled()
+        currentRoundStudyWords = []
+        remainingCount = reviewWords.count
     }
 
-    private func removeFromReview(vocabulary: Vocabulary) {
-        guard let userID = authManager.userID else { return }
-        let wordID = vocabulary.wordID
-        let predicate = #Predicate<LearningProgress> {
-            $0.userID == userID && $0.vocabulary?.wordID == wordID
-        }
-        if let progress = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
-            progress.markedForReview = false
+    private func handleRoundComplete() {
+        if currentRoundStudyWords.isEmpty {
+            sessionManager.endSession(context: modelContext)
+            isComplete = true
+            HapticManager.shared.playCelebration()
+        } else {
+            reviewWords = currentRoundStudyWords.shuffled()
+            currentRoundStudyWords = []
+            remainingCount = reviewWords.count
+            cardStackID = UUID()
         }
     }
 }
@@ -588,6 +648,7 @@ struct GrammarReviewContent: View {
                                 .font(.body).foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
+                                .contentShape(Rectangle())
                                 .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
