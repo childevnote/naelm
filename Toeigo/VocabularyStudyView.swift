@@ -22,8 +22,6 @@ struct VocabularyStudyView: View {
     @State private var autoSwipeTrigger = UUID()
     @State private var bookmarkedIDs: Set<String> = []
     @State private var showLeaveAlert = false
-
-    /// 세션 활성 상태 (탭바 숨김용)
     var isSessionActive: Bool {
         !viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete && !viewModel.isLoading
     }
@@ -77,26 +75,21 @@ struct VocabularyStudyView: View {
                             },
                             onAllSwiped: {
                                 viewModel.handleAllCardsSwiped(context: modelContext)
-                            }
-                        ) { vocab in
-                            VocabularyCardView(
-                                vocabulary: vocab,
-                                onFlip: { isFlipped in
-                                    if isFlipped {
-                                        viewModel.pauseTimer()
-                                    } else {
-                                        viewModel.resumeTimer()
+                            },
+                            bookmarkContent: { vocab in
+                                AnyView(self.bookmarkBar(for: vocab))
+                            },
+                            cardContent: { vocab in
+                                VocabularyCardView(
+                                    vocabulary: vocab,
+                                    onFlip: { isFlipped in
+                                        if isFlipped { viewModel.pauseTimer() }
+                                        else { viewModel.resumeTimer() }
                                     }
-                                }
-                            )
-                        }
+                                )
+                            }
+                        )
                         .id(cardStackID)
-
-                        // 저장 버튼 — 카드와 알고있어요/학습할게요 사이
-                        if let currentVocab = viewModel.cardDeck.indices.contains(0) ? viewModel.cardDeck.first : nil {
-                            let _ = currentVocab // suppress warning; actual current card tracked via stack
-                        }
-                        bookmarkBarForCurrentCard
                     }
                 }
 
@@ -141,6 +134,9 @@ struct VocabularyStudyView: View {
                 loadBookmarkIDs()
                 viewModel.onTimerExpired = {
                     guard viewModel.timerEnabled else { return }
+                    guard viewModel.timerEnabled else { return }
+                    guard viewModel.timerEnabled else { return }
+                    guard viewModel.timerEnabled else { return }
                     autoSwipeTrigger = UUID()
                 }
             }
@@ -158,38 +154,31 @@ struct VocabularyStudyView: View {
 
     // MARK: - Bookmark Bar (카드·버튼 사이)
 
-    @State private var currentCardIndex: Int = 0
+    // MARK: - Bookmark Bar
 
-    private var bookmarkBarForCurrentCard: some View {
-        Group {
-            if currentCardIndex < viewModel.cardDeck.count {
-                let vocab = viewModel.cardDeck[currentCardIndex]
-                let isBookmarked = bookmarkedIDs.contains(vocab.wordID)
-                Button {
-                    toggleBookmark(vocab)
-                    HapticManager.shared.playTap()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: isBookmarked ? "star.fill" : "star")
-                            .font(.system(size: 16))
-                        Text(isBookmarked ? "저장됨" : "저장하기")
-                            .font(.subheadline).fontWeight(.medium)
-                    }
-                    .foregroundStyle(isBookmarked ? BrandTheme.accent : .secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(isBookmarked ? BrandTheme.accent.opacity(0.1) : Color(.secondarySystemBackground))
-                    )
-                    .padding(.horizontal, 20)
-                }
-                .buttonStyle(.plain)
+    private func bookmarkBar(for vocab: Vocabulary) -> some View {
+        let isBookmarked = bookmarkedIDs.contains(vocab.wordID)
+        return Button {
+            toggleBookmark(vocab)
+            HapticManager.shared.playTap()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: isBookmarked ? "star.fill" : "star")
+                    .font(.system(size: 16))
+                Text(isBookmarked ? "저장됨" : "저장하기")
+                    .font(.subheadline).fontWeight(.medium)
             }
+            .foregroundStyle(isBookmarked ? BrandTheme.accent : .secondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isBookmarked ? BrandTheme.accent.opacity(0.1) : Color(.secondarySystemBackground))
+            )
+            .padding(.horizontal, 20)
         }
-        .padding(.vertical, 6)
-        .onChange(of: viewModel.sessionStats.wordsStudied) { _, new in
-            currentCardIndex = new
+        .buttonStyle(.plain)
+        .padding(.vertical, 6)   currentCardIndex = new
         }
     }
 
