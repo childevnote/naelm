@@ -72,11 +72,24 @@ struct BookmarkListView: View {
                 Text(vocab.english)
                     .font(.headline).fontWeight(.bold)
 
-                Text(vocab.partOfSpeech)
-                    .font(.caption2)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Capsule().fill(BrandTheme.accent))
+                if vocab.hasMultipleMeanings {
+                    // 다중 의미: 모든 품사 뱃지 표시
+                    ForEach(vocab.sortedMeanings, id: \.meaningID) { meaning in
+                        if !meaning.pos.isEmpty {
+                            Text(meaning.pos)
+                                .font(.caption2)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Capsule().fill(BrandTheme.accent))
+                        }
+                    }
+                } else {
+                    Text(vocab.partOfSpeech)
+                        .font(.caption2)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Capsule().fill(BrandTheme.accent))
+                }
 
                 Spacer()
 
@@ -87,21 +100,52 @@ struct BookmarkListView: View {
             }
 
             if showMeaning {
-                Text(vocab.korean)
-                    .font(.subheadline).foregroundStyle(BrandTheme.accent)
+                if vocab.hasMultipleMeanings {
+                    // 다중 의미: 각 의미별로 표시
+                    ForEach(vocab.sortedMeanings, id: \.meaningID) { meaning in
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 4) {
+                                Text(meaning.pos)
+                                    .font(.caption2).fontWeight(.bold)
+                                    .foregroundStyle(BrandTheme.accent)
+                                Text(meaning.korean)
+                                    .font(.subheadline).foregroundStyle(BrandTheme.accent)
+                            }
 
-                if !vocab.exampleSentence.isEmpty {
-                    Text(vocab.exampleSentence)
-                        .font(.caption).foregroundStyle(.secondary).italic()
-                        .lineLimit(2)
-                }
+                            if !meaning.exampleSentence.isEmpty {
+                                Text(meaning.exampleSentence)
+                                    .font(.caption).foregroundStyle(.secondary).italic()
+                                    .lineLimit(2)
+                            }
 
-                if !vocab.synonyms.isEmpty {
-                    HStack(spacing: 4) {
-                        Text("유사어:")
-                            .font(.caption2).foregroundStyle(.tertiary)
-                        Text(vocab.synonyms)
-                            .font(.caption2).foregroundStyle(.secondary)
+                            if !meaning.synonyms.isEmpty {
+                                HStack(spacing: 4) {
+                                    Text("유사어:")
+                                        .font(.caption2).foregroundStyle(.tertiary)
+                                    Text(meaning.synonyms)
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // 단일 의미: 기존 표시
+                    Text(vocab.korean)
+                        .font(.subheadline).foregroundStyle(BrandTheme.accent)
+
+                    if !vocab.exampleSentence.isEmpty {
+                        Text(vocab.exampleSentence)
+                            .font(.caption).foregroundStyle(.secondary).italic()
+                            .lineLimit(2)
+                    }
+
+                    if !vocab.synonyms.isEmpty {
+                        HStack(spacing: 4) {
+                            Text("유사어:")
+                                .font(.caption2).foregroundStyle(.tertiary)
+                            Text(vocab.synonyms)
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
                     }
                 }
             } else {

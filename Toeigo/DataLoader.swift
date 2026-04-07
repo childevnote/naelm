@@ -18,18 +18,33 @@ import os
 
 // MARK: - JSON 디코딩용 DTO (Data Transfer Object)
 
+private struct VocabularyMeaningDTO: Decodable {
+    let meaningID: String
+    let pos: String?
+    let korean: String?
+    let exampleSentence: String?
+    let exampleTranslation: String?
+    let synonyms: String?
+    let order: Int?
+}
+
 private struct VocabularyDTO: Decodable {
     let wordID: String
     let english: String
-    let korean: String
     let pronunciation: String?
-    let partOfSpeech: String?
     let frequencyLevel: Int?
+    let category: String?
+    let dataVersion: Int?
+
+    // ── 단일 의미 단어용 플랫 필드 ──
+    let korean: String?
+    let partOfSpeech: String?
     let exampleSentence: String?
     let exampleTranslation: String?
-    let category: String?
     let synonyms: String?
-    let dataVersion: Int?
+
+    // ── 다중 의미 단어용 계층 필드 ──
+    let meanings: [VocabularyMeaningDTO]?
 }
 
 private struct GrammarDTO: Decodable {
@@ -94,7 +109,7 @@ final class DataLoader {
             let vocab = Vocabulary(
                 wordID: dto.wordID,
                 english: dto.english,
-                korean: dto.korean,
+                korean: dto.korean ?? "",
                 pronunciation: dto.pronunciation ?? "",
                 partOfSpeech: dto.partOfSpeech ?? "",
                 frequencyLevel: dto.frequencyLevel ?? 1,
@@ -105,6 +120,24 @@ final class DataLoader {
                 dataVersion: dto.dataVersion ?? 1
             )
             context.insert(vocab)
+
+            // 다중 의미 삽입
+            if let meaningDTOs = dto.meanings {
+                for mDTO in meaningDTOs {
+                    let meaning = VocabularyMeaning(
+                        meaningID: mDTO.meaningID,
+                        pos: mDTO.pos ?? "",
+                        korean: mDTO.korean ?? "",
+                        exampleSentence: mDTO.exampleSentence ?? "",
+                        exampleTranslation: mDTO.exampleTranslation ?? "",
+                        synonyms: mDTO.synonyms ?? "",
+                        order: mDTO.order ?? 1
+                    )
+                    meaning.vocabulary = vocab
+                    context.insert(meaning)
+                }
+            }
+
             insertedCount += 1
         }
 
