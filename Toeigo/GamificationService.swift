@@ -90,10 +90,11 @@ final class GamificationService {
         userID: String,
         context: ModelContext
     ) -> Int {
-        let descriptor = FetchDescriptor<UserActivity>(
+        var descriptor = FetchDescriptor<UserActivity>(
             predicate: #Predicate<UserActivity> { $0.userID == userID },
             sortBy: [SortDescriptor(\.activityDate, order: .reverse)]
         )
+        descriptor.propertiesToFetch = [\UserActivity.activityDate, \UserActivity.dailyGoalMet]
 
         do {
             let activities = try context.fetch(descriptor)
@@ -138,9 +139,10 @@ final class GamificationService {
         userID: String,
         context: ModelContext
     ) -> Int {
-        let descriptor = FetchDescriptor<UserActivity>(
+        var descriptor = FetchDescriptor<UserActivity>(
             predicate: #Predicate<UserActivity> { $0.userID == userID }
         )
+        descriptor.propertiesToFetch = [\UserActivity.xpEarned]
 
         do {
             let activities = try context.fetch(descriptor)

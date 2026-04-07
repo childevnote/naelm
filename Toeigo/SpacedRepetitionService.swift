@@ -263,7 +263,7 @@ final class SpacedRepetitionService {
             var allDescriptor = FetchDescriptor<Vocabulary>(
                 sortBy: [SortDescriptor(\.frequencyLevel)]
             )
-            allDescriptor.fetchLimit = limit + studiedWordIDs.count
+            allDescriptor.fetchLimit = max(limit * 5, 100)
 
             let allVocab = try context.fetch(allDescriptor)
             let newVocab = allVocab.filter { !studiedWordIDs.contains($0.wordID) && !masteredWordIDs.contains($0.wordID) }
