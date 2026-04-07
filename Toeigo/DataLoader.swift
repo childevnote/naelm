@@ -208,7 +208,8 @@ final class DataLoader {
     // MARK: - Private Helpers
 
     private static func fetchExistingVocabularyIDs(context: ModelContext) -> Set<String> {
-        let descriptor = FetchDescriptor<Vocabulary>()
+        var descriptor = FetchDescriptor<Vocabulary>()
+        descriptor.propertiesToFetch = [\Vocabulary.wordID]
         do {
             let existing = try context.fetch(descriptor)
             return Set(existing.map(\.wordID))
@@ -219,7 +220,8 @@ final class DataLoader {
     }
 
     private static func fetchExistingGrammarIDs(context: ModelContext) -> Set<String> {
-        let descriptor = FetchDescriptor<Grammar>()
+        var descriptor = FetchDescriptor<Grammar>()
+        descriptor.propertiesToFetch = [\Grammar.grammarID]
         do {
             let existing = try context.fetch(descriptor)
             return Set(existing.map(\.grammarID))
