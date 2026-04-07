@@ -14,6 +14,8 @@ struct VocabularyCardView: View {
     let vocabulary: Vocabulary
     var isBookmarked: Bool = false
     var onBookmarkToggle: (() -> Void)? = nil
+    /// 뒤집힘 상태 변경 시 호출 (true = 뒷면 보이는 중 → 타이머 정지)
+    var onFlip: ((Bool) -> Void)? = nil
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
@@ -41,6 +43,7 @@ struct VocabularyCardView: View {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 isFlipped.toggle()
             }
+            onFlip?(isFlipped)
             HapticManager.shared.playTap()
         }
     }

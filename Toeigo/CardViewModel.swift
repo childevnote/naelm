@@ -34,19 +34,17 @@ var targetScore: Int = 700
 /// 사용자 추정 수준 (frequencyLevel 1~5)
 var estimatedLevel: Int = 2
 
-/// 15초 카드 타이머
-var timerRemaining: Double = 15.0
-var isTimerRunning: Bool = false
+    /// 15초 카드 타이머
+    var timerRemaining: Double = 15.0
+    var isTimerRunning: Bool = false
 
-/// 목표 점수에 따른 제한 시간 (600→15, 700→12, 800→9, 900→6)
-var timerDuration: Double {
-    switch targetScore {
-    case ..<700: return 15.0
-    case 700..<800: return 12.0
-    case 800..<900: return 9.0
-    default: return 6.0
-    }
-}
+    /// 타이머 기능 활성화 여부 (프로필에서 로드)
+    var timerEnabled: Bool = true
+    /// 프로필에서 설정한 커스텀 타이머 시간 (초)
+    var customTimerSeconds: Int = 15
+
+    /// 제한 시간 — 프로필 커스텀 설정 우선, 없으면 목표 점수 기반
+    var timerDuration: Double { Double(customTimerSeconds) }
 
 // MARK: - Dependencies
 
@@ -176,31 +174,43 @@ func loadReviewDeck(context: ModelContext) {
 }
 
 // MARK: - Timer
-func startTimer() {
-    timerRemaining = timerDuration
-    isTimerRunning = true
-    timer?.invalidate()
-    timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-        guard let self else { return }
-        DispatchQueue.main.async {
-            guard self.isTimerRunning else { return }
-            self.timerRemaining -= 0.1
-            if self.timerRemaining <= 0 {
-                self.timerExpired()
+    func startTimer() {
+        guard timerEnabled else { return }
+        timerRemaining = timerDuration
+        isTimerRunning = true
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                guard self.isTimerRunning else { return }
+                self.timerRemaining -= 0.1
+                if self.timerRemaining <= 0 {
+                    self.timerExpired()
+                }
             }
         }
     }
-}
 
-func resetTimer() {
-    timerRemaining = timerDuration
-}
+    /// 타이머 일시정지 (카드 뒤집기 중)
+    func pauseTimer() {
+        isTimerRunning = false
+    }
 
-func stopTimer() {
-    isTimerRunning = false
-    timer?.invalidate()
-    timer = nil
-}
+    /// 타이머 재개 (카드 앞면 복귀)
+    func resumeTimer() {
+        guard timerEnabled else { return }
+        isTimerRunning = true
+    }
+
+    func resetTimer() {
+        timerRemaining = timerDuration
+    }
+
+    func stopTimer() {
+        isTimerRunning = false
+        timer?.invalidate()
+        timer = nil
+    }
 
 /// 타이머 만료 콜백
 var onTimerExpired: (() -> Void)?
@@ -212,15 +222,17 @@ private func timerExpired() {
 
 // MARK: - Private
 
-private func loadUserProfile(userID: String, context: ModelContext) {
-    let predicate = #Predicate<UserProfile> { $0.userID == userID }
-    let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-    if let profile = try? context.fetch(descriptor).first {
-        targetScore = profile.targetScore
-        dailyGoal = profile.dailyVocabGoal
-        estimatedLevel = profile.estimatedLevel
+    private func loadUserProfile(userID: String, context: ModelContext) {
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        if let profile = try? context.fetch(descriptor).first {
+            targetScore = profile.targetScore
+            dailyGoal = profile.dailyVocabGoal
+            estimatedLevel = profile.estimatedLevel
+            timerEnabled = profile.timerEnabled
+            customTimerSeconds = profile.vocabTimerSeconds
+        }
     }
-}
 
     private func loadTodayCount(userID: String, context: ModelContext) {
         if let activity = GamificationService.todayActivity(userID: userID, context: context) {

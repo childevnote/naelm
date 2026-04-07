@@ -48,8 +48,21 @@ struct VocabularyStudyView: View {
                     emptyDeckView
                 } else {
                     VStack(spacing: 0) {
-                        timerBar
-                            .padding(.top, 4)
+                        // 타이머 바 (활성화된 경우만 표시)
+                        if viewModel.timerEnabled {
+                            timerBar
+                                .padding(.top, 4)
+                        } else {
+                            Spacer().frame(height: 10)
+                        }
+
+                        // n/m 진행 표시
+                        if !viewModel.cardDeck.isEmpty {
+                            Text("\(viewModel.sessionStats.wordsStudied + 1)/\(viewModel.cardDeck.count)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 4)
+                        }
 
                         SwipeableCardStack(
                             items: viewModel.cardDeck,
@@ -66,7 +79,16 @@ struct VocabularyStudyView: View {
                                 viewModel.handleAllCardsSwiped(context: modelContext)
                             }
                         ) { vocab in
-                            VocabularyCardView(vocabulary: vocab)
+                            VocabularyCardView(
+                                vocabulary: vocab,
+                                onFlip: { isFlipped in
+                                    if isFlipped {
+                                        viewModel.pauseTimer()
+                                    } else {
+                                        viewModel.resumeTimer()
+                                    }
+                                }
+                            )
                         }
                         .id(cardStackID)
 
@@ -118,6 +140,7 @@ struct VocabularyStudyView: View {
                 }
                 loadBookmarkIDs()
                 viewModel.onTimerExpired = {
+                    guard viewModel.timerEnabled else { return }
                     autoSwipeTrigger = UUID()
                 }
             }
