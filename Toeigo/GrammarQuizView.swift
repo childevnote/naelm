@@ -31,8 +31,8 @@ struct GrammarQuizView: View {
     @State private var grammarTimerRunning: Bool = false
     @State private var grammarTimer: Timer? = nil
     @State private var targetScore: Int = 700
-    @State private var showLeaveAlert = false
     @State private var speedFeedback: String? = nil
+    @State private var showLeaveAlert = false
 
     init() {
         let sm = LearningSessionManager()
@@ -86,6 +86,22 @@ struct GrammarQuizView: View {
             }
             .navigationTitle("문법 퀴즈")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(isGrammarSessionActive)
+            .toolbar {
+                if isGrammarSessionActive {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button {
+                            showLeaveAlert = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("나가기")
+                            }
+                            .font(.subheadline)
+                        }
+                    }
+                }
+            }
             .toolbar(isGrammarSessionActive ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $viewModel.showExplanation) {
                 if let question = viewModel.currentQuestion {
@@ -100,6 +116,12 @@ struct GrammarQuizView: View {
             }
             .onDisappear {
                 stopGrammarTimer()
+            }
+            .alert("학습을 종료할까요?", isPresented: $showLeaveAlert) {
+                Button("계속 학습", role: .cancel) {}
+                Button("나가기", role: .destructive) { dismiss() }
+            } message: {
+                Text("지금까지 학습한 내용이 저장되지 않습니다.")
             }
             .onChange(of: viewModel.currentIndex) { _, _ in
                 resetGrammarTimer()
@@ -119,12 +141,6 @@ struct GrammarQuizView: View {
                     }
                 }
             }
-            .alert("학습 중단", isPresented: $showLeaveAlert) {
-                Button("계속 학습", role: .cancel) {}
-                Button("나가기", role: .destructive) { dismiss() }
-            } message: {
-                Text("현재 진행 중인 학습 세션이 있습니다. 나가면 진행 상황이 저장되지 않습니다.")
-            }
         }
     }
 
@@ -140,12 +156,15 @@ struct GrammarQuizView: View {
 
             ScrollView {
                 VStack(spacing: 24) {
-                    // 문제 번호만
+                    // 문제 번호 + XP 표시
                     HStack {
                         Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
                             .font(.caption).fontWeight(.bold)
                             .foregroundStyle(BrandTheme.accent)
                         Spacer()
+                        Label("+\(sessionManager.stats.xpEarned) XP", systemImage: "star.fill")
+                            .font(.caption).fontWeight(.semibold)
+                            .foregroundStyle(BrandTheme.studyIt)
                     }
                     .padding(.horizontal, 24)
                     .padding(.top, 20)
@@ -169,6 +188,7 @@ struct GrammarQuizView: View {
                                     .font(.body).foregroundStyle(.secondary)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
+                                    .contentShape(Rectangle())
                                     .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
                             }
                             .buttonStyle(.plain)
@@ -522,7 +542,7 @@ struct GrammarQuizView: View {
                         .padding(.vertical, 14)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.red)
+                .tint(.orange)
             }
 
             Button {
