@@ -134,9 +134,6 @@ struct VocabularyStudyView: View {
                 loadBookmarkIDs()
                 viewModel.onTimerExpired = {
                     guard viewModel.timerEnabled else { return }
-                    guard viewModel.timerEnabled else { return }
-                    guard viewModel.timerEnabled else { return }
-                    guard viewModel.timerEnabled else { return }
                     autoSwipeTrigger = UUID()
                 }
             }
@@ -178,8 +175,7 @@ struct VocabularyStudyView: View {
             .padding(.horizontal, 20)
         }
         .buttonStyle(.plain)
-        .padding(.vertical, 6)   currentCardIndex = new
-        }
+        .padding(.vertical, 6)
     }
 
     // MARK: - Timer Bar
