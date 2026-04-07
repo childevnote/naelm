@@ -24,6 +24,7 @@ struct ContentView: View {
     ContentView()
         .modelContainer(for: [
             Vocabulary.self,
+            VocabularyMeaning.self,
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,

@@ -30,6 +30,7 @@ struct ToeigoApp: App {
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Vocabulary.self,
+            VocabularyMeaning.self,
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,
@@ -373,6 +374,7 @@ struct MainDashboardView: View {
     RootView()
         .modelContainer(for: [
             Vocabulary.self,
+            VocabularyMeaning.self,
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,
@@ -393,6 +395,7 @@ struct MainDashboardView: View {
         .environment(AuthenticationManager())
         .modelContainer(for: [
             Vocabulary.self,
+            VocabularyMeaning.self,
             Grammar.self,
             LearningProgress.self,
             UserActivity.self,

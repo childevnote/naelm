@@ -95,7 +95,21 @@ struct VocabularyCardView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if !vocabulary.partOfSpeech.isEmpty {
+                // 품사 표시: 다중 의미 → 모든 품사, 단일 → 기존 단일 품사
+                if vocabulary.hasMultipleMeanings {
+                    HStack(spacing: 6) {
+                        ForEach(vocabulary.sortedMeanings, id: \.meaningID) { meaning in
+                            if !meaning.pos.isEmpty {
+                                Text(meaning.pos)
+                                    .font(.caption2).fontWeight(.medium)
+                                    .foregroundStyle(BrandTheme.accent)
+                                    .padding(.horizontal, 8).padding(.vertical, 3)
+                                    .background(BrandTheme.accent.opacity(0.12))
+                                    .clipShape(Capsule())
+                            }
+                        }
+                    }
+                } else if !vocabulary.partOfSpeech.isEmpty {
                     Text(vocabulary.partOfSpeech)
                         .font(.subheadline).fontWeight(.medium)
                         .foregroundStyle(BrandTheme.accent)
@@ -128,38 +142,12 @@ struct VocabularyCardView: View {
 
             Spacer()
 
-            VStack(spacing: 14) {
-                Text(vocabulary.english)
-                    .font(.title3).foregroundStyle(.secondary)
-
-                Text(vocabulary.korean)
-                    .font(.system(size: 28, weight: .bold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.center)
-
-                Divider().padding(.horizontal, 40)
-
-                if !vocabulary.exampleSentence.isEmpty {
-                    VStack(spacing: 5) {
-                        Text(vocabulary.exampleSentence)
-                            .font(.subheadline).italic()
-                            .multilineTextAlignment(.center)
-                        if !vocabulary.exampleTranslation.isEmpty {
-                            Text(vocabulary.exampleTranslation)
-                                .font(.caption).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-
-                if !vocabulary.synonyms.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "equal.circle").font(.caption2)
-                        Text(vocabulary.synonyms).font(.caption)
-                    }
-                    .foregroundStyle(.secondary).padding(.top, 2)
-                }
+            if vocabulary.hasMultipleMeanings {
+                // 다중 의미 카드 뒷면
+                multiMeaningBackContent
+            } else {
+                // 단일 의미 카드 뒷면 (기존)
+                singleMeaningBackContent
             }
 
             Spacer()
@@ -183,6 +171,98 @@ struct VocabularyCardView: View {
         .frame(width: cardWidth, height: cardHeight)
         .background(cardBg)
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(.quaternary, lineWidth: 1))
+    }
+
+    // MARK: - Back Content (단일 의미)
+
+    private var singleMeaningBackContent: some View {
+        VStack(spacing: 14) {
+            Text(vocabulary.english)
+                .font(.title3).foregroundStyle(.secondary)
+
+            Text(vocabulary.korean)
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+
+            Divider().padding(.horizontal, 40)
+
+            if !vocabulary.exampleSentence.isEmpty {
+                VStack(spacing: 5) {
+                    Text(vocabulary.exampleSentence)
+                        .font(.subheadline).italic()
+                        .multilineTextAlignment(.center)
+                    if !vocabulary.exampleTranslation.isEmpty {
+                        Text(vocabulary.exampleTranslation)
+                            .font(.caption).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                .padding(.horizontal, 20)
+            }
+
+            if !vocabulary.synonyms.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "equal.circle").font(.caption2)
+                    Text(vocabulary.synonyms).font(.caption)
+                }
+                .foregroundStyle(.secondary).padding(.top, 2)
+            }
+        }
+    }
+
+    // MARK: - Back Content (다중 의미)
+
+    private var multiMeaningBackContent: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 12) {
+                Text(vocabulary.english)
+                    .font(.title3).foregroundStyle(.secondary)
+
+                ForEach(vocabulary.sortedMeanings, id: \.meaningID) { meaning in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Text(meaning.pos)
+                                .font(.caption2).fontWeight(.bold)
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Capsule().fill(BrandTheme.accent))
+
+                            Text(meaning.korean)
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(.primary)
+                        }
+
+                        if !meaning.exampleSentence.isEmpty {
+                            Text(meaning.exampleSentence)
+                                .font(.caption).italic()
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+
+                        if !meaning.exampleTranslation.isEmpty {
+                            Text(meaning.exampleTranslation)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .lineLimit(2)
+                        }
+
+                        if !meaning.synonyms.isEmpty {
+                            HStack(spacing: 3) {
+                                Image(systemName: "equal.circle").font(.system(size: 8))
+                                Text(meaning.synonyms).font(.caption2)
+                            }
+                            .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(RoundedRectangle(cornerRadius: 10).fill(.ultraThinMaterial))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 8)
+        }
     }
 
     // MARK: - Helpers
