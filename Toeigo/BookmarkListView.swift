@@ -72,19 +72,13 @@ struct BookmarkListView: View {
                 Text(vocab.english)
                     .font(.headline).fontWeight(.bold)
 
-                if vocab.hasMultipleMeanings {
-                    // 다중 의미: 모든 품사 뱃지 표시
-                    ForEach(vocab.sortedMeanings, id: \.meaningID) { meaning in
-                        if !meaning.pos.isEmpty {
-                            Text(meaning.pos)
-                                .font(.caption2)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Capsule().fill(BrandTheme.accent))
-                        }
-                    }
-                } else {
-                    Text(vocab.partOfSpeech)
+                // 품사 (여러 개일 때 모두 표시)
+                let parts = vocab.partOfSpeech
+                    .components(separatedBy: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                ForEach(parts, id: \.self) { pos in
+                    Text(pos)
                         .font(.caption2)
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6).padding(.vertical, 2)
@@ -100,52 +94,35 @@ struct BookmarkListView: View {
             }
 
             if showMeaning {
-                if vocab.hasMultipleMeanings {
-                    // 다중 의미: 각 의미별로 표시
-                    ForEach(vocab.sortedMeanings, id: \.meaningID) { meaning in
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 4) {
-                                Text(meaning.pos)
-                                    .font(.caption2).fontWeight(.bold)
-                                    .foregroundStyle(BrandTheme.accent)
-                                Text(meaning.korean)
-                                    .font(.subheadline).foregroundStyle(BrandTheme.accent)
-                            }
-
-                            if !meaning.exampleSentence.isEmpty {
-                                Text(meaning.exampleSentence)
-                                    .font(.caption).foregroundStyle(.secondary).italic()
-                                    .lineLimit(2)
-                            }
-
-                            if !meaning.synonyms.isEmpty {
-                                HStack(spacing: 4) {
-                                    Text("유사어:")
-                                        .font(.caption2).foregroundStyle(.tertiary)
-                                    Text(meaning.synonyms)
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                            }
+                // 여러 의미를 줄바꿈으로 구분
+                let meanings = vocab.korean
+                    .components(separatedBy: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                if meanings.count > 1 {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(meanings.enumerated()), id: \.offset) { idx, meaning in
+                            Text("\(idx + 1). \(meaning)")
+                                .font(.subheadline).foregroundStyle(BrandTheme.accent)
                         }
                     }
                 } else {
-                    // 단일 의미: 기존 표시
                     Text(vocab.korean)
                         .font(.subheadline).foregroundStyle(BrandTheme.accent)
+                }
 
-                    if !vocab.exampleSentence.isEmpty {
-                        Text(vocab.exampleSentence)
-                            .font(.caption).foregroundStyle(.secondary).italic()
-                            .lineLimit(2)
-                    }
+                if !vocab.exampleSentence.isEmpty {
+                    Text(vocab.exampleSentence)
+                        .font(.caption).foregroundStyle(.secondary).italic()
+                        .lineLimit(2)
+                }
 
-                    if !vocab.synonyms.isEmpty {
-                        HStack(spacing: 4) {
-                            Text("유사어:")
-                                .font(.caption2).foregroundStyle(.tertiary)
-                            Text(vocab.synonyms)
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
+                if !vocab.synonyms.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("유사어:")
+                            .font(.caption2).foregroundStyle(.tertiary)
+                        Text(vocab.synonyms)
+                            .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
             } else {

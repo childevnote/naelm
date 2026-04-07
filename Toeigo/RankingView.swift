@@ -4,7 +4,7 @@
 //
 //  순위 시스템 — 친구/전체 순위, 매월 초기화
 //  ──────────────────────────────────────────────
-//  점수 계산: attempts × 0.3 + correctAnswers × 0.7
+//  점수 계산: 이번 달 XP 총합
 //  매월 1일 자동 리셋 (month 필드 기준)
 //  ──────────────────────────────────────────────
 
@@ -14,11 +14,6 @@ import SwiftData
 // MARK: - Ranking Score Calculator
 
 struct RankingService {
-
-    /// 순위 점수 계산: 시도 수 × 0.3 + 정답 수 × 0.7
-    static func calculateScore(attempts: Int, correct: Int) -> Double {
-        return Double(attempts) * 0.3 + Double(correct) * 0.7
-    }
 
     /// 현재 월 문자열 (예: "2026-04")
     static var currentMonth: String {
@@ -48,7 +43,7 @@ struct RankingService {
         return newScore
     }
 
-    /// 이번 달 점수 업데이트
+    /// 이번 달 점수 업데이트 — XP 총합 기반
     @MainActor
     static func updateMonthlyScore(
         userID: String,
@@ -66,12 +61,11 @@ struct RankingService {
         let descriptor = FetchDescriptor<UserActivity>(predicate: predicate)
         let activities = (try? context.fetch(descriptor)) ?? []
 
-        let totalAttempts = activities.reduce(0) { $0 + $1.quizTotal }
-        let totalCorrect = activities.reduce(0) { $0 + $1.quizCorrect }
-        let score = Int(calculateScore(attempts: totalAttempts, correct: totalCorrect))
+        // XP 총합을 점수로 사용
+        let totalXP = activities.reduce(0) { $0 + $1.xpEarned }
 
         let monthlyScore = fetchOrCreateMonthlyScore(userID: userID, context: context)
-        monthlyScore.score = score
+        monthlyScore.score = totalXP
     }
 
     /// 전체 유저 순위 (이번 달, CloudKit 동기화된 데이터)
@@ -174,7 +168,7 @@ struct RankingView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("내 순위")
                     .font(.caption).foregroundStyle(.secondary)
-                Text("\(myScore?.score ?? 0)점")
+                Text("\(myScore?.score ?? 0) XP")
                     .font(.title2).fontWeight(.bold)
             }
 
@@ -229,7 +223,7 @@ struct RankingView: View {
 
             Spacer()
 
-            Text("\(score.score)점")
+            Text("\(score.score) XP")
                 .font(.subheadline).fontWeight(.semibold)
                 .foregroundStyle(isMe ? BrandTheme.accent : .primary)
         }

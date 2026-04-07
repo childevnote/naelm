@@ -5,7 +5,7 @@
 //  디버그 전용 로깅 유틸리티.
 //  Release 빌드에서는 로그가 출력되지 않아 보안 위험을 방지한다.
 //
-
+import Foundation
 import os
 
 /// 앱 전용 로거. Release 빌드에서 민감 정보 노출을 방지한다.
