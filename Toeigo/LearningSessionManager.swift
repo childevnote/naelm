@@ -68,6 +68,20 @@ final class LearningSessionManager {
     /// 일일 기본 목표 XP
     static let defaultDailyGoalXP: Int = 100
 
+    // MARK: - Pending Record (세션 종료 시 일괄 반영)
+
+    /// 세션 중 기록된 단어 스와이프 결과 (DB 미반영 상태)
+    struct PendingVocabRecord {
+        let vocabulary: Vocabulary
+        let knewIt: Bool
+    }
+
+    /// 세션 중 기록된 문법 퀴즈 결과 (DB 미반영 상태)
+    struct PendingGrammarRecord {
+        let grammar: Grammar
+        let isCorrect: Bool
+    }
+
     // MARK: - 상태
 
     /// 현재 세션 통계
@@ -79,65 +93,107 @@ final class LearningSessionManager {
     /// 현재 사용자 ID (AuthenticationManager에서 전달)
     var userID: String = ""
 
+    /// 세션 중 대기 중인 단어 기록
+    private var pendingVocab: [PendingVocabRecord] = []
+
+    /// 세션 중 대기 중인 문법 기록
+    private var pendingGrammar: [PendingGrammarRecord] = []
+
     // MARK: - 세션 시작/종료
 
     /// 새 학습 세션을 시작합니다.
     func startSession(userID: String) {
         self.userID = userID
         self.stats = SessionStats()
+        self.pendingVocab = []
+        self.pendingGrammar = []
         self.isSessionActive = true
         AppLogger.session.info("Session started")
     }
 
-    /// 세션을 종료하고 UserActivity에 결과를 기록합니다.
+    /// 세션을 종료하고 모든 학습 결과를 DB에 일괄 반영합니다.
     func endSession(context: ModelContext) {
         guard isSessionActive else { return }
         isSessionActive = false
 
+        // 대기 중인 단어 기록을 DB에 반영
+        for record in pendingVocab {
+            let quality = record.knewIt ? 4 : 1
+            SpacedRepetitionService.recordVocabularyReview(
+                vocabulary: record.vocabulary,
+                quality: quality,
+                userID: userID,
+                context: context
+            )
+            if record.knewIt {
+                let wordID = record.vocabulary.wordID
+                let predicate = #Predicate<LearningProgress> {
+                    $0.userID == userID &&
+                    $0.itemType == "vocabulary" &&
+                    $0.vocabulary?.wordID == wordID
+                }
+                if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+                    progress.isMastered = true
+                    progress.markedForReview = false
+                }
+            } else {
+                let wordID = record.vocabulary.wordID
+                let predicate = #Predicate<LearningProgress> {
+                    $0.userID == userID &&
+                    $0.itemType == "vocabulary" &&
+                    $0.vocabulary?.wordID == wordID
+                }
+                if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+                    progress.markedForReview = true
+                }
+            }
+        }
+
+        // 대기 중인 문법 기록을 DB에 반영
+        for record in pendingGrammar {
+            let quality = record.isCorrect ? 4 : 1
+            SpacedRepetitionService.recordGrammarReview(
+                grammar: record.grammar,
+                quality: quality,
+                userID: userID,
+                context: context
+            )
+            let grammarID = record.grammar.grammarID
+            let predicate = #Predicate<LearningProgress> {
+                $0.userID == userID &&
+                $0.itemType == "grammar" &&
+                $0.grammar?.grammarID == grammarID
+            }
+            if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
+                if record.isCorrect {
+                    progress.isMastered = true
+                    progress.markedForReview = false
+                } else {
+                    progress.markedForReview = true
+                }
+            }
+        }
+
         // UserActivity에 오늘 학습 기록 저장
         saveUserActivity(context: context)
+
+        // 대기 목록 초기화
+        pendingVocab = []
+        pendingGrammar = []
 
         AppLogger.session.info("Session ended — Words: \(self.stats.wordsStudied), Grammar: \(self.stats.grammarStudied), XP: \(self.stats.xpEarned)")
     }
 
-    // MARK: - 단어 학습 기록
+    // MARK: - 단어 학습 기록 (메모리에만 저장)
 
-    /// 단어 스와이프 결과를 기록합니다.
-    ///
-    /// - Parameters:
-    ///   - vocabulary: 학습한 단어
-    ///   - knewIt: 알고 있었는지 여부 (true = 오른쪽 스와이프)
-    ///   - context: ModelContext
+    /// 단어 스와이프 결과를 기록합니다 (DB 반영은 endSession에서).
     func recordVocabularySwipe(
         vocabulary: Vocabulary,
         knewIt: Bool,
         context: ModelContext
     ) {
-        // SM-2 quality 매핑:
-        //   오른쪽 스와이프 (알고있음) → quality 4
-        //   왼쪽 스와이프 (모름) → quality 1
-        let quality = knewIt ? 4 : 1
-
-        SpacedRepetitionService.recordVocabularyReview(
-            vocabulary: vocabulary,
-            quality: quality,
-            userID: userID,
-            context: context
-        )
-
-        // "알고있어요" → 즉시 숙달 처리 (재출제 방지)
-        if knewIt {
-            let wordID = vocabulary.wordID
-            let predicate = #Predicate<LearningProgress> {
-                $0.userID == userID &&
-                $0.itemType == "vocabulary" &&
-                $0.vocabulary?.wordID == wordID
-            }
-            if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
-                progress.isMastered = true
-                progress.markedForReview = false
-            }
-        }
+        // 대기 목록에 추가 (DB 미반영)
+        pendingVocab.append(PendingVocabRecord(vocabulary: vocabulary, knewIt: knewIt))
 
         // 통계 업데이트
         stats.wordsStudied += 1
@@ -154,46 +210,16 @@ final class LearningSessionManager {
         HapticManager.shared.playSwipeComplete()
     }
 
-    // MARK: - 문법 퀴즈 기록
+    // MARK: - 문법 퀴즈 기록 (메모리에만 저장)
 
-    /// 문법 퀴즈 결과를 기록합니다.
-    ///
-    /// - Parameters:
-    ///   - grammar: 학습한 문법 항목
-    ///   - isCorrect: 정답 여부
-    ///   - context: ModelContext
+    /// 문법 퀴즈 결과를 기록합니다 (DB 반영은 endSession에서).
     func recordGrammarQuiz(
         grammar: Grammar,
         isCorrect: Bool,
         context: ModelContext
     ) {
-        // SM-2 quality 매핑:
-        //   정답 → quality 4
-        //   오답 → quality 1
-        let quality = isCorrect ? 4 : 1
-
-        SpacedRepetitionService.recordGrammarReview(
-            grammar: grammar,
-            quality: quality,
-            userID: userID,
-            context: context
-        )
-
-        // 복습 마킹 또는 숙달 처리
-        let grammarID = grammar.grammarID
-        let predicate = #Predicate<LearningProgress> {
-            $0.userID == userID &&
-            $0.itemType == "grammar" &&
-            $0.grammar?.grammarID == grammarID
-        }
-        if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
-            if isCorrect {
-                progress.isMastered = true
-                progress.markedForReview = false
-            } else {
-                progress.markedForReview = true
-            }
-        }
+        // 대기 목록에 추가 (DB 미반영)
+        pendingGrammar.append(PendingGrammarRecord(grammar: grammar, isCorrect: isCorrect))
 
         // 통계 업데이트
         stats.grammarStudied += 1
