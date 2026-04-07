@@ -105,6 +105,15 @@ final class UserProfile {
     /// 문법 일일 목표 개수
     var dailyGrammarGoal: Int = 10
 
+    /// 시간 제한 기능 활성화 여부
+    var timerEnabled: Bool = true
+
+    /// 단어 학습 제한 시간 (초, 5~25)
+    var vocabTimerSeconds: Int = 15
+
+    /// 문법 학습 제한 시간 (초, 5~25)
+    var grammarTimerSeconds: Int = 15
+
     /// 프로필 생성일
     var createdAt: Date = Date()
 
@@ -115,62 +124,10 @@ final class UserProfile {
     }
 }
 
-// MARK: - 📚 VocabularyMeaning (의미 계층 — 다중 품사/다중 의미 지원)
-
-/// 하나의 단어에 여러 품사나 서로 다른 뜻이 있을 때 사용하는 하위 모델.
-/// 예: "refund" → noun(환불) + verb(환불하다)
-@Model
-final class VocabularyMeaning {
-
-    /// 의미 고유 식별자 (예: "m_042_1")
-    var meaningID: String = ""
-
-    /// 품사 (예: "noun", "verb", "adjective")
-    var pos: String = ""
-
-    /// 한국어 뜻 (예: "환불, 반환")
-    var korean: String = ""
-
-    /// 예문 (영어)
-    var exampleSentence: String = ""
-
-    /// 예문 (한국어 번역)
-    var exampleTranslation: String = ""
-
-    /// 동의어 목록 (쉼표 구분 문자열)
-    var synonyms: String = ""
-
-    /// 정렬 순서 (1부터 시작)
-    var order: Int = 1
-
-    /// 소속 단어 (역방향 관계)
-    var vocabulary: Vocabulary?
-
-    init(
-        meaningID: String,
-        pos: String = "",
-        korean: String = "",
-        exampleSentence: String = "",
-        exampleTranslation: String = "",
-        synonyms: String = "",
-        order: Int = 1
-    ) {
-        self.meaningID = meaningID
-        self.pos = pos
-        self.korean = korean
-        self.exampleSentence = exampleSentence
-        self.exampleTranslation = exampleTranslation
-        self.synonyms = synonyms
-        self.order = order
-    }
-}
-
-// MARK: - 📗 Vocabulary (정적 데이터 — 번들 JSON에서 시딩)
+// MARK: - � Vocabulary (정적 데이터 — 번들 JSON에서 시딩)
 
 /// TOEIC 빈출 어휘 모델.
 /// 번들에서 시딩되며 사용자가 직접 수정하지 않는 정적 데이터입니다.
-/// 다중 의미가 있는 단어는 `meanings` 관계를 사용하고,
-/// 단일 의미 단어는 기존 플랫 필드(korean, partOfSpeech 등)를 사용합니다.
 @Model
 final class Vocabulary {
 
@@ -185,31 +142,29 @@ final class Vocabulary {
     /// 영어 단어 (예: "revenue")
     var english: String = ""
 
-    /// 한국어 뜻 — 단일 의미 단어용 (예: "수익, 매출")
-    /// 다중 의미 단어는 meanings 내부의 korean을 사용합니다.
+    /// 한국어 뜻 (예: "수익, 매출")
     var korean: String = ""
 
     /// 발음 기호 (예: "/ˈrev.ən.uː/")
     var pronunciation: String = ""
 
-    /// 품사 — 단일 의미 단어용 (예: "noun", "verb", "adjective")
-    /// 다중 의미 단어는 meanings 내부의 pos를 사용합니다.
+    /// 품사 (예: "noun", "verb", "adjective")
     var partOfSpeech: String = ""
 
     /// TOEIC 출제 빈도 등급 (1 = 최빈출, 5 = 저빈출)
     var frequencyLevel: Int = 1
 
     // ── 학습 보조 ───────────────────────────
-    /// 예문 (영어) — 단일 의미 단어용
+    /// 예문 (영어)
     var exampleSentence: String = ""
 
-    /// 예문 (한국어 번역) — 단일 의미 단어용
+    /// 예문 (한국어 번역)
     var exampleTranslation: String = ""
 
     /// TOEIC 카테고리 (예: "Finance", "HR", "Marketing")
     var category: String = ""
 
-    /// 동의어 목록 (쉼표 구분 문자열) — 단일 의미 단어용
+    /// 동의어 목록 (쉼표 구분 문자열)
     var synonyms: String = ""
 
     // ── 메타 ────────────────────────────────
@@ -224,44 +179,11 @@ final class Vocabulary {
     @Relationship(deleteRule: .cascade, inverse: \LearningProgress.vocabulary)
     var learningProgress: [LearningProgress] = []
 
-    /// 다중 의미 목록 (다중 품사/다중 의미 단어에만 존재)
-    @Relationship(deleteRule: .cascade, inverse: \VocabularyMeaning.vocabulary)
-    var meanings: [VocabularyMeaning] = []
-
-    // ── 편의 프로퍼티 ────────────────────────
-
-    /// 다중 의미 단어인지 여부
-    var hasMultipleMeanings: Bool {
-        !meanings.isEmpty
-    }
-
-    /// 정렬된 의미 목록 (order 기준)
-    var sortedMeanings: [VocabularyMeaning] {
-        meanings.sorted { $0.order < $1.order }
-    }
-
-    /// 표시용 한국어 뜻 (다중 의미 → 모든 의미 합침, 단일 의미 → korean 필드)
-    var displayKorean: String {
-        if hasMultipleMeanings {
-            return sortedMeanings.map { $0.korean }.joined(separator: " / ")
-        }
-        return korean
-    }
-
-    /// 표시용 품사 (다중 의미 → 모든 품사 합침, 단일 의미 → partOfSpeech 필드)
-    var displayPartOfSpeech: String {
-        if hasMultipleMeanings {
-            let uniquePOS = sortedMeanings.map { $0.pos }.filter { !$0.isEmpty }
-            return uniquePOS.joined(separator: " · ")
-        }
-        return partOfSpeech
-    }
-
     // ── 이니셜라이저 ────────────────────────
     init(
         wordID: String,
         english: String,
-        korean: String = "",
+        korean: String,
         pronunciation: String = "",
         partOfSpeech: String = "",
         frequencyLevel: Int = 1,
@@ -585,8 +507,7 @@ final class Friendship {
 // MARK: - BookmarkedWord (저장한 단어)
 
 @Model
-final class BookmarkedWord {
-    var userID: String = ""
+final class BookmarkedWord {    var userID: String = ""
     var wordID: String = ""
 
     @Relationship var vocabulary: Vocabulary?
@@ -598,5 +519,53 @@ final class BookmarkedWord {
         self.wordID = wordID
         self.vocabulary = vocabulary
         self.createdAt = Date()
+    }
+}
+
+// MARK: - VocabularyMeaning (단어별 다중 의미/품사)
+
+@Model
+final class VocabularyMeaning {
+
+    @Attribute(.spotlight)
+    var meaningID: String = ""
+
+    /// 품사 (예: "noun", "verb")
+    var pos: String = ""
+
+    /// 한국어 의미
+    var korean: String = ""
+
+    /// 예문 (영어)
+    var exampleSentence: String = ""
+
+    /// 예문 (한국어)
+    var exampleTranslation: String = ""
+
+    /// 유의어 목록
+    var synonyms: String = ""
+
+    /// 표시 순서
+    var order: Int = 1
+
+    /// 연결된 단어
+    var vocabulary: Vocabulary?
+
+    init(
+        meaningID: String,
+        pos: String = "",
+        korean: String = "",
+        exampleSentence: String = "",
+        exampleTranslation: String = "",
+        synonyms: String = "",
+        order: Int = 1
+    ) {
+        self.meaningID = meaningID
+        self.pos = pos
+        self.korean = korean
+        self.exampleSentence = exampleSentence
+        self.exampleTranslation = exampleTranslation
+        self.synonyms = synonyms
+        self.order = order
     }
 }
