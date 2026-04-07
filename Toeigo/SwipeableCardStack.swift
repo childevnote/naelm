@@ -169,35 +169,40 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     // MARK: - Action Buttons
 
     private var actionButtons: some View {
-        HStack(spacing: 32) {
+        HStack(spacing: 12) {
             Button { triggerSwipe(direction: .left) } label: {
-                VStack(spacing: 6) {
-                    Image(systemName: "checkmark.seal.fill").font(.system(size: 28))
-                    Text("알고있어요").font(.caption).fontWeight(.semibold)
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 20))
+                    Text("알고있어요").font(.subheadline).fontWeight(.semibold)
                 }
                 .foregroundStyle(.white)
-                .frame(width: 100, height: 70)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .contentShape(Rectangle())
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 14)
                         .fill(BrandTheme.knewIt)
-                        .shadow(color: BrandTheme.knewIt.opacity(0.4), radius: 8, y: 4)
+                        .shadow(color: BrandTheme.knewIt.opacity(0.3), radius: 6, y: 3)
                 )
             }
 
             Button { triggerSwipe(direction: .right) } label: {
-                VStack(spacing: 6) {
-                    Image(systemName: "bookmark.fill").font(.system(size: 28))
-                    Text("학습할게요").font(.caption).fontWeight(.semibold)
+                HStack(spacing: 8) {
+                    Image(systemName: "bookmark.fill").font(.system(size: 20))
+                    Text("학습할게요").font(.subheadline).fontWeight(.semibold)
                 }
                 .foregroundStyle(.white)
-                .frame(width: 100, height: 70)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .contentShape(Rectangle())
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: 14)
                         .fill(BrandTheme.studyIt)
-                        .shadow(color: BrandTheme.studyIt.opacity(0.4), radius: 8, y: 4)
+                        .shadow(color: BrandTheme.studyIt.opacity(0.3), radius: 6, y: 3)
                 )
             }
         }
+        .padding(.horizontal, 20)
     }
 
     // MARK: - Drag Gesture
@@ -263,6 +268,11 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             currentIndex += 1
             dragOffset = .zero
             isAnimating = false
+
+            // 모든 카드를 다 넘겼으면 완료 콜백 호출
+            if currentIndex >= items.count {
+                onAllSwiped()
+            }
         }
     }
 

@@ -17,51 +17,25 @@ struct VocabularyCardView: View {
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private let cardWidth: CGFloat = 340
-    private let cardHeight: CGFloat = 460
+    private let cardWidth: CGFloat = UIScreen.main.bounds.width - 32
+    private let cardHeight: CGFloat = 480
 
     var body: some View {
         ZStack {
-            // 뒷면: isFlipped일 때만 보임, 앞면 위에 렌더링
+            // 뒷면
             cardBack
                 .opacity(isFlipped ? 1 : 0)
                 .rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0))
                 .allowsHitTesting(isFlipped)
 
-            // 앞면: 뒤집히면 숨김
+            // 앞면
             cardFront
                 .opacity(isFlipped ? 0 : 1)
                 .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
                 .allowsHitTesting(!isFlipped)
-
-            // 북마크 버튼 (카드 하단 중앙)
-            if let toggle = onBookmarkToggle {
-                VStack {
-                    Spacer()
-                    Button {
-                        toggle()
-                        HapticManager.shared.playTap()
-                    } label: {
-                        VStack(spacing: 2) {
-                            Image(systemName: isBookmarked ? "star.fill" : "star")
-                                .font(.system(size: 20))
-                            Text("저장")
-                                .font(.system(size: 10, weight: .medium))
-                        }
-                        .foregroundStyle(isBookmarked ? BrandTheme.accent : .gray.opacity(0.6))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                        )
-                    }
-                    .padding(.bottom, 44)
-                }
-            }
         }
         .frame(width: cardWidth, height: cardHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 24))
         .drawingGroup()
         .onTapGesture {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
@@ -75,47 +49,34 @@ struct VocabularyCardView: View {
 
     private var cardFront: some View {
         VStack(spacing: 0) {
-            HStack {
-                categoryBadge
-                Spacer()
-                difficultyBadge
-            }
-            .padding(.horizontal, 20).padding(.top, 20)
-
             Spacer()
 
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Text(vocabulary.english)
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
 
                 if !vocabulary.pronunciation.isEmpty {
                     Text(vocabulary.pronunciation)
-                        .font(.system(size: 17, design: .monospaced))
+                        .font(.system(size: 18, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
 
-                // 품사 표시: 다중 의미 → 모든 품사, 단일 → 기존 단일 품사
-                if vocabulary.hasMultipleMeanings {
+                if !vocabulary.partOfSpeech.isEmpty {
+                    let parts = vocabulary.partOfSpeech
+                        .components(separatedBy: ",")
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
                     HStack(spacing: 6) {
-                        ForEach(vocabulary.sortedMeanings, id: \.meaningID) { meaning in
-                            if !meaning.pos.isEmpty {
-                                Text(meaning.pos)
-                                    .font(.caption2).fontWeight(.medium)
-                                    .foregroundStyle(BrandTheme.accent)
-                                    .padding(.horizontal, 8).padding(.vertical, 3)
-                                    .background(BrandTheme.accent.opacity(0.12))
-                                    .clipShape(Capsule())
-                            }
+                        ForEach(parts, id: \.self) { pos in
+                            Text(pos)
+                                .font(.subheadline).fontWeight(.medium)
+                                .foregroundStyle(BrandTheme.accent)
+                                .padding(.horizontal, 12).padding(.vertical, 4)
+                                .background(BrandTheme.accent.opacity(0.12))
+                                .clipShape(Capsule())
                         }
                     }
-                } else if !vocabulary.partOfSpeech.isEmpty {
-                    Text(vocabulary.partOfSpeech)
-                        .font(.subheadline).fontWeight(.medium)
-                        .foregroundStyle(BrandTheme.accent)
-                        .padding(.horizontal, 12).padding(.vertical, 4)
-                        .background(BrandTheme.accent.opacity(0.12))
-                        .clipShape(Capsule())
                 }
             }
 
@@ -126,28 +87,78 @@ struct VocabularyCardView: View {
                 Text("탭하여 뜻 보기")
             }
             .font(.caption).foregroundStyle(.tertiary)
-            .padding(.bottom, 20)
+            .padding(.bottom, 24)
         }
         .frame(width: cardWidth, height: cardHeight)
         .background(cardBg)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(.quaternary, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(.quaternary, lineWidth: 1))
     }
 
     // MARK: - Back
 
     private var cardBack: some View {
         VStack(spacing: 0) {
-            HStack { categoryBadge; Spacer() }
-                .padding(.horizontal, 20).padding(.top, 20)
-
             Spacer()
 
-            if vocabulary.hasMultipleMeanings {
-                // 다중 의미 카드 뒷면
-                multiMeaningBackContent
-            } else {
-                // 단일 의미 카드 뒷면 (기존)
-                singleMeaningBackContent
+            VStack(spacing: 14) {
+                Text(vocabulary.english)
+                    .font(.title3).foregroundStyle(.secondary)
+
+                // 품사 표시
+                if !vocabulary.partOfSpeech.isEmpty {
+                    let parts = vocabulary.partOfSpeech
+                        .components(separatedBy: ",")
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                    HStack(spacing: 6) {
+                        ForEach(parts, id: \.self) { pos in
+                            Text(pos)
+                                .font(.caption2).fontWeight(.semibold)
+                                .foregroundStyle(BrandTheme.accent)
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .background(BrandTheme.accent.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+
+                // 한국어 의미
+                let meanings = vocabulary.korean
+                    .components(separatedBy: ",")
+                    .map { $0.trimmingCharacters(in: .whitespaces) }
+                    .filter { !$0.isEmpty }
+                VStack(spacing: 4) {
+                    ForEach(Array(meanings.enumerated()), id: \.offset) { idx, meaning in
+                        Text("\(idx + 1). \(meaning)")
+                            .font(.system(size: meanings.count > 1 ? 24 : 30, weight: .bold))
+                            .foregroundStyle(.primary)
+                    }
+                }
+                .multilineTextAlignment(.center)
+
+                Divider().padding(.horizontal, 40)
+
+                if !vocabulary.exampleSentence.isEmpty {
+                    VStack(spacing: 5) {
+                        Text(vocabulary.exampleSentence)
+                            .font(.subheadline).italic()
+                            .multilineTextAlignment(.center)
+                        if !vocabulary.exampleTranslation.isEmpty {
+                            Text(vocabulary.exampleTranslation)
+                                .font(.caption).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                }
+
+                if !vocabulary.synonyms.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "equal.circle").font(.caption2)
+                        Text(vocabulary.synonyms).font(.caption)
+                    }
+                    .foregroundStyle(.secondary).padding(.top, 2)
+                }
             }
 
             Spacer()
@@ -166,143 +177,19 @@ struct VocabularyCardView: View {
                 }
                 .font(.caption).foregroundStyle(BrandTheme.studyIt)
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, 24)
         }
         .frame(width: cardWidth, height: cardHeight)
         .background(cardBg)
-        .overlay(RoundedRectangle(cornerRadius: 20).stroke(.quaternary, lineWidth: 1))
-    }
-
-    // MARK: - Back Content (단일 의미)
-
-    private var singleMeaningBackContent: some View {
-        VStack(spacing: 14) {
-            Text(vocabulary.english)
-                .font(.title3).foregroundStyle(.secondary)
-
-            Text(vocabulary.korean)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.center)
-
-            Divider().padding(.horizontal, 40)
-
-            if !vocabulary.exampleSentence.isEmpty {
-                VStack(spacing: 5) {
-                    Text(vocabulary.exampleSentence)
-                        .font(.subheadline).italic()
-                        .multilineTextAlignment(.center)
-                    if !vocabulary.exampleTranslation.isEmpty {
-                        Text(vocabulary.exampleTranslation)
-                            .font(.caption).foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(.horizontal, 20)
-            }
-
-            if !vocabulary.synonyms.isEmpty {
-                HStack(spacing: 4) {
-                    Image(systemName: "equal.circle").font(.caption2)
-                    Text(vocabulary.synonyms).font(.caption)
-                }
-                .foregroundStyle(.secondary).padding(.top, 2)
-            }
-        }
-    }
-
-    // MARK: - Back Content (다중 의미)
-
-    private var multiMeaningBackContent: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(spacing: 12) {
-                Text(vocabulary.english)
-                    .font(.title3).foregroundStyle(.secondary)
-
-                ForEach(vocabulary.sortedMeanings, id: \.meaningID) { meaning in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
-                            Text(meaning.pos)
-                                .font(.caption2).fontWeight(.bold)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Capsule().fill(BrandTheme.accent))
-
-                            Text(meaning.korean)
-                                .font(.system(size: 18, weight: .bold))
-                                .foregroundStyle(.primary)
-                        }
-
-                        if !meaning.exampleSentence.isEmpty {
-                            Text(meaning.exampleSentence)
-                                .font(.caption).italic()
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                        }
-
-                        if !meaning.exampleTranslation.isEmpty {
-                            Text(meaning.exampleTranslation)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                                .lineLimit(2)
-                        }
-
-                        if !meaning.synonyms.isEmpty {
-                            HStack(spacing: 3) {
-                                Image(systemName: "equal.circle").font(.system(size: 8))
-                                Text(meaning.synonyms).font(.caption2)
-                            }
-                            .foregroundStyle(.tertiary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(.ultraThinMaterial))
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
-        }
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(.quaternary, lineWidth: 1))
     }
 
     // MARK: - Helpers
 
     private var cardBg: some View {
-        RoundedRectangle(cornerRadius: 20)
+        RoundedRectangle(cornerRadius: 24)
             .fill(colorScheme == .dark ? BrandTheme.cardBackgroundDark : BrandTheme.cardBackground)
             .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.12), radius: 16, y: 8)
-    }
-
-    private var categoryBadge: some View {
-        Text(vocabulary.category.isEmpty ? "General" : vocabulary.category)
-            .font(.caption2).fontWeight(.semibold)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(categoryColor)
-            .clipShape(Capsule())
-    }
-
-    private var difficultyBadge: some View {
-        let range = TOEICScoreRange.from(frequencyLevel: vocabulary.frequencyLevel)
-        return Text(range.shortLabel + "점")
-            .font(.caption2).fontWeight(.bold)
-            .foregroundStyle(.white)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(range.rawValue >= 4 ? Color.purple : BrandTheme.accent)
-            .clipShape(Capsule())
-    }
-
-    private var categoryColor: Color {
-        switch vocabulary.category.lowercased() {
-        case "finance": return BrandTheme.accent
-        case "hr": return .purple
-        case "marketing": return .pink
-        case "legal": return .red
-        case "travel": return .cyan
-        case "facilities": return .brown
-        case "industry": return .indigo
-        default: return BrandTheme.accentLight
-        }
     }
 }
 
