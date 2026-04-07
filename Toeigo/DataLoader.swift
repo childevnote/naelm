@@ -109,6 +109,7 @@ final class DataLoader {
             let vocab = Vocabulary(
                 wordID: dto.wordID,
                 english: dto.english,
+                // 다중 의미 단어는 meanings 배열 내부에 korean이 있으므로 플랫 필드는 빈 문자열이 됨
                 korean: dto.korean ?? "",
                 pronunciation: dto.pronunciation ?? "",
                 partOfSpeech: dto.partOfSpeech ?? "",
