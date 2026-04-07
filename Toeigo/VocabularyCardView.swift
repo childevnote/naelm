@@ -2,9 +2,7 @@
 //  VocabularyCardView.swift
 //  Toeigo
 //
-//  Created by 김동진 on 4/4/26.
-//
-//  단어 카드 UI — 브랜드 컬러 적용, 다크모드 대응.
+//  단어 카드 UI — 3D 플립, meanings 배열 우선 표시, 다크모드 대응.
 //
 
 import SwiftUI
@@ -12,35 +10,43 @@ import SwiftUI
 struct VocabularyCardView: View {
 
     let vocabulary: Vocabulary
-    var isBookmarked: Bool = false
-    var onBookmarkToggle: (() -> Void)? = nil
-    /// 뒤집힘 상태 변경 시 호출 (true = 뒷면 보이는 중 → 타이머 정지)
     var onFlip: ((Bool) -> Void)? = nil
+
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
     private let cardWidth: CGFloat = UIScreen.main.bounds.width - 32
     private let cardHeight: CGFloat = 480
 
+    // meanings 배열 정렬 (order 순서대로)
+    private var sortedMeanings: [VocabularyMeaning] {
+        vocabulary.meanings.sorted { $0.order < $1.order }
+    }
+
     var body: some View {
         ZStack {
-            // 뒷면
             cardBack
                 .opacity(isFlipped ? 1 : 0)
-                .rotation3DEffect(.degrees(isFlipped ? 0 : -180), axis: (x: 0, y: 1, z: 0))
+                .rotation3DEffect(
+                    .degrees(isFlipped ? 0 : 180),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.4
+                )
                 .allowsHitTesting(isFlipped)
 
-            // 앞면
             cardFront
                 .opacity(isFlipped ? 0 : 1)
-                .rotation3DEffect(.degrees(isFlipped ? 180 : 0), axis: (x: 0, y: 1, z: 0))
+                .rotation3DEffect(
+                    .degrees(isFlipped ? -180 : 0),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.4
+                )
                 .allowsHitTesting(!isFlipped)
         }
         .frame(width: cardWidth, height: cardHeight)
         .clipShape(RoundedRectangle(cornerRadius: 24))
-        .drawingGroup()
         .onTapGesture {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                 isFlipped.toggle()
             }
             onFlip?(isFlipped)
@@ -53,25 +59,20 @@ struct VocabularyCardView: View {
     private var cardFront: some View {
         VStack(spacing: 0) {
             Spacer()
-
-            VStack(spacing: 14) {
+            VStack(spacing: 16) {
                 Text(vocabulary.english)
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary)
-
+                    .multilineTextAlignment(.center)
                 if !vocabulary.pronunciation.isEmpty {
                     Text(vocabulary.pronunciation)
                         .font(.system(size: 18, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
-
-                if !vocabulary.partOfSpeech.isEmpty {
-                    let parts = vocabulary.partOfSpeech
-                        .components(separatedBy: ",")
-                        .map { $0.trimmingCharacters(in: .whitespaces) }
-                        .filter { !$0.isEmpty }
+                let posList = posBadges
+                if !posList.isEmpty {
                     HStack(spacing: 6) {
-                        ForEach(parts, id: \.self) { pos in
+                        ForEach(posList, id: \.self) { pos in
                             Text(pos)
                                 .font(.subheadline).fontWeight(.medium)
                                 .foregroundStyle(BrandTheme.accent)
@@ -82,9 +83,8 @@ struct VocabularyCardView: View {
                     }
                 }
             }
-
+            .padding(.horizontal, 24)
             Spacer()
-
             HStack(spacing: 4) {
                 Image(systemName: "hand.tap")
                 Text("탭하여 뜻 보기")
@@ -101,79 +101,27 @@ struct VocabularyCardView: View {
 
     private var cardBack: some View {
         VStack(spacing: 0) {
-            Spacer()
-
-            VStack(spacing: 14) {
-                Text(vocabulary.english)
-                    .font(.title3).foregroundStyle(.secondary)
-
-                // 품사 표시
-                if !vocabulary.partOfSpeech.isEmpty {
-                    let parts = vocabulary.partOfSpeech
-                        .components(separatedBy: ",")
-                        .map { $0.trimmingCharacters(in: .whitespaces) }
-                        .filter { !$0.isEmpty }
-                    HStack(spacing: 6) {
-                        ForEach(parts, id: \.self) { pos in
-                            Text(pos)
-                                .font(.caption2).fontWeight(.semibold)
-                                .foregroundStyle(BrandTheme.accent)
-                                .padding(.horizontal, 8).padding(.vertical, 2)
-                                .background(BrandTheme.accent.opacity(0.12))
-                                .clipShape(Capsule())
-                        }
+            Spacer(minLength: 16)
+            ScrollView {
+                VStack(spacing: 16) {
+                    Text(vocabulary.english)
+                        .font(.title3).foregroundStyle(.secondary)
+                    if sortedMeanings.isEmpty {
+                        singleMeaningContent
+                    } else {
+                        multiMeaningContent
                     }
                 }
-
-                // 한국어 의미
-                let meanings = vocabulary.korean
-                    .components(separatedBy: ",")
-                    .map { $0.trimmingCharacters(in: .whitespaces) }
-                    .filter { !$0.isEmpty }
-                VStack(spacing: 4) {
-                    ForEach(Array(meanings.enumerated()), id: \.offset) { idx, meaning in
-                        Text("\(idx + 1). \(meaning)")
-                            .font(.system(size: meanings.count > 1 ? 24 : 30, weight: .bold))
-                            .foregroundStyle(.primary)
-                    }
-                }
-                .multilineTextAlignment(.center)
-
-                Divider().padding(.horizontal, 40)
-
-                if !vocabulary.exampleSentence.isEmpty {
-                    VStack(spacing: 5) {
-                        Text(vocabulary.exampleSentence)
-                            .font(.subheadline).italic()
-                            .multilineTextAlignment(.center)
-                        if !vocabulary.exampleTranslation.isEmpty {
-                            Text(vocabulary.exampleTranslation)
-                                .font(.caption).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    .padding(.horizontal, 20)
-                }
-
-                if !vocabulary.synonyms.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "equal.circle").font(.caption2)
-                        Text(vocabulary.synonyms).font(.caption)
-                    }
-                    .foregroundStyle(.secondary).padding(.top, 2)
-                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
             }
-
-            Spacer()
-
-            // 스와이프 안내
+            Spacer(minLength: 8)
             HStack(spacing: 20) {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.left")
                     Text("알고있어요")
                 }
                 .font(.caption).foregroundStyle(BrandTheme.knewIt)
-
                 HStack(spacing: 4) {
                     Text("학습할게요")
                     Image(systemName: "arrow.right")
@@ -187,7 +135,118 @@ struct VocabularyCardView: View {
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(.quaternary, lineWidth: 1))
     }
 
+    // MARK: - Single Meaning
+
+    @ViewBuilder
+    private var singleMeaningContent: some View {
+        if !vocabulary.partOfSpeech.isEmpty {
+            let parts = vocabulary.partOfSpeech
+                .components(separatedBy: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            HStack(spacing: 6) {
+                ForEach(parts, id: \.self) { pos in
+                    Text(pos)
+                        .font(.caption2).fontWeight(.semibold)
+                        .foregroundStyle(BrandTheme.accent)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(BrandTheme.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        let koreanParts = vocabulary.korean
+            .components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        VStack(spacing: 4) {
+            ForEach(Array(koreanParts.enumerated()), id: \.offset) { idx, meaning in
+                Text(koreanParts.count > 1 ? "\(idx + 1). \(meaning)" : meaning)
+                    .font(.system(size: koreanParts.count > 1 ? 24 : 30, weight: .bold))
+                    .foregroundStyle(.primary)
+            }
+        }
+        .multilineTextAlignment(.center)
+        if !vocabulary.exampleSentence.isEmpty {
+            Divider().padding(.horizontal, 20)
+            exampleBlock(sentence: vocabulary.exampleSentence, translation: vocabulary.exampleTranslation)
+        }
+        if !vocabulary.synonyms.isEmpty {
+            HStack(spacing: 4) {
+                Image(systemName: "equal.circle").font(.caption2)
+                Text(vocabulary.synonyms).font(.caption)
+            }
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: - Multi Meaning
+
+    @ViewBuilder
+    private var multiMeaningContent: some View {
+        ForEach(Array(sortedMeanings.enumerated()), id: \.element.meaningID) { idx, meaning in
+            VStack(alignment: .leading, spacing: 6) {
+                if !meaning.pos.isEmpty {
+                    Text(meaning.pos)
+                        .font(.caption2).fontWeight(.semibold)
+                        .foregroundStyle(BrandTheme.accent)
+                        .padding(.horizontal, 8).padding(.vertical, 2)
+                        .background(BrandTheme.accent.opacity(0.12))
+                        .clipShape(Capsule())
+                }
+                Text(meaning.korean)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !meaning.exampleSentence.isEmpty {
+                    exampleBlock(sentence: meaning.exampleSentence, translation: meaning.exampleTranslation)
+                }
+                if !meaning.synonyms.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "equal.circle").font(.caption2)
+                        Text(meaning.synonyms).font(.caption)
+                    }
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if idx < sortedMeanings.count - 1 {
+                Divider().padding(.horizontal, 8)
+            }
+        }
+    }
+
+    // MARK: - Example Block
+
+    @ViewBuilder
+    private func exampleBlock(sentence: String, translation: String) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(sentence)
+                .font(.subheadline).italic()
+                .foregroundStyle(.primary.opacity(0.8))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if !translation.isEmpty {
+                Text(translation)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
     // MARK: - Helpers
+
+    private var posBadges: [String] {
+        if !sortedMeanings.isEmpty {
+            return Array(Set(sortedMeanings.map(\.pos).filter { !$0.isEmpty })).sorted()
+        }
+        return vocabulary.partOfSpeech
+            .components(separatedBy: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+    }
 
     private var cardBg: some View {
         RoundedRectangle(cornerRadius: 24)
