@@ -114,6 +114,15 @@ final class UserProfile {
     /// 문법 학습 제한 시간 (초, 5~25)
     var grammarTimerSeconds: Int = 15
 
+    /// 프로 구독 여부
+    var isPro: Bool = false
+
+    /// 프로 구독 만료일 (nil이면 미구독 또는 평생 구독)
+    var proExpiresAt: Date? = nil
+
+    /// 구독 플랜 타입 ("monthly" / "annual" / "")
+    var subscriptionPlan: String = ""
+
     /// 프로필 생성일
     var createdAt: Date = Date()
 

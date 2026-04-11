@@ -273,44 +273,33 @@ struct SignInView: View {
                     }
 
                     if let error = signInError {
-                        VStack(spacing: 4) {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .multilineTextAlignment(.center)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 32)
+                    }
 
-                            if error.contains("1000") {
-                                Text("⚠️ 시뮬레이터에서는 Apple 로그인이 지원되지 않습니다.\n아래 버튼으로 테스트하세요.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
-                            }
+                    // ── 게스트로 시작 버튼 ──
+                    Button {
+                        authManager.userID = "guest_\(UUID().uuidString.prefix(8))"
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person")
+                            Text("게스트로 시작")
                         }
-                        .padding(.horizontal, 32)
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundStyle(BrandTheme.accent)
+                        .frame(maxWidth: 320)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(BrandTheme.accent.opacity(0.5), lineWidth: 1.5)
+                        )
                     }
+                    .padding(.top, 4)
                 }
-
-                // ── 개발/시뮬레이터용: 인증 건너뛰기 ──
-                #if DEBUG
-                Button {
-                    authManager.userID = "dev_user_debug"
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "play.fill")
-                        Text("테스트 모드로 시작")
-                    }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: 320)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(BrandTheme.accentLight)
-                    )
-                }
-                .padding(.top, 4)
-                #endif
 
                 Spacer()
                     .frame(height: 60)

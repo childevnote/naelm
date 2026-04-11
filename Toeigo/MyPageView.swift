@@ -27,12 +27,16 @@ struct MyPageView: View {
     @State private var timerEnabled: Bool = true
     @State private var vocabTimerSeconds: Int = 15
     @State private var grammarTimerSeconds: Int = 15
+    // 구독 상태
+    @State private var isPro: Bool = false
+    @State private var showSubscription: Bool = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     profileCard
+                    if !isPro { proPromoBanner }
                     goalSection
                     timerSettings
                     quizCategoryChart
@@ -50,6 +54,12 @@ struct MyPageView: View {
             } message: {
                 Text("모든 학습 데이터가 삭제되고 처음 상태로 돌아갑니다.")
             }
+            .sheet(isPresented: $showSubscription, onDismiss: { loadData() }) {
+                NavigationStack {
+                    SubscriptionView()
+                        .environment(authManager)
+                }
+            }
         }
     }
 
@@ -65,8 +75,12 @@ struct MyPageView: View {
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
                 VStack(spacing: 4) {
-                    Text("현재 수준").font(.caption).foregroundStyle(.secondary)
-                    Text(level.label).font(.title2).fontWeight(.bold).foregroundStyle(BrandTheme.accent)
+                    Text("현재 수준")
+                        .font(.caption)
+                        .foregroundStyle(Color.black.opacity(0.6))
+                    Text(level.label)
+                        .font(.title2).fontWeight(.bold)
+                        .foregroundStyle(Color.black)
                 }
 
                 HStack(spacing: 24) {
@@ -94,6 +108,41 @@ struct MyPageView: View {
         }
     }
 
+    // MARK: - Pro Promo Banner
+
+    private var proPromoBanner: some View {
+        Button { showSubscription = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "crown.fill")
+                    .font(.title3)
+                    .foregroundStyle(BrandTheme.studyIt)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Pro로 업그레이드")
+                            .font(.subheadline).fontWeight(.bold)
+                            .foregroundStyle(.primary)
+                        ProBadgeView()
+                    }
+                    Text("무제한 학습 · 단어저장 · 타이머 설정")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(BrandTheme.studyIt.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(BrandTheme.studyIt.opacity(0.25), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
     // MARK: - Goal Section
 
     private var goalSection: some View {
@@ -112,6 +161,27 @@ struct MyPageView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+    }
+
+    // MARK: - Category Korean Names
+
+    private static let categoryKoreanNames: [String: String] = [
+        "Agreement": "일치",
+        "Collocation": "연어",
+        "Conjunction": "접속사",
+        "Gerund/Infinitive": "동명사/부정사",
+        "Preposition": "전치사",
+        "Pronoun": "대명사",
+        "Relative Clause": "관계절",
+        "Subjunctive": "가정법",
+        "Tense": "시제",
+        "Vocabulary": "어휘",
+        "Voice": "태",
+        "Word Form": "어형",
+    ]
+
+    private func koreanCategoryName(_ category: String) -> String {
+        Self.categoryKoreanNames[category] ?? category
     }
 
     // MARK: - Quiz Category Chart (수평 바 차트)
@@ -136,7 +206,7 @@ struct MyPageView: View {
 
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(cat)
+                                Text(koreanCategoryName(cat))
                                     .font(.caption).fontWeight(.medium)
                                 Spacer()
                                 Text("\(correct)")
@@ -192,65 +262,83 @@ struct MyPageView: View {
 
     private var timerSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("시간 제한 설정").font(.headline)
-
-            // 시간 제한 ON/OFF 토글
             HStack {
-                Label("시간 제한 기능", systemImage: "timer")
-                    .font(.subheadline)
-                Spacer()
-                Toggle("", isOn: $timerEnabled)
-                    .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
+                Text("시간 제한 설정").font(.headline)
+                if !isPro {
+                    ProBadgeView()
+                }
             }
 
-            if timerEnabled {
-                Divider()
-
-                // 단어 타이머
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Label("단어 학습 시간", systemImage: "character.book.closed")
-                            .font(.subheadline)
+            if !isPro {
+                // 비Pro: 잠금 안내
+                Button { showSubscription = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.fill")
+                            .foregroundStyle(BrandTheme.studyIt)
+                        Text("Pro 구독 시 타이머 설정 가능")
+                            .font(.subheadline).foregroundStyle(.secondary)
                         Spacer()
-                        Text("\(vocabTimerSeconds)초")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(BrandTheme.accent)
-                            .frame(width: 44)
-                    }
-                    Slider(value: Binding(
-                        get: { Double(vocabTimerSeconds) },
-                        set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
-                    ), in: 5...25, step: 1)
-                    .tint(BrandTheme.accent)
-                    HStack {
-                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
                     }
                 }
+                .buttonStyle(.plain)
+            } else {
+                // Pro: 정상 표시
+                HStack {
+                    Label("시간 제한 기능", systemImage: "timer")
+                        .font(.subheadline)
+                    Spacer()
+                    Toggle("", isOn: $timerEnabled)
+                        .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
+                }
 
-                Divider()
+                if timerEnabled {
+                    Divider()
 
-                // 문법 타이머
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Label("문법 학습 시간", systemImage: "text.book.closed")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("\(grammarTimerSeconds)초")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(BrandTheme.accent)
-                            .frame(width: 44)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label("단어 학습 시간", systemImage: "character.book.closed")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(vocabTimerSeconds)초")
+                                .font(.subheadline).fontWeight(.semibold)
+                                .foregroundStyle(BrandTheme.accent)
+                                .frame(width: 44)
+                        }
+                        Slider(value: Binding(
+                            get: { Double(vocabTimerSeconds) },
+                            set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
+                        ), in: 5...25, step: 1)
+                        .tint(BrandTheme.accent)
+                        HStack {
+                            Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                            Spacer()
+                            Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                        }
                     }
-                    Slider(value: Binding(
-                        get: { Double(grammarTimerSeconds) },
-                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
-                    ), in: 5...25, step: 1)
-                    .tint(BrandTheme.accent)
-                    HStack {
-                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
+
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Label("문법 학습 시간", systemImage: "text.book.closed")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("\(grammarTimerSeconds)초")
+                                .font(.subheadline).fontWeight(.semibold)
+                                .foregroundStyle(BrandTheme.accent)
+                                .frame(width: 44)
+                        }
+                        Slider(value: Binding(
+                            get: { Double(grammarTimerSeconds) },
+                            set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
+                        ), in: 5...25, step: 1)
+                        .tint(BrandTheme.accent)
+                        HStack {
+                            Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                            Spacer()
+                            Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                        }
                     }
                 }
             }
@@ -318,6 +406,7 @@ struct MyPageView: View {
             timerEnabled = p.timerEnabled
             vocabTimerSeconds = p.vocabTimerSeconds
             grammarTimerSeconds = p.grammarTimerSeconds
+            isPro = p.isPro
         }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)

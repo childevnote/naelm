@@ -97,7 +97,7 @@ struct GrammarQuizView: View {
                     }
                 }
             }
-            .toolbar(isGrammarSessionActive ? .hidden : .visible, for: .tabBar)
+            .toolbar(isGrammarSessionActive || viewModel.isQuizComplete ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $viewModel.showExplanation) {
                 if let question = viewModel.currentQuestion {
                     explanationSheet(question: question)

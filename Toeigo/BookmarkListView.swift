@@ -15,6 +15,7 @@ struct BookmarkListView: View {
 
     @State private var bookmarks: [BookmarkedWord] = []
     @State private var showMeaning: Bool = true
+    @State private var isPro: Bool = false
 
     // MARK: - 필터 상태
     @State private var selectedCategory: String = "전체"
@@ -55,56 +56,67 @@ struct BookmarkListView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // 뜻 보기 토글 + 카운트
-                HStack {
-                    Text("저장한 단어 \(filteredBookmarks.count)개")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                    Spacer()
-                    Toggle("뜻 보기", isOn: $showMeaning)
-                        .font(.subheadline)
-                        .labelsHidden()
-                    Text("뜻 보기")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
-
-                // 필터 스크롤 바
-                filterBar
-
-                if filteredBookmarks.isEmpty {
-                    Spacer()
-                    VStack(spacing: 12) {
-                        Image(systemName: "star")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text(bookmarks.isEmpty ? "저장한 단어가 없어요" : "조건에 맞는 단어가 없어요")
-                            .font(.title3).fontWeight(.semibold)
-                        if bookmarks.isEmpty {
-                            Text("단어 학습 중 저장하기 버튼을 눌러\n단어를 저장해보세요.")
-                                .font(.subheadline).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-                        }
-                    }
-                    Spacer()
+            Group {
+                if !isPro {
+                    SubscriptionGateView()
+                        .environment(authManager)
                 } else {
-                    List {
-                        ForEach(filteredBookmarks, id: \.wordID) { bm in
-                            if let vocab = bm.vocabulary {
-                                bookmarkRow(vocab: vocab)
-                            }
-                        }
-                        .onDelete { indexSet in
-                            deleteBookmarks(at: indexSet)
-                        }
-                    }
-                    .listStyle(.plain)
+                    bookmarkContent
                 }
             }
             .navigationTitle("저장한 단어")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { loadBookmarks() }
+            .onAppear { loadBookmarks(); loadProStatus() }
+        }
+    }
+
+    private var bookmarkContent: some View {
+        VStack(spacing: 0) {
+            // 뜻 보기 토글 + 카운트
+            HStack {
+                Text("저장한 단어 \(filteredBookmarks.count)개")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Spacer()
+                Toggle("뜻 보기", isOn: $showMeaning)
+                    .font(.subheadline)
+                    .labelsHidden()
+                Text("뜻 보기")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+
+            // 필터 스크롤 바
+            filterBar
+
+            if filteredBookmarks.isEmpty {
+                Spacer()
+                VStack(spacing: 12) {
+                    Image(systemName: "star")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.secondary)
+                    Text(bookmarks.isEmpty ? "저장한 단어가 없어요" : "조건에 맞는 단어가 없어요")
+                        .font(.title3).fontWeight(.semibold)
+                    if bookmarks.isEmpty {
+                        Text("단어 학습 중 저장하기 버튼을 눌러\n단어를 저장해보세요.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                }
+                Spacer()
+            } else {
+                List {
+                    ForEach(filteredBookmarks, id: \.wordID) { bm in
+                        if let vocab = bm.vocabulary {
+                            bookmarkRow(vocab: vocab)
+                        }
+                    }
+                    .onDelete { indexSet in
+                        deleteBookmarks(at: indexSet)
+                    }
+                }
+                .listStyle(.plain)
+            }
         }
     }
 
@@ -267,8 +279,8 @@ struct BookmarkListView: View {
                 }
 
                 if !vocab.exampleSentence.isEmpty {
-                    Text(vocab.exampleSentence)
-                        .font(.caption).foregroundStyle(.secondary).italic()
+                    highlightedExampleText(sentence: vocab.exampleSentence, keyword: vocab.english)
+                        .font(.caption).italic()
                         .lineLimit(2)
                 }
             } else {
@@ -279,7 +291,30 @@ struct BookmarkListView: View {
         .padding(.vertical, 4)
     }
 
+    // MARK: - Highlighted Example Text
+
+    private func highlightedExampleText(sentence: String, keyword: String) -> Text {
+        guard !keyword.isEmpty else { return Text(sentence).foregroundStyle(.secondary) }
+        let lower = sentence.lowercased()
+        let keyLower = keyword.lowercased()
+        guard let range = lower.range(of: keyLower) else {
+            return Text(sentence).foregroundStyle(.secondary)
+        }
+        let before = String(sentence[sentence.startIndex..<range.lowerBound])
+        let match = String(sentence[range])
+        let after = String(sentence[range.upperBound...])
+        return Text(before).foregroundStyle(.secondary)
+            + Text(match).foregroundStyle(BrandTheme.accent).fontWeight(.semibold)
+            + Text(after).foregroundStyle(.secondary)
+    }
+
     // MARK: - Data
+
+    private func loadProStatus() {
+        guard let userID = authManager.userID else { return }
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isPro) ?? false
+    }
 
     private func loadBookmarks() {
         guard let userID = authManager.userID else { return }

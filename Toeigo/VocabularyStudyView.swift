@@ -22,6 +22,7 @@ struct VocabularyStudyView: View {
     @State private var autoSwipeTrigger = UUID()
     @State private var bookmarkedIDs: Set<String> = []
     @State private var showLeaveAlert = false
+    @State private var isPro: Bool = false
     var isSessionActive: Bool {
         !viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete && !viewModel.isLoading
     }
@@ -126,12 +127,13 @@ struct VocabularyStudyView: View {
                     }
                 }
             }
-            .toolbar(isSessionActive ? .hidden : .visible, for: .tabBar)
+            .toolbar(isSessionActive || viewModel.isSessionComplete ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete {
                     loadDeck()
                 }
                 loadBookmarkIDs()
+                loadProStatus()
                 viewModel.onTimerExpired = {
                     guard viewModel.timerEnabled else { return }
                     autoSwipeTrigger = UUID()
@@ -156,21 +158,32 @@ struct VocabularyStudyView: View {
     private func bookmarkBar(for vocab: Vocabulary) -> some View {
         let isBookmarked = bookmarkedIDs.contains(vocab.wordID)
         return Button {
-            toggleBookmark(vocab)
-            HapticManager.shared.playTap()
+            if isPro {
+                toggleBookmark(vocab)
+                HapticManager.shared.playTap()
+            }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: isBookmarked ? "star.fill" : "star")
+                Image(systemName: isPro ? (isBookmarked ? "star.fill" : "star") : "lock.fill")
                     .font(.system(size: 16))
-                Text(isBookmarked ? "저장됨" : "저장하기")
+                Text(isPro ? (isBookmarked ? "저장됨" : "저장하기") : "저장하기")
                     .font(.subheadline).fontWeight(.medium)
+                if !isPro {
+                    ProBadgeView()
+                }
             }
-            .foregroundStyle(isBookmarked ? BrandTheme.accent : .secondary)
+            .foregroundStyle(
+                isPro ? (isBookmarked ? BrandTheme.accent : .secondary) : .secondary
+            )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isBookmarked ? BrandTheme.accent.opacity(0.1) : Color(.secondarySystemBackground))
+                    .fill(
+                        isPro && isBookmarked
+                            ? BrandTheme.accent.opacity(0.1)
+                            : Color(.secondarySystemBackground)
+                    )
             )
             .padding(.horizontal, 20)
         }
@@ -256,32 +269,6 @@ struct VocabularyStudyView: View {
 
             Spacer()
 
-            // 복습할 단어가 있으면 → 복습 진행, 없으면 → 새 단어 학습
-            if viewModel.hasReviewWords(context: modelContext) {
-                Button {
-                    viewModel.loadReviewDeck(context: modelContext)
-                    cardStackID = UUID()
-                } label: {
-                    Label("복습 진행하기", systemImage: "arrow.counterclockwise")
-                        .font(.headline)
-                        .frame(maxWidth: 280)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-            } else {
-                Button {
-                    loadDeck()
-                } label: {
-                    Label("다른 단어 학습하기", systemImage: "arrow.right.circle")
-                        .font(.headline)
-                        .frame(maxWidth: 280)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(BrandTheme.accent)
-            }
-
             Button {
                 dismiss()
             } label: {
@@ -290,7 +277,7 @@ struct VocabularyStudyView: View {
                     .frame(maxWidth: 280)
                     .padding(.vertical, 14)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
             .tint(BrandTheme.accent)
 
             Spacer().frame(height: 40)
@@ -351,6 +338,12 @@ struct VocabularyStudyView: View {
     }
 
     // MARK: - Bookmarks
+
+    private func loadProStatus() {
+        guard let userID = authManager.userID else { return }
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isPro) ?? false
+    }
 
     private func loadBookmarkIDs() {
         guard let userID = authManager.userID else { return }
