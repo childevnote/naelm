@@ -427,6 +427,15 @@ struct SubscriptionView: View {
             }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if let error = activationError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                    .transition(.opacity)
+            }
         }
     }
 
@@ -441,12 +450,22 @@ struct SubscriptionView: View {
                 .padding(.horizontal, 32)
             HStack(spacing: 12) {
                 // TODO: 실제 URL로 교체 필요 (App Store 심사 요구사항)
-                Button("이용약관") {}
+                Button("이용약관") { showTermsAlert = true }
                 Text("·").foregroundStyle(.tertiary)
-                Button("개인정보 처리방침") {}
+                Button("개인정보 처리방침") { showPrivacyAlert = true }
             }
             .font(.system(size: 10))
             .foregroundStyle(.tertiary)
+            .alert("이용약관", isPresented: $showTermsAlert) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("이용약관은 현재 준비 중입니다.\n정식 출시 시 제공될 예정입니다.")
+            }
+            .alert("개인정보 처리방침", isPresented: $showPrivacyAlert) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("개인정보 처리방침은 현재 준비 중입니다.\n정식 출시 시 제공될 예정입니다.")
+            }
         }
         .padding(.vertical, 24)
     }
@@ -501,33 +520,54 @@ struct SubscriptionView: View {
 
     // MARK: - Actions
 
+    @State private var activationError: String? = nil
+    @State private var showTermsAlert = false
+    @State private var showPrivacyAlert = false
+
     private func purchasePlan() {
         guard let userID = authManager.userID else { return }
         isProcessing = true
+        activationError = nil
 
         // 실제 앱: StoreKit 결제 처리
         // 데모/시뮬레이터: 즉시 Pro 활성화
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            activatePro(userID: userID)
+            let success = activatePro(userID: userID)
             isProcessing = false
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                showSuccess = true
+            if success {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    showSuccess = true
+                }
+            } else {
+                activationError = "구독 활성화에 실패했습니다. 다시 시도해주세요."
             }
         }
     }
 
-    private func activatePro(userID: String) {
+    /// Pro 활성화 — 성공 여부를 반환합니다.
+    @discardableResult
+    private func activatePro(userID: String) -> Bool {
         // NOTE: 실제 앱에서는 StoreKit 2의 Transaction.currentEntitlements로
         // 영수증을 검증한 후에만 isPro를 true로 설정해야 합니다.
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        guard let profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first else { return }
+        guard let profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first else {
+            AppLogger.auth.error("Pro activation failed: UserProfile not found for \(userID)")
+            return false
+        }
         profile.isPro = true
         profile.subscriptionPlan = selectedPlan.rawValue
         let cal = Calendar.current
         profile.proExpiresAt = selectedPlan == .monthly
             ? cal.date(byAdding: .month, value: 1, to: Date())
             : cal.date(byAdding: .year, value: 1, to: Date())
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            AppLogger.auth.error("Pro activation save failed: \(error.localizedDescription)")
+            profile.isPro = false
+            return false
+        }
     }
 
     // MARK: - Animations
@@ -583,6 +623,8 @@ struct SubscriptionGateView: View {
     @State private var showSubscription = false
     @State private var pulseScale: CGFloat = 1.0
     @Environment(AuthenticationManager.self) var authManager
+    /// sheet dismiss 시 호출 — 부모 뷰에서 isPro 재로드용
+    var onSubscriptionDismiss: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -648,7 +690,9 @@ struct SubscriptionGateView: View {
             )
             .padding(.horizontal, 32)
         }
-        .sheet(isPresented: $showSubscription) {
+        .sheet(isPresented: $showSubscription, onDismiss: {
+                onSubscriptionDismiss?()
+            }) {
             NavigationStack {
                 SubscriptionView()
                     .environment(authManager)
