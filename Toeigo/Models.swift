@@ -123,6 +123,22 @@ final class UserProfile {
     /// 구독 플랜 타입 ("monthly" / "annual" / "")
     var subscriptionPlan: String = ""
 
+    /// Pro 상태 평가 (만료일 체크 포함)
+    /// isPro && (만료일 없음 또는 만료일 > 현재) 일 때만 true.
+    /// 만료된 경우 isPro를 자동으로 false로 리셋합니다.
+    var isProActive: Bool {
+        guard isPro else { return false }
+        guard let expiresAt = proExpiresAt else { return true }  // 만료일 없으면 영구 구독
+        if expiresAt > Date() {
+            return true
+        } else {
+            // 만료됨 — 자동 리셋
+            isPro = false
+            subscriptionPlan = ""
+            return false
+        }
+    }
+
     /// 프로필 생성일
     var createdAt: Date = Date()
 

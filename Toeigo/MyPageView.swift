@@ -407,7 +407,7 @@ struct MyPageView: View {
             timerEnabled = p.timerEnabled
             vocabTimerSeconds = p.vocabTimerSeconds
             grammarTimerSeconds = p.grammarTimerSeconds
-            isPro = p.isPro
+            isPro = p.isProActive
         }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)

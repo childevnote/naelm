@@ -325,7 +325,7 @@ struct DashboardView: View {
             targetScore = profile.targetScore
             dailyVocabGoal = profile.dailyVocabGoal
             dailyGrammarGoal = profile.dailyGrammarGoal
-            isPro = profile.isPro
+            isPro = profile.isProActive
         }
 
         // 복습 대기: 단어(markedForReview) + 문법(틀린 문제)

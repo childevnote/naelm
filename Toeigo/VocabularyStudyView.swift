@@ -327,7 +327,7 @@ struct VocabularyStudyView: View {
     private func loadProStatus() {
         guard let userID = authManager.userID else { return }
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isPro) ?? false
+        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isProActive) ?? false
     }
 
     private func loadBookmarkIDs() {
