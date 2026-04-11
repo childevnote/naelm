@@ -15,7 +15,6 @@ struct VocabularyCardView: View {
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private let cardWidth: CGFloat = UIScreen.main.bounds.width - 32
     private let cardHeight: CGFloat = 480
 
     // meanings 배열 정렬 (order 순서대로)
@@ -24,39 +23,44 @@ struct VocabularyCardView: View {
     }
 
     var body: some View {
-        ZStack {
-            cardBack
-                .opacity(isFlipped ? 1 : 0)
-                .rotation3DEffect(
-                    .degrees(isFlipped ? 0 : 180),
-                    axis: (x: 0, y: 1, z: 0),
-                    perspective: 0.4
-                )
-                .allowsHitTesting(isFlipped)
+        GeometryReader { geo in
+            let cardWidth = geo.size.width
+            ZStack {
+                cardBack(width: cardWidth)
+                    .opacity(isFlipped ? 1 : 0)
+                    .rotation3DEffect(
+                        .degrees(isFlipped ? 0 : 180),
+                        axis: (x: 0, y: 1, z: 0),
+                        perspective: 0.4
+                    )
+                    .allowsHitTesting(isFlipped)
 
-            cardFront
-                .opacity(isFlipped ? 0 : 1)
-                .rotation3DEffect(
-                    .degrees(isFlipped ? -180 : 0),
-                    axis: (x: 0, y: 1, z: 0),
-                    perspective: 0.4
-                )
-                .allowsHitTesting(!isFlipped)
-        }
-        .frame(width: cardWidth, height: cardHeight)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .onTapGesture {
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
-                isFlipped.toggle()
+                cardFront(width: cardWidth)
+                    .opacity(isFlipped ? 0 : 1)
+                    .rotation3DEffect(
+                        .degrees(isFlipped ? -180 : 0),
+                        axis: (x: 0, y: 1, z: 0),
+                        perspective: 0.4
+                    )
+                    .allowsHitTesting(!isFlipped)
             }
-            onFlip?(isFlipped)
-            HapticManager.shared.playTap()
+            .frame(width: cardWidth, height: cardHeight)
+            .clipShape(RoundedRectangle(cornerRadius: 24))
+            .onTapGesture {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                    isFlipped.toggle()
+                }
+                onFlip?(isFlipped)
+                HapticManager.shared.playTap()
+            }
         }
+        .frame(height: cardHeight)
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Front
 
-    private var cardFront: some View {
+    private func cardFront(width cardWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
@@ -99,7 +103,7 @@ struct VocabularyCardView: View {
 
     // MARK: - Back
 
-    private var cardBack: some View {
+    private func cardBack(width cardWidth: CGFloat) -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: 16)
             ScrollView {
