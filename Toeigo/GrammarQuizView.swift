@@ -35,6 +35,8 @@ struct GrammarQuizView: View {
     @State private var showLeaveAlert = false
     @State private var timerEnabled: Bool = true
     @State private var grammarTimerDurationOverride: Double = 15.0
+    @State private var lessonResult: LessonResult? = nil
+    @State private var showLessonComplete = false
 
     init() {
         let sm = LearningSessionManager()
@@ -56,8 +58,15 @@ struct GrammarQuizView: View {
 
                 if viewModel.isLoading {
                     ProgressView("퀴즈 준비 중...")
+                } else if showLessonComplete, let result = lessonResult {
+                    LessonCompleteView(result: result) {
+                        showLessonComplete = false
+                        dismiss()
+                    }
                 } else if viewModel.isQuizComplete {
-                    quizCompleteView
+                    // 완료 직후 빈 상태 → LessonCompleteView 전환 트리거
+                    Color.clear
+                        .onAppear { buildAndShowResult() }
                 } else if viewModel.questions.isEmpty {
                     emptyQuizView
                 } else if let question = viewModel.currentQuestion {
@@ -155,7 +164,7 @@ struct GrammarQuizView: View {
                     HStack {
                         Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
                             .font(.caption).fontWeight(.bold)
-                            .foregroundStyle(BrandTheme.accent)
+                            .foregroundStyle(AppPalette.forest)
                         Spacer()
                     }
                     .padding(.horizontal, 24)
@@ -205,7 +214,7 @@ struct GrammarQuizView: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Rectangle().fill(.quaternary).frame(height: 6)
-                Rectangle().fill(BrandTheme.accent)
+                Rectangle().fill(AppPalette.forest)
                     .frame(width: geo.size.width * viewModel.progress, height: 6)
                     .animation(.smooth, value: viewModel.progress)
             }
@@ -230,9 +239,9 @@ struct GrammarQuizView: View {
 
     private var grammarTimerColor: Color {
         let ratio = grammarTimerRemaining / grammarTimerDuration
-        if ratio > 0.66 { return BrandTheme.knewIt }
-        if ratio > 0.33 { return .orange }
-        return .red
+        if ratio > 0.66 { return AppPalette.mint }
+        if ratio > 0.33 { return AppPalette.warning }
+        return AppPalette.error
     }
 
     private func startGrammarTimer() {
@@ -402,6 +411,7 @@ struct GrammarQuizView: View {
                         .padding(.vertical, 12)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(AppPalette.forest)
             }
         }
         .padding(.horizontal, 24)
@@ -472,85 +482,21 @@ struct GrammarQuizView: View {
         .presentationDetents([.medium, .large])
     }
 
-    // MARK: - Quiz Complete
+    // MARK: - Quiz Complete (LessonCompleteView로 대체)
 
-    private var quizCompleteView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            // 스코어 링
-            ZStack {
-                Circle()
-                    .stroke(.quaternary, lineWidth: 10)
-                    .frame(width: 140, height: 140)
-
-                Circle()
-                    .trim(from: 0, to: viewModel.accuracy)
-                    .stroke(
-                        viewModel.accuracy >= 0.7 ? .green : .orange,
-                        style: StrokeStyle(lineWidth: 10, lineCap: .round)
-                    )
-                    .frame(width: 140, height: 140)
-                    .rotationEffect(.degrees(-90))
-
-                VStack(spacing: 2) {
-                    Text("\(Int(viewModel.accuracy * 100))%")
-                        .font(.system(size: 36, weight: .bold, design: .rounded))
-                    Text("정답률")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Text(quizResultMessage)
-                .font(.title2)
-                .fontWeight(.bold)
-                .multilineTextAlignment(.center)
-
-            // 통계
-            VStack(spacing: 12) {
-                statRow(icon: "text.book.closed", label: "풀이한 문제", value: "\(viewModel.questions.count)개")
-                statRow(icon: "checkmark.circle", label: "정답", value: "\(viewModel.correctCount)개")
-                statRow(icon: "xmark.circle", label: "오답", value: "\(viewModel.incorrectCount)개")
-                statRow(icon: "star.fill", label: "획득 XP", value: "+\(sessionManager.stats.xpEarned)")
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-            )
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            // 오답 노트
-            if viewModel.incorrectCount > 0 {
-                Button {
-                    retryWrongAnswers()
-                } label: {
-                    Label("오답 복습하기", systemImage: "arrow.counterclockwise")
-                        .font(.headline)
-                        .frame(maxWidth: 280)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-            }
-
-            Button {
-                dismiss()
-            } label: {
-                Label("홈으로", systemImage: "house.fill")
-                    .font(.headline)
-                    .frame(maxWidth: 280)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.bordered)
-            .tint(BrandTheme.accent)
-
-            Spacer()
-                .frame(height: 40)
-        }
+    private func buildAndShowResult() {
+        guard let userID = authManager.userID else { dismiss(); return }
+        let xp = sessionManager.stats.xpEarned
+        let streak = GamificationService.currentStreak(userID: userID, context: modelContext)
+        let activity = GamificationService.todayActivity(userID: userID, context: modelContext)
+        let isFirst = (activity?.grammarStudied ?? 0) <= viewModel.questions.count
+        lessonResult = LessonResult(
+            xpEarned: xp,
+            isFirstStudyToday: isFirst,
+            streakDays: streak,
+            sessionLabel: "문법 퀴즈"
+        )
+        showLessonComplete = true
     }
 
     private var quizResultMessage: String {
@@ -594,6 +540,7 @@ struct GrammarQuizView: View {
                 loadQuiz()
             }
             .buttonStyle(.bordered)
+            .tint(AppPalette.forest)
             .padding(.top, 8)
         }
     }

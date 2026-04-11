@@ -48,6 +48,7 @@ struct DashboardView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
+            .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("학습 홈")
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
@@ -99,17 +100,18 @@ struct DashboardView: View {
                 if totalDaysStudied > 0 {
                     Text("학습 \(totalDaysStudied)일 만에 \(totalWordsStudied)개의 단어를 학습했어요!")
                         .font(.subheadline).fontWeight(.semibold)
-                        .foregroundStyle(BrandTheme.accent)
+                        .foregroundStyle(AppPalette.forest)
                 } else {
                     Text("오늘부터 토익 학습을 시작해보세요!")
                         .font(.subheadline).fontWeight(.semibold)
-                        .foregroundStyle(BrandTheme.accent)
+                        .foregroundStyle(AppPalette.forest)
                 }
             }
             Spacer()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(BrandTheme.accent.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 14).fill(AppPalette.cream.opacity(0.55))
+            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.leaf.opacity(0.25), lineWidth: 1)))
     }
 
     // MARK: - Top Section (연속학습 + 잔디밭 한 줄)
@@ -120,7 +122,7 @@ struct DashboardView: View {
             VStack(spacing: 2) {
                 Text("\(streak)")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .foregroundStyle(BrandTheme.accent)
+                    .foregroundStyle(AppPalette.forest)
                 Text("연속 학습")
                     .font(.caption2).foregroundStyle(.secondary)
             }
@@ -156,7 +158,7 @@ struct DashboardView: View {
                                 .fill(grassColorProportional(xp: xp, maxXP: maxXP))
                                 .aspectRatio(1, contentMode: .fit)
                                 .overlay(
-                                    isToday ? RoundedRectangle(cornerRadius: 3).stroke(BrandTheme.accent, lineWidth: 1.5) : nil
+                                    isToday ? RoundedRectangle(cornerRadius: 3).stroke(AppPalette.forest, lineWidth: 1.5) : nil
                                 )
                         }
                     }
@@ -167,10 +169,9 @@ struct DashboardView: View {
 
     private func grassColorProportional(xp: Int, maxXP: Int) -> Color {
         guard xp > 0 else { return Color.gray.opacity(0.12) }
-        // 최소 0.15, 최대 1.0 opacity — 학습량에 비례
         let ratio = Double(xp) / Double(maxXP)
-        let opacity = 0.15 + ratio * 0.85
-        return BrandTheme.accent.opacity(opacity)
+        let opacity = 0.20 + ratio * 0.80
+        return AppPalette.leaf.opacity(opacity)
     }
 
     // MARK: - Today Learning Section
@@ -214,7 +215,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "character.book.closed", label: "단어",
                     progress: "\(todayWordsStudied)/\(dailyVocabGoal)개",
-                    color: vocabCompleted ? BrandTheme.knewIt : BrandTheme.accent,
+                    color: vocabCompleted ? AppPalette.forest : AppPalette.forest,
                     subtitle: vocabCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 단어 학습 시작",
                     isCompleted: vocabCompleted
                 )
@@ -231,7 +232,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: grammarCompleted ? BrandTheme.knewIt : .brown,
+                    color: grammarCompleted ? AppPalette.forest : AppPalette.leaf,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
@@ -274,7 +275,7 @@ struct DashboardView: View {
                 ForEach(weeklyHistory) { day in
                     VStack(spacing: 4) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(day.goalMet ? BrandTheme.knewIt : (day.xpEarned > 0 ? BrandTheme.accent : Color.gray.opacity(0.2)))
+                            .fill(day.goalMet ? AppPalette.mint : (day.xpEarned > 0 ? AppPalette.leaf : Color.gray.opacity(0.2)))
                             .frame(width: 30, height: barHeight(xp: day.xpEarned))
                         Text(day.weekdayShort)
                             .font(.system(size: 10))
@@ -282,7 +283,7 @@ struct DashboardView: View {
                             .fontWeight(Calendar.current.isDateInToday(day.date) ? .bold : .regular)
                         if day.goalMet {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 10)).foregroundStyle(BrandTheme.knewIt)
+                                .font(.system(size: 10)).foregroundStyle(AppPalette.mint)
                         } else {
                             Circle().fill(.clear).frame(width: 10, height: 10)
                         }
@@ -392,7 +393,7 @@ struct ReviewSessionView: View {
             Spacer()
             Image(systemName: "arrow.clockwise")
                 .font(.system(size: 56))
-                .foregroundStyle(BrandTheme.accent)
+                .foregroundStyle(AppPalette.forest)
             Text("어떤 복습을 할까요?")
                 .font(.title3).fontWeight(.bold)
 
@@ -406,7 +407,7 @@ struct ReviewSessionView: View {
                         Image(systemName: "chevron.right")
                     }
                     .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(BrandTheme.accent.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(AppPalette.forest.opacity(0.08)))
                 }
                 .buttonStyle(.plain)
 
@@ -419,7 +420,7 @@ struct ReviewSessionView: View {
                         Image(systemName: "chevron.right")
                     }
                     .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(BrandTheme.studyIt.opacity(0.08)))
+                    .background(RoundedRectangle(cornerRadius: 12).fill(AppPalette.warning.opacity(0.08)))
                 }
                 .buttonStyle(.plain)
             }
@@ -453,12 +454,12 @@ struct VocabReviewContent: View {
                 .ignoresSafeArea()
             if reviewWords.isEmpty && !isComplete {
                 VStack(spacing: 16) {
-                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(BrandTheme.knewIt)
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(AppPalette.mint)
                     Text("복습할 단어가 없어요!").font(.title3).fontWeight(.bold)
                 }
             } else if isComplete {
                 VStack(spacing: 20) {
-                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(BrandTheme.studyIt)
+                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(AppPalette.gold)
                     Text("복습 완료!").font(.title).fontWeight(.bold)
                     Text("모든 단어를 숙달했어요 🎉").font(.subheadline).foregroundStyle(.secondary)
 
@@ -471,7 +472,7 @@ struct VocabReviewContent: View {
                             .padding(.vertical, 14)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(BrandTheme.accent)
+                    .tint(AppPalette.forest)
                 }
             } else {
                 VStack(spacing: 0) {
@@ -574,12 +575,12 @@ struct GrammarReviewContent: View {
         VStack {
             if wrongGrammars.isEmpty {
                 VStack(spacing: 16) {
-                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(BrandTheme.knewIt)
+                    Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(AppPalette.mint)
                     Text("복습할 문법이 없어요!").font(.title3).fontWeight(.bold)
                 }
             } else if isComplete {
                 VStack(spacing: 20) {
-                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(BrandTheme.studyIt)
+                    Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(AppPalette.gold)
                     Text("오답 복습 완료!").font(.title).fontWeight(.bold)
                 }
             } else if let q = currentQuestion {
@@ -594,21 +595,21 @@ struct GrammarReviewContent: View {
             VStack(spacing: 20) {
                 // 진행률
                 ProgressView(value: Double(currentIndex), total: Double(wrongGrammars.count))
-                    .tint(BrandTheme.accent)
+                    .tint(AppPalette.forest)
                     .padding(.horizontal, 24)
 
-                HStack {
-                    Text("Q\(currentIndex + 1)/\(wrongGrammars.count)")
-                        .font(.caption).fontWeight(.bold).foregroundStyle(BrandTheme.accent)
-                    Spacer()
-                    if currentIndex < wrongGrammars.count {
-                        let attempts = wrongGrammars[currentIndex].attempts
-                        Text("시도 \(attempts)회")
-                            .font(.caption2).fontWeight(.medium)
-                            .padding(.horizontal, 8).padding(.vertical, 3)
-                            .background(Capsule().fill(.orange.opacity(0.15)))
+                    HStack {
+                        Text("Q\(currentIndex + 1)/\(wrongGrammars.count)")
+                            .font(.caption).fontWeight(.bold).foregroundStyle(AppPalette.forest)
+                        Spacer()
+                        if currentIndex < wrongGrammars.count {
+                            let attempts = wrongGrammars[currentIndex].attempts
+                            Text("시도 \(attempts)회")
+                                .font(.caption2).fontWeight(.medium)
+                                .padding(.horizontal, 8).padding(.vertical, 3)
+                                .background(Capsule().fill(.orange.opacity(0.15)))
+                        }
                     }
-                }
                 .padding(.horizontal, 24)
 
                 // 문장
@@ -690,7 +691,7 @@ struct GrammarReviewContent: View {
                         Text(currentIndex + 1 >= wrongGrammars.count ? "완료" : "다음 문제")
                             .fontWeight(.semibold).frame(maxWidth: .infinity).padding(.vertical, 14)
                     }
-                    .buttonStyle(.borderedProminent).tint(BrandTheme.accent)
+                    .buttonStyle(.borderedProminent).tint(AppPalette.forest)
                     .padding(.horizontal, 24)
                 }
             }

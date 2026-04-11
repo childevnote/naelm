@@ -23,6 +23,8 @@ struct VocabularyStudyView: View {
     @State private var bookmarkedIDs: Set<String> = []
     @State private var showLeaveAlert = false
     @State private var isPro: Bool = false
+    @State private var lessonResult: LessonResult? = nil
+    @State private var showLessonComplete = false
     var isSessionActive: Bool {
         !viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete && !viewModel.isLoading
     }
@@ -41,8 +43,21 @@ struct VocabularyStudyView: View {
 
                 if viewModel.isLoading {
                     ProgressView("카드 준비 중...")
+                } else if showLessonComplete, let result = lessonResult {
+                    LessonCompleteView(result: result) {
+                        showLessonComplete = false
+                        // 복습 가능하면 복습, 없으면 홈으로
+                        if viewModel.hasReviewWords(context: modelContext) {
+                            viewModel.loadReviewDeck(context: modelContext)
+                            cardStackID = UUID()
+                        } else {
+                            dismiss()
+                        }
+                    }
                 } else if viewModel.isSessionComplete {
-                    sessionCompleteView
+                    // 완료 직후 LessonCompleteView로 전환 전 빈 상태
+                    Color.clear
+                        .onAppear { buildAndShowResult() }
                 } else if viewModel.cardDeck.isEmpty {
                     emptyDeckView
                 } else {
@@ -101,7 +116,7 @@ struct VocabularyStudyView: View {
                             .font(.subheadline).fontWeight(.bold)
                             .foregroundStyle(.white)
                             .padding(.horizontal, 20).padding(.vertical, 10)
-                            .background(Capsule().fill(BrandTheme.accent.opacity(0.85)))
+                            .background(Capsule().fill(AppPalette.forest.opacity(0.85)))
                         Spacer()
                     }
                     .padding(.top, 8)
@@ -173,7 +188,7 @@ struct VocabularyStudyView: View {
                 }
             }
             .foregroundStyle(
-                isPro ? (isBookmarked ? BrandTheme.accent : .secondary) : .secondary
+                isPro ? (isBookmarked ? AppPalette.forest : .secondary) : .secondary
             )
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
@@ -181,7 +196,7 @@ struct VocabularyStudyView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(
                         isPro && isBookmarked
-                            ? BrandTheme.accent.opacity(0.1)
+                            ? AppPalette.forest.opacity(0.1)
                             : Color(.secondarySystemBackground)
                     )
             )
@@ -212,9 +227,9 @@ struct VocabularyStudyView: View {
 
     private var timerColor: Color {
         let ratio = viewModel.timerRemaining / viewModel.timerDuration
-        if ratio > 0.66 { return BrandTheme.knewIt }
-        if ratio > 0.33 { return .orange }
-        return .red
+        if ratio > 0.66 { return AppPalette.mint }
+        if ratio > 0.33 { return AppPalette.warning }
+        return AppPalette.error
     }
 
     // MARK: - Progress Header
@@ -222,12 +237,12 @@ struct VocabularyStudyView: View {
     private var progressHeader: some View {
         HStack {
             Label("\(viewModel.sessionStats.wordsStudied)", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(BrandTheme.knewIt)
+                .foregroundStyle(AppPalette.mint)
 
             Spacer()
 
             Label("+\(viewModel.sessionStats.xpEarned) XP", systemImage: "star.fill")
-                .foregroundStyle(BrandTheme.studyIt)
+                .foregroundStyle(AppPalette.gold)
         }
         .font(.subheadline)
         .fontWeight(.medium)
@@ -236,53 +251,23 @@ struct VocabularyStudyView: View {
 
     // MARK: - Session Complete
 
-    private var sessionCompleteView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image(systemName: "trophy.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(BrandTheme.studyIt)
-
-            Text("학습 완료!")
-                .font(.title).fontWeight(.bold)
-
-            // 오늘 진행률
-            let progress = min(1.0, Double(viewModel.todayWordCount) / Double(viewModel.dailyGoal))
-            VStack(spacing: 8) {
-                Text("오늘 \(viewModel.todayWordCount)/\(viewModel.dailyGoal)개 학습")
-                    .font(.headline)
-                ProgressView(value: progress)
-                    .tint(BrandTheme.accent)
-                    .frame(maxWidth: 200)
-            }
-
-            VStack(spacing: 12) {
-                statRow(icon: "character.book.closed", label: "학습한 단어", value: "\(viewModel.sessionStats.wordsStudied)개")
-                statRow(icon: "checkmark.circle", label: "알고있어요", value: "\(viewModel.sessionStats.correctCount)개")
-                statRow(icon: "bookmark", label: "학습할게요", value: "\(viewModel.sessionStats.incorrectCount)개")
-                statRow(icon: "star.fill", label: "획득 XP", value: "+\(viewModel.sessionStats.xpEarned)")
-            }
-            .padding(20)
-            .background(RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial))
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Label("홈으로", systemImage: "house.fill")
-                    .font(.headline)
-                    .frame(maxWidth: 280)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(BrandTheme.accent)
-
-            Spacer().frame(height: 40)
-        }
+    private func buildAndShowResult() {
+        guard let userID = authManager.userID else { dismiss(); return }
+        let xp = viewModel.sessionStats.xpEarned
+        let streak = GamificationService.currentStreak(userID: userID, context: modelContext)
+        // 오늘 처음 학습인지 판단: 학습 전후 wordsStudied가 처음인지 체크
+        let activity = GamificationService.todayActivity(userID: userID, context: modelContext)
+        let isFirst = (activity?.wordsStudied ?? 0) <= viewModel.sessionStats.wordsStudied
+        lessonResult = LessonResult(
+            xpEarned: xp,
+            isFirstStudyToday: isFirst,
+            streakDays: streak,
+            sessionLabel: "단어 학습"
+        )
+        showLessonComplete = true
     }
+
+    // (기존 sessionCompleteView 제거 — LessonCompleteView로 대체됨)
 
     private func statRow(icon: String, label: String, value: String) -> some View {
         HStack {
@@ -310,7 +295,7 @@ struct VocabularyStudyView: View {
 
             Button("새로고침") { loadDeck() }
                 .buttonStyle(.bordered)
-                .tint(BrandTheme.accent)
+                .tint(AppPalette.forest)
                 .padding(.top, 8)
         }
     }

@@ -68,7 +68,7 @@ struct MyPageView: View {
     private var profileCard: some View {
         VStack(spacing: 16) {
             ZStack {
-                Circle().fill(BrandTheme.accent).frame(width: 80, height: 80)
+                Circle().fill(AppPalette.forest).frame(width: 80, height: 80)
                 Image(systemName: "person.fill").font(.system(size: 36)).foregroundStyle(.white)
             }
 
@@ -78,10 +78,10 @@ struct MyPageView: View {
                     // 사용자 요청: 다크모드에서도 검정색 고정 표시
                     Text("현재 수준")
                         .font(.caption)
-                        .foregroundStyle(Color.black.opacity(0.6))
+                        .foregroundStyle(AppColor.secondary)
                     Text(level.label)
                         .font(.title2).fontWeight(.bold)
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(AppPalette.forest)
                 }
 
                 HStack(spacing: 24) {
@@ -96,8 +96,8 @@ struct MyPageView: View {
         .padding(20).frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 20)
-                .fill(BrandTheme.accent.opacity(0.06))
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(BrandTheme.accent.opacity(0.15), lineWidth: 1))
+                .fill(AppPalette.cream.opacity(0.40))
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppPalette.leaf.opacity(0.30), lineWidth: 1))
         )
     }
 
@@ -116,7 +116,7 @@ struct MyPageView: View {
             HStack(spacing: 12) {
                 Image(systemName: "crown.fill")
                     .font(.title3)
-                    .foregroundStyle(BrandTheme.studyIt)
+                    .foregroundStyle(AppPalette.leaf)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text("Pro로 업그레이드")
@@ -134,10 +134,10 @@ struct MyPageView: View {
             .padding(14)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(BrandTheme.studyIt.opacity(0.08))
+                    .fill(AppPalette.leaf.opacity(0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14)
-                            .stroke(BrandTheme.studyIt.opacity(0.25), lineWidth: 1)
+                            .stroke(AppPalette.leaf.opacity(0.25), lineWidth: 1)
                     )
             )
         }
@@ -211,7 +211,7 @@ struct MyPageView: View {
                                     .font(.caption).fontWeight(.medium)
                                 Spacer()
                                 Text("\(correct)")
-                                    .font(.caption).fontWeight(.bold).foregroundStyle(BrandTheme.knewIt)
+                                    .font(.caption).fontWeight(.bold).foregroundStyle(AppPalette.mint)
                                 Text("/")
                                     .font(.caption2).foregroundStyle(.secondary)
                                 Text("\(incorrect)")
@@ -228,7 +228,7 @@ struct MyPageView: View {
 
                                     HStack(spacing: 0) {
                                         RoundedRectangle(cornerRadius: 4)
-                                            .fill(BrandTheme.knewIt)
+                                            .fill(AppPalette.mint)
                                             .frame(width: max(0, correctWidth), height: 10)
                                         RoundedRectangle(cornerRadius: 4)
                                             .fill(Color.red.opacity(0.6))
@@ -244,7 +244,7 @@ struct MyPageView: View {
                 // 범례
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
-                        Circle().fill(BrandTheme.knewIt).frame(width: 8, height: 8)
+                        Circle().fill(AppPalette.mint).frame(width: 8, height: 8)
                         Text("정답").font(.caption2).foregroundStyle(.secondary)
                     }
                     HStack(spacing: 4) {
@@ -275,7 +275,7 @@ struct MyPageView: View {
                 Button { showSubscription = true } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "lock.fill")
-                            .foregroundStyle(BrandTheme.studyIt)
+                            .foregroundStyle(AppPalette.leaf)
                         Text("Pro 구독 시 타이머 설정 가능")
                             .font(.subheadline).foregroundStyle(.secondary)
                         Spacer()
@@ -303,14 +303,14 @@ struct MyPageView: View {
                             Spacer()
                             Text("\(vocabTimerSeconds)초")
                                 .font(.subheadline).fontWeight(.semibold)
-                                .foregroundStyle(BrandTheme.accent)
+                                .foregroundStyle(AppPalette.forest)
                                 .frame(width: 44)
                         }
                         Slider(value: Binding(
                             get: { Double(vocabTimerSeconds) },
                             set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
                         ), in: 5...25, step: 1)
-                        .tint(BrandTheme.accent)
+                        .tint(AppPalette.forest)
                         HStack {
                             Text("5초").font(.caption2).foregroundStyle(.tertiary)
                             Spacer()
@@ -327,14 +327,14 @@ struct MyPageView: View {
                             Spacer()
                             Text("\(grammarTimerSeconds)초")
                                 .font(.subheadline).fontWeight(.semibold)
-                                .foregroundStyle(BrandTheme.accent)
+                                .foregroundStyle(AppPalette.forest)
                                 .frame(width: 44)
                         }
                         Slider(value: Binding(
                             get: { Double(grammarTimerSeconds) },
                             set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
                         ), in: 5...25, step: 1)
-                        .tint(BrandTheme.accent)
+                        .tint(AppPalette.forest)
                         HStack {
                             Text("5초").font(.caption2).foregroundStyle(.tertiary)
                             Spacer()
