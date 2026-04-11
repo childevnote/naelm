@@ -105,6 +105,13 @@ final class AuthenticationManager {
         AppLogger.auth.info("Signed out")
     }
 
+    /// 게스트 로그인 — ID를 Keychain에 저장하여 재실행 시 복원
+    func signInAsGuest(guestID: String) {
+        self.userID = guestID
+        KeychainHelper.save(key: KeychainHelper.userIDKey, value: guestID)
+        AppLogger.auth.info("Signed in as guest")
+    }
+
     /// 앱 재실행 시 기존 인증 상태 복원.
     /// 1) Keychain에서 저장된 userIdentifier를 읽음
     /// 2) Apple 서버에 credential 유효성 확인
@@ -112,6 +119,13 @@ final class AuthenticationManager {
     func restoreAuthState() {
         guard let savedUserID = KeychainHelper.read(key: KeychainHelper.userIDKey) else {
             AppLogger.auth.info("No saved credentials in Keychain")
+            return
+        }
+
+        // 게스트 ID는 Apple 서버 체크 없이 바로 복원
+        if savedUserID.hasPrefix("guest_") || savedUserID.hasPrefix("dev_user_") {
+            self.userID = savedUserID
+            AppLogger.auth.info("Restored guest session")
             return
         }
 
@@ -298,7 +312,8 @@ struct SignInView: View {
 
                     // ── 게스트로 시작 버튼 ──
                     Button {
-                        authManager.userID = "guest_\(UUID().uuidString.prefix(8))"
+                        let guestID = "guest_\(UUID().uuidString.prefix(8))"
+                        authManager.signInAsGuest(guestID: guestID)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "person")
@@ -320,7 +335,7 @@ struct SignInView: View {
                 // ── 개발/시뮬레이터용: 인증 건너뛰기 ──
                 #if DEBUG
                 Button {
-                    authManager.userID = "dev_user_debug"
+                    authManager.signInAsGuest(guestID: "dev_user_debug")
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "play.fill")
