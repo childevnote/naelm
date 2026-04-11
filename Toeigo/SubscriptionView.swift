@@ -335,7 +335,7 @@ struct SubscriptionView: View {
                         }
                     }
                     if plan == .annual {
-                        Text("\(plan.totalPrice / 10000)만 \(plan.totalPrice % 10000)원/년 청구")
+                        Text("3만 4,800원/년 청구")
                             .font(.caption2).foregroundStyle(.secondary)
                     }
                 }
@@ -344,7 +344,7 @@ struct SubscriptionView: View {
 
                 // 가격
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(plan.pricePerMonth)원")
+                    Text("\(plan == .monthly ? "5,900" : "2,900")원")
                         .font(.headline).fontWeight(.bold)
                         .foregroundStyle(isSelected ? BrandTheme.accent : .primary)
                     Text("/월")
@@ -421,8 +421,10 @@ struct SubscriptionView: View {
             .padding(.horizontal, 24)
             .padding(.top, 24)
 
-            // 복원 버튼
-            Button("구매 내역 복원") {}
+            // 복원 버튼 (실제 앱: StoreKit Transaction.currentEntitlements 검증)
+            Button("구매 내역 복원") {
+                // TODO: StoreKit 2 기반 구매 복원 구현 필요
+            }
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -438,6 +440,7 @@ struct SubscriptionView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             HStack(spacing: 12) {
+                // TODO: 실제 URL로 교체 필요 (App Store 심사 요구사항)
                 Button("이용약관") {}
                 Text("·").foregroundStyle(.tertiary)
                 Button("개인정보 처리방침") {}
@@ -514,6 +517,8 @@ struct SubscriptionView: View {
     }
 
     private func activatePro(userID: String) {
+        // NOTE: 실제 앱에서는 StoreKit 2의 Transaction.currentEntitlements로
+        // 영수증을 검증한 후에만 isPro를 true로 설정해야 합니다.
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         guard let profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first else { return }
         profile.isPro = true

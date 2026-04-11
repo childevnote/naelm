@@ -75,6 +75,7 @@ struct MyPageView: View {
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
                 VStack(spacing: 4) {
+                    // 사용자 요청: 다크모드에서도 검정색 고정 표시
                     Text("현재 수준")
                         .font(.caption)
                         .foregroundStyle(Color.black.opacity(0.6))
