@@ -58,7 +58,7 @@ struct BookmarkListView: View {
         NavigationStack {
             Group {
                 if !isPro {
-                    SubscriptionGateView()
+                    SubscriptionGateView(onSubscriptionDismiss: { loadProStatus() })
                         .environment(authManager)
                 } else {
                     bookmarkContent
@@ -295,9 +295,7 @@ struct BookmarkListView: View {
 
     private func highlightedExampleText(sentence: String, keyword: String) -> Text {
         guard !keyword.isEmpty else { return Text(sentence).foregroundStyle(.secondary) }
-        let lower = sentence.lowercased()
-        let keyLower = keyword.lowercased()
-        guard let range = lower.range(of: keyLower) else {
+        guard let range = sentence.range(of: keyword, options: .caseInsensitive) else {
             return Text(sentence).foregroundStyle(.secondary)
         }
         let before = String(sentence[sentence.startIndex..<range.lowerBound])
@@ -313,7 +311,7 @@ struct BookmarkListView: View {
     private func loadProStatus() {
         guard let userID = authManager.userID else { return }
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isPro) ?? false
+        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isProActive) ?? false
     }
 
     private func loadBookmarks() {
