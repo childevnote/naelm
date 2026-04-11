@@ -32,6 +32,7 @@ struct DashboardView: View {
     @State private var showGrammarSession = false
     @State private var showVocabConfirm = false
     @State private var showGrammarConfirm = false
+    @State private var isPro: Bool = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -174,9 +175,20 @@ struct DashboardView: View {
 
     // MARK: - Today Learning Section
 
+    private var vocabCompleted: Bool { !isPro && todayWordsStudied >= dailyVocabGoal }
+    private var grammarCompleted: Bool { !isPro && todayGrammarStudied >= dailyGrammarGoal }
+
     private var todayLearningSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("오늘의 학습").font(.headline)
+            HStack {
+                Text("오늘의 학습").font(.headline)
+                Spacer()
+                if vocabCompleted && grammarCompleted {
+                    Text("오늘 학습 완료! 🎉")
+                        .font(.caption).fontWeight(.semibold)
+                        .foregroundStyle(BrandTheme.knewIt)
+                }
+            }
 
             let totalDue = dueVocabCount + dueGrammarCount
             Button {
@@ -187,56 +199,70 @@ struct DashboardView: View {
                     icon: "arrow.clockwise", label: "복습 대기",
                     progress: "\(totalDue)개",
                     color: .orange,
-                    subtitle: "단어 \(dueVocabCount)개 / 문법 \(dueGrammarCount)개"
+                    subtitle: "단어 \(dueVocabCount)개 / 문법 \(dueGrammarCount)개",
+                    isCompleted: false
                 )
             }
             .buttonStyle(.plain)
 
             Button {
-                showVocabConfirm = true
-                HapticManager.shared.playTap()
+                if !vocabCompleted {
+                    showVocabConfirm = true
+                    HapticManager.shared.playTap()
+                }
             } label: {
                 todayTaskRow(
                     icon: "character.book.closed", label: "단어",
                     progress: "\(todayWordsStudied)/\(dailyVocabGoal)개",
-                    color: BrandTheme.accent,
-                    subtitle: "탭하여 단어 학습 시작"
+                    color: vocabCompleted ? BrandTheme.knewIt : BrandTheme.accent,
+                    subtitle: vocabCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 단어 학습 시작",
+                    isCompleted: vocabCompleted
                 )
             }
             .buttonStyle(.plain)
+            .disabled(vocabCompleted)
 
             Button {
-                showGrammarConfirm = true
-                HapticManager.shared.playTap()
+                if !grammarCompleted {
+                    showGrammarConfirm = true
+                    HapticManager.shared.playTap()
+                }
             } label: {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: .brown,
-                    subtitle: "탭하여 문법 퀴즈 시작"
+                    color: grammarCompleted ? BrandTheme.knewIt : .brown,
+                    subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
+                    isCompleted: grammarCompleted
                 )
             }
             .buttonStyle(.plain)
+            .disabled(grammarCompleted)
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
     }
 
-    private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String) -> some View {
+    private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: icon).font(.title3).foregroundStyle(color).frame(width: 36)
+            Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
+                .font(.title3).foregroundStyle(color).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(label).font(.subheadline).fontWeight(.semibold)
+                        .foregroundStyle(isCompleted ? .secondary : .primary)
                     Spacer()
                     Text(progress).font(.subheadline).fontWeight(.bold).foregroundStyle(color)
                 }
                 Text(subtitle).font(.caption2).foregroundStyle(.secondary)
             }
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            if !isCompleted {
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(0.06)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(isCompleted ? 0.04 : 0.06)))
+        .opacity(isCompleted ? 0.75 : 1.0)
     }
 
     // MARK: - Weekly Chart
@@ -298,6 +324,7 @@ struct DashboardView: View {
             targetScore = profile.targetScore
             dailyVocabGoal = profile.dailyVocabGoal
             dailyGrammarGoal = profile.dailyGrammarGoal
+            isPro = profile.isPro
         }
 
         // 복습 대기: 단어(markedForReview) + 문법(틀린 문제)
