@@ -155,6 +155,8 @@ struct RootView: View {
 
     /// 시드 데이터 로딩 완료 여부
     @State private var isDataLoaded = false
+    /// 스플래시 화면 표시 여부 (처음 실행 시만)
+    @State private var showSplash = true
 
     private var colorSchemeOverride: ColorScheme? {
         switch appearanceMode {
@@ -165,20 +167,35 @@ struct RootView: View {
     }
 
     var body: some View {
-        Group {
-            if authManager.isAuthenticated {
-                if authManager.needsOnboarding {
-                    OnboardingView(onComplete: {
-                        authManager.needsOnboarding = false
-                    })
-                    .environment(authManager)
+        ZStack {
+            // 메인 앱 컨텐츠
+            Group {
+                if authManager.isAuthenticated {
+                    if authManager.needsOnboarding {
+                        OnboardingView(onComplete: {
+                            authManager.needsOnboarding = false
+                        })
+                        .environment(authManager)
+                    } else {
+                        MainDashboardView()
+                            .environment(authManager)
+                    }
                 } else {
-                    MainDashboardView()
+                    SignInView()
                         .environment(authManager)
                 }
-            } else {
-                SignInView()
-                    .environment(authManager)
+            }
+            .opacity(showSplash ? 0 : 1)
+
+            // 스플래시 오버레이
+            if showSplash {
+                SplashView {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        showSplash = false
+                    }
+                }
+                .transition(.opacity)
+                .zIndex(10)
             }
         }
         .preferredColorScheme(colorSchemeOverride)
@@ -216,7 +233,7 @@ struct SignInView: View {
     var body: some View {
         ZStack {
             // 배경 그라디언트
-            (colorScheme == .dark ? BrandTheme.backgroundGradientDark : BrandTheme.backgroundGradient)
+            AppGradient.background(scheme: colorScheme)
                 .ignoresSafeArea()
 
             VStack(spacing: 32) {
@@ -226,12 +243,12 @@ struct SignInView: View {
                 VStack(spacing: 16) {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 80))
-                        .foregroundStyle(BrandTheme.accent)
-                        .shadow(color: BrandTheme.accent.opacity(0.3), radius: 10, y: 4)
+                        .foregroundStyle(AppPalette.forest)
+                        .shadow(color: AppPalette.forest.opacity(0.3), radius: 10, y: 4)
 
                     Text("Toeigo")
                         .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundStyle(BrandTheme.accent)
+                        .foregroundStyle(AppPalette.forest)
 
                     Text("TOEIC 영단어 · 문법 마스터")
                         .font(.subheadline)
@@ -252,7 +269,6 @@ struct SignInView: View {
                         case .success(let authorization):
                             authManager.handleSignInSuccess(authorization: authorization)
                         case .failure(let error):
-                            // ASAuthorizationError.canceled는 사용자가 취소한 것이므로 무시
                             if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
                                 signInError = nil
                             } else {
@@ -269,7 +285,7 @@ struct SignInView: View {
 
                     if isSigningIn {
                         ProgressView()
-                            .tint(BrandTheme.accent)
+                            .tint(AppPalette.forest)
                     }
 
                     if let error = signInError {
@@ -300,6 +316,28 @@ struct SignInView: View {
                     }
                     .padding(.top, 4)
                 }
+
+                // ── 개발/시뮬레이터용: 인증 건너뛰기 ──
+                #if DEBUG
+                Button {
+                    authManager.userID = "dev_user_debug"
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "play.fill")
+                        Text("테스트 모드로 시작")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: 320)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(AppGradient.primaryButton(scheme: colorScheme))
+                    )
+                }
+                .padding(.top, 4)
+                #endif
 
                 Spacer()
                     .frame(height: 60)
@@ -352,7 +390,7 @@ struct MainDashboardView: View {
             }
             .tag(3)
         }
-        .tint(BrandTheme.accent)
+        .tint(AppPalette.forest)
     }
 }
 
