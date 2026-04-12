@@ -199,7 +199,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 4EF12DF82F8005F00066F566 /* Build configuration list for PBXProject "Toeigo" */;
+			buildConfigurationList = 4EF12DF82F8005F00066F566 /* Build configuration list for PBXProject "Naelm" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -296,6 +296,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Naelm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "ë´ë¦";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -311,7 +312,6 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_KEY_CFBundleDisplayName = "ë´ë¦";
 				PRODUCT_BUNDLE_IDENTIFIER = kdj.Naelm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -342,6 +342,7 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Naelm/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "ë´ë¦";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -357,7 +358,6 @@
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
 				MARKETING_VERSION = 1.0;
-				INFOPLIST_KEY_CFBundleDisplayName = "ë´ë¦";
 				PRODUCT_BUNDLE_IDENTIFIER = kdj.Naelm;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -595,7 +595,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		4EF12DF82F8005F00066F566 /* Build configuration list for PBXProject "Toeigo" */ = {
+		4EF12DF82F8005F00066F566 /* Build configuration list for PBXProject "Naelm" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4EF12E242F8005F20066F566 /* Debug */,
