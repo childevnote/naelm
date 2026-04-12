@@ -45,13 +45,7 @@ struct VocabularyStudyView: View {
                 } else if showLessonComplete, let result = lessonResult {
                     LessonCompleteView(result: result) {
                         showLessonComplete = false
-                        // 복습 가능하면 복습, 없으면 홈으로
-                        if viewModel.hasReviewWords(context: modelContext) {
-                            viewModel.loadReviewDeck(context: modelContext)
-                            cardStackID = UUID()
-                        } else {
-                            dismiss()
-                        }
+                        dismiss()
                     }
                 } else if viewModel.isSessionComplete {
                     // 완료 직후 LessonCompleteView로 전환 전 빈 상태

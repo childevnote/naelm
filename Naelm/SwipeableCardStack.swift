@@ -71,8 +71,10 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
                 .clipped()
+                .contentShape(Rectangle())
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
             .onAppear {
                 lastItemsID = makeItemsID()
             }
@@ -132,6 +134,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             cardContent(items[currentIndex])
                 .id("card-\(items[currentIndex].id)")       // 카드 교체 시 앞면으로 재생성
                 .overlay(overlayView)                        // 오버레이를 카드 내부에 클리핑
+                .clipShape(RoundedRectangle(cornerRadius: 24))  // 오버레이가 카드 경계를 절대 벗어나지 않도록
                 .offset(x: dragOffset.width, y: dragOffset.height * 0.05)
                 .rotationEffect(.degrees(Double(dragOffset.width) / 28))
                 .opacity(cardOpacity)

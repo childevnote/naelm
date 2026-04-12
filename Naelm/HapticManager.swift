@@ -32,6 +32,30 @@ final class HapticManager {
         #endif
     }
 
+    /// 문법 퀴즈 정답 시 햅틱 (팝 느낌 — success + soft impact)
+    func playCorrectAnswer() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            let impact = UIImpactFeedbackGenerator(style: .soft)
+            impact.impactOccurred(intensity: 0.6)
+        }
+        #endif
+    }
+
+    /// 문법 퀴즈 오답 시 햅틱 (흔들림 느낌 — error + rigid impact)
+    func playWrongAnswer() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.error)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let impact = UIImpactFeedbackGenerator(style: .rigid)
+            impact.impactOccurred(intensity: 0.7)
+        }
+        #endif
+    }
+
     /// 오답 시 햅틱 (에러 느낌)
     func playIncorrect() {
         #if os(iOS)

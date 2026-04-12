@@ -42,11 +42,11 @@ struct MyPageView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     profileCard
+                    goalSection
+                    quizCategoryChart
                     if !isPro { proPromoBanner }
                     if isPro { subscriptionInfoSection }
-                    goalSection
                     timerSettings
-                    quizCategoryChart
                     learningSettings
                     accountSection
                 }
