@@ -294,16 +294,23 @@ struct BookmarkListView: View {
     // MARK: - Highlighted Example Text
 
     private func highlightedExampleText(sentence: String, keyword: String) -> Text {
-        guard !keyword.isEmpty else { return Text(sentence).foregroundStyle(.secondary) }
-        guard let range = sentence.range(of: keyword, options: .caseInsensitive) else {
+        guard !keyword.isEmpty,
+              let range = sentence.range(of: keyword, options: .caseInsensitive) else {
             return Text(sentence).foregroundStyle(.secondary)
         }
-        let before = String(sentence[sentence.startIndex..<range.lowerBound])
-        let match = String(sentence[range])
-        let after = String(sentence[range.upperBound...])
-        return Text(before).foregroundStyle(.secondary)
-            + Text(match).foregroundStyle(BrandTheme.accent).fontWeight(.semibold)
-            + Text(after).foregroundStyle(.secondary)
+
+        var attributed = AttributedString(sentence)
+        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
+            attributed[attrRange].foregroundColor = UIColor(BrandTheme.accent)
+            attributed[attrRange].font = .subheadline.bold()
+        }
+
+        attributed.foregroundColor = .secondaryLabel
+        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
+            attributed[attrRange].foregroundColor = UIColor(BrandTheme.accent)
+            attributed[attrRange].font = .subheadline.bold()
+        }
+        return Text(attributed)
     }
 
     // MARK: - Data
