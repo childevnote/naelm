@@ -131,7 +131,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
         if currentIndex < items.count {
             cardContent(items[currentIndex])
                 .id("card-\(items[currentIndex].id)")       // 카드 교체 시 앞면으로 재생성
-                .overlay(overlayView)                        // 오버레이를 카드 내부에 클리핑
+                .overlay(overlayView)                        // 오버레이는 overlayView 내부에서만 카드 경계에 맞게 클리핑
                 .offset(x: dragOffset.width, y: dragOffset.height * 0.05)
                 .rotationEffect(.degrees(Double(dragOffset.width) / 28))
                 .opacity(cardOpacity)

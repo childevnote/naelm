@@ -37,6 +37,8 @@ struct GrammarQuizView: View {
     @State private var grammarTimerDurationOverride: Double = 15.0
     @State private var lessonResult: LessonResult? = nil
     @State private var showLessonComplete = false
+    @State private var answerBounceScale: CGFloat = 1.0
+    @State private var answerShakeOffset: CGFloat = 0
 
     init() {
         let sm = LearningSessionManager()
@@ -139,10 +141,29 @@ struct GrammarQuizView: View {
             .onChange(of: viewModel.isAnswerRevealed) { _, revealed in
                 if revealed {
                     grammarTimerRunning = false
-                    // 정답 시 속도 피드백 표시
-                    if let q = viewModel.currentQuestion, viewModel.selectedAnswer == q.correctAnswer {
+                    guard let question = viewModel.currentQuestion else { return }
+                    let isCorrect = viewModel.selectedAnswer == question.correctAnswer
+                    if isCorrect {
+                        // 정답: 팝 애니메이션 (햅틱은 ViewModel에서 처리)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
+                            answerBounceScale = 1.12
+                        }
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5).delay(0.15)) {
+                            answerBounceScale = 1.0
+                        }
                         showGrammarSpeedFeedback()
+                    } else {
+                        // 오답: 흔들기 애니메이션 (햅틱은 ViewModel에서 처리)
+                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10)) {
+                            answerShakeOffset = -8
+                        }
+                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10).delay(0.08)) {
+                            answerShakeOffset = 0
+                        }
                     }
+                } else {
+                    answerBounceScale = 1.0
+                    answerShakeOffset = 0
                 }
             }
         }
@@ -198,9 +219,15 @@ struct GrammarQuizView: View {
                     .padding(.horizontal, 24)
 
                     // 정답 공개 후: 다음/해설 버튼
-                    if viewModel.isAnswerRevealed {
-                        feedbackSection(question: question)
+                    Group {
+                        if viewModel.isAnswerRevealed {
+                            feedbackSection(question: question)
+                                .scaleEffect(answerBounceScale)
+                                .offset(x: answerShakeOffset)
+                                .transition(.move(edge: .bottom).combined(with: .opacity))
+                        }
                     }
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.isAnswerRevealed)
 
                     Spacer(minLength: 40)
                 }
