@@ -110,11 +110,13 @@ final class GamificationService {
                 if activityDay == expectedDate {
                     if activity.dailyGoalMet {
                         streak += 1
-                        expectedDate = calendar.date(byAdding: .day, value: -1, to: expectedDate)!
+                        guard let prev = calendar.date(byAdding: .day, value: -1, to: expectedDate) else { break }
+                        expectedDate = prev
                     } else {
                         // 오늘이면 아직 진행 중이므로 건너뜀
                         if activityDay == calendar.startOfDay(for: Date()) {
-                            expectedDate = calendar.date(byAdding: .day, value: -1, to: expectedDate)!
+                            guard let prev = calendar.date(byAdding: .day, value: -1, to: expectedDate) else { break }
+                            expectedDate = prev
                             continue
                         }
                         break
@@ -202,14 +204,13 @@ final class GamificationService {
         let today = calendar.startOfDay(for: Date())
 
         // 7일 전부터 오늘까지의 날짜 목록
-        var dates: [Date] = []
-        for i in (0..<7).reversed() {
-            dates.append(calendar.date(byAdding: .day, value: -i, to: today)!)
+        let dates: [Date] = (0..<7).reversed().compactMap {
+            calendar.date(byAdding: .day, value: -$0, to: today)
         }
 
         // 7일간의 활동 조회
-        let sevenDaysAgo = dates.first!
-        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        guard let sevenDaysAgo = dates.first,
+              let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return [] }
 
         let predicate = #Predicate<UserActivity> {
             $0.userID == userID &&

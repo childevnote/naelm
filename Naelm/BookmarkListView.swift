@@ -75,7 +75,7 @@ struct BookmarkListView: View {
             // 뜻 보기 토글 + 카운트
             HStack {
                 Text("저장한 단어 \(filteredBookmarks.count)개")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.pretendardMedium(14)).foregroundStyle(.secondary)
                 Spacer()
                 Toggle("뜻 보기", isOn: $showMeaning)
                     .font(.subheadline)
@@ -237,7 +237,7 @@ struct BookmarkListView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(vocab.english)
-                    .font(.headline).fontWeight(.bold)
+                    .font(.pretendardBold(16))
 
                 // 품사 (여러 개일 때 모두 표시)
                 let parts = vocab.partOfSpeech
@@ -270,12 +270,12 @@ struct BookmarkListView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(Array(meanings.enumerated()), id: \.offset) { idx, meaning in
                             Text("\(idx + 1). \(meaning)")
-                                .font(.subheadline).foregroundStyle(BrandTheme.accent)
+                                .font(.pretendardSemiBold(14)).foregroundStyle(BrandTheme.accent)
                         }
                     }
                 } else {
                     Text(vocab.korean)
-                        .font(.subheadline).foregroundStyle(BrandTheme.accent)
+                        .font(.pretendardSemiBold(14)).foregroundStyle(BrandTheme.accent)
                 }
 
                 if !vocab.exampleSentence.isEmpty {

@@ -1,4 +1,4 @@
-//
+
 //  SwipeableCardStack.swift
 //  Naelm
 //
@@ -61,25 +61,18 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            GeometryReader { geo in
-                ZStack {
-                    // ── 다음 카드: 항상 뒤에 고정, 내용만 표시 (hitTest 없음) ──
-                    nextCardView
-
-                    // ── 현재 카드 (오버레이 포함) ───────────────────────────────
-                    currentCardView
-                }
-                .frame(width: geo.size.width, height: geo.size.height)
-                .clipped()
+            // ── 카드 영역 ───────────────────────────────────────────────
+            ZStack {
+                nextCardView
+                currentCardView
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onAppear {
-                lastItemsID = makeItemsID()
-            }
+            .frame(maxWidth: .infinity)
+            // ZStack 자체에 수직 여백 → rotation3DEffect가 이 공간 안에서 팽창
+            .padding(.vertical, 12)
+            .onAppear { lastItemsID = makeItemsID() }
             .onChange(of: makeItemsID()) { _, newID in
                 guard newID != lastItemsID else { return }
                 lastItemsID = newID
-                // 복습 라운드 교체: 부드럽게 리셋
                 withAnimation(.easeOut(duration: 0.2)) {
                     currentIndex = 0
                     dragOffset = .zero
@@ -93,7 +86,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 performSwipe(direction: .right, fromDrag: false, dragEndX: 0)
             }
 
-            // ── 저장 버튼 슬롯 ──────────────────────────────────────────
+            // ── 저장 버튼 슬롯 (카드 아래, 액션버튼 위) ──────────────
             if currentIndex < items.count, let bm = bookmarkContent {
                 bm(items[currentIndex])
                     .opacity(isLocked ? 0.35 : 1.0)
@@ -104,6 +97,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             // ── 액션 버튼 ───────────────────────────────────────────────
             if currentIndex < items.count {
                 actionButtons
+                    .padding(.horizontal, 20)
                     .padding(.bottom, 16)
             }
         }
@@ -115,10 +109,11 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     private var nextCardView: some View {
         if currentIndex + 1 < items.count {
             cardContent(items[currentIndex + 1])
-                .id("next-\(items[currentIndex + 1].id)")   // 항상 앞면으로 재생성
+                .id("next-\(items[currentIndex + 1].id)")
                 .scaleEffect(0.94)
-                .opacity(isLocked ? 0 : 0.30)               // 잠금 중엔 완전히 숨김
+                .opacity(isLocked ? 0 : 0.30)
                 .offset(y: 14)
+                .padding(.horizontal, 20)
                 .allowsHitTesting(false)
                 .animation(.easeOut(duration: 0.2), value: isLocked)
         }
@@ -130,14 +125,16 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
     private var currentCardView: some View {
         if currentIndex < items.count {
             cardContent(items[currentIndex])
-                .id("card-\(items[currentIndex].id)")       // 카드 교체 시 앞면으로 재생성
-                .overlay(overlayView)                        // 오버레이는 overlayView 내부에서만 카드 경계에 맞게 클리핑
+                .id("card-\(items[currentIndex].id)")
+                // 오버레이를 카드 크기 안에만 클리핑
+                .overlay(overlayView)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
+                .padding(.horizontal, 20)
                 .offset(x: dragOffset.width, y: dragOffset.height * 0.05)
                 .rotationEffect(.degrees(Double(dragOffset.width) / 28))
                 .opacity(cardOpacity)
                 .gesture(isLocked ? nil : dragGesture)
                 .allowsHitTesting(!isLocked)
-                // 드래그 중엔 즉시 반응, 아닐 땐 spring 복귀
                 .animation(isDragging ? nil : .interpolatingSpring(stiffness: 300, damping: 28),
                            value: dragOffset)
         }
@@ -270,7 +267,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             Button { performSwipe(direction: .left, fromDrag: false, dragEndX: 0) } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 20))
-                    Text("알고있어요").font(.subheadline).fontWeight(.semibold)
+                    Text("알고있어요").font(.buttonLabel)
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity).frame(height: 50)
@@ -286,7 +283,7 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             Button { performSwipe(direction: .right, fromDrag: false, dragEndX: 0) } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "bookmark.fill").font(.system(size: 20))
-                    Text("학습할게요").font(.subheadline).fontWeight(.semibold)
+                    Text("학습할게요").font(.buttonLabel)
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity).frame(height: 50)
@@ -299,7 +296,6 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
             }
             .disabled(isLocked)
         }
-        .padding(.horizontal, 20)
         .opacity(isLocked ? 0.4 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isLocked)
     }

@@ -32,6 +32,30 @@ final class HapticManager {
         #endif
     }
 
+    /// 문법 퀴즈 정답 시 햅틱 (팝 느낌 — success + soft impact)
+    func playCorrectAnswer() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+            let impact = UIImpactFeedbackGenerator(style: .soft)
+            impact.impactOccurred(intensity: 0.6)
+        }
+        #endif
+    }
+
+    /// 문법 퀴즈 오답 시 햅틱 (흔들림 느낌 — error + rigid impact)
+    func playWrongAnswer() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.error)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let impact = UIImpactFeedbackGenerator(style: .rigid)
+            impact.impactOccurred(intensity: 0.7)
+        }
+        #endif
+    }
+
     /// 오답 시 햅틱 (에러 느낌)
     func playIncorrect() {
         #if os(iOS)
@@ -82,6 +106,102 @@ final class HapticManager {
         #if os(iOS)
         let generator = UISelectionFeedbackGenerator()
         generator.selectionChanged()
+        #endif
+    }
+
+    /// 앱 시작 시 환영 햅틱 (부드러운 중간 임팩트)
+    func playAppLaunch() {
+        #if os(iOS)
+        let generator = UIImpactFeedbackGenerator(style: .medium)
+        generator.impactOccurred(intensity: 0.5)
+        #endif
+    }
+
+    /// 구독 완료 시 축하 햅틱 (성공 + 더블 임팩트 리듬)
+    func playSubscriptionComplete() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            let impact = UIImpactFeedbackGenerator(style: .heavy)
+            impact.impactOccurred(intensity: 0.9)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred(intensity: 0.6)
+        }
+        #endif
+    }
+
+    /// 북마크 저장 시 가벼운 탭 햅틱
+    func playBookmark() {
+        #if os(iOS)
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred(intensity: 0.7)
+        #endif
+    }
+
+    /// 레벨업 시 강렬한 축하 햅틱 (트리플 임팩트)
+    func playLevelUp() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            let impact = UIImpactFeedbackGenerator(style: .heavy)
+            impact.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
+            let impact = UIImpactFeedbackGenerator(style: .heavy)
+            impact.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred(intensity: 0.5)
+        }
+        #endif
+    }
+
+    /// 온보딩 완료 시 부드러운 성공 햅틱
+    func playOnboardingComplete() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let impact = UIImpactFeedbackGenerator(style: .soft)
+            impact.impactOccurred(intensity: 0.8)
+        }
+        #endif
+    }
+
+    /// 세션 완료 시 보상감 있는 햅틱
+    func playSessionComplete() {
+        #if os(iOS)
+        let notification = UINotificationFeedbackGenerator()
+        notification.notificationOccurred(.success)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred(intensity: 0.8)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            let impact = UIImpactFeedbackGenerator(style: .light)
+            impact.impactOccurred(intensity: 0.5)
+        }
+        #endif
+    }
+
+    /// 경고/에러 알림 시 경고 햅틱
+    func playWarning() {
+        #if os(iOS)
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.warning)
+        #endif
+    }
+
+    /// 토글 변경 시 미세한 임팩트
+    func playToggle() {
+        #if os(iOS)
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.impactOccurred(intensity: 0.4)
         #endif
     }
 }

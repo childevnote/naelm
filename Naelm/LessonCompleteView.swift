@@ -89,13 +89,13 @@ struct LessonCompleteView: View {
             Text("🎉")
                 .font(.system(size: 72))
             Text("학습을 완료했어요!")
-                .font(.system(size: 34, weight: .bold, design: .rounded))
+                .font(.pretendardBold(34))
                 .foregroundStyle(
                     colorScheme == .dark ? AppPalette.mint : AppPalette.forest
                 )
                 .multilineTextAlignment(.center)
             Text(result.sessionLabel)
-                .font(.appSubhead)
+                .font(.pretendardMedium(15))
                 .foregroundStyle(.secondary)
         }
         .scaleEffect(introScale)
@@ -121,10 +121,10 @@ struct LessonCompleteView: View {
             // 메인 타이틀
             VStack(spacing: 6) {
                 Text("수고했어요! 👏")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.pretendardBold(26))
                     .foregroundStyle(colorScheme == .dark ? AppPalette.mint : AppPalette.forest)
                 Text(result.sessionLabel + " 완료")
-                    .font(.appSubhead)
+                    .font(.pretendardMedium(15))
                     .foregroundStyle(.secondary)
             }
 
@@ -150,7 +150,7 @@ struct LessonCompleteView: View {
                 onDismiss()
             } label: {
                 Text("홈으로")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .font(.pretendardBold(18))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
@@ -188,16 +188,16 @@ struct LessonCompleteView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("획득한 XP")
-                    .font(.appCaption)
+                    .font(.captionBold)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("+\(xpCountDisplayed)")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .font(.sfRounded(38, weight: .bold))
                         .foregroundStyle(AppPalette.gold)
                         .contentTransition(.numericText(value: Double(xpCountDisplayed)))
                     Text("XP")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.pretendardSemiBold(18))
                         .foregroundStyle(AppPalette.gold.opacity(0.8))
                 }
             }
@@ -238,15 +238,15 @@ struct LessonCompleteView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("연속 학습")
-                    .font(.appCaption)
+                    .font(.captionBold)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
                 HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(result.streakDays)")
-                        .font(.system(size: 38, weight: .bold, design: .rounded))
+                        .font(.sfRounded(38, weight: .bold))
                         .foregroundStyle(Color(hex: "#FF6B35"))
                     Text("일 연속! 🔥")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.pretendardSemiBold(18))
                         .foregroundStyle(Color(hex: "#FF6B35").opacity(0.9))
                 }
             }
@@ -389,7 +389,7 @@ struct LessonCompleteView: View {
                 x: Double.random(in: 0...1),
                 y: Double.random(in: 0...0.6),
                 size: CGFloat.random(in: 4...12),
-                color: colors.randomElement()!,
+                color: colors.randomElement() ?? AppPalette.mint,
                 opacity: Double.random(in: 0.6...1.0)
             )
         }

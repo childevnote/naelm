@@ -49,7 +49,7 @@ struct SplashView: View {
 
                 // ── 앱 이름 ────────────────────────────
                 Text("Naelm")
-                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .font(.sfRounded(46, weight: .bold))
                     .foregroundStyle(titleColor)
                     .opacity(titleOpacity)
                     .offset(y: titleOffset)
@@ -58,7 +58,7 @@ struct SplashView: View {
 
                 // ── 슬로건 ─────────────────────────────
                 Text("토익 영단어 · 문법 마스터")
-                    .font(.system(size: 17, weight: .medium, design: .rounded))
+                    .font(.pretendardMedium(17))
                     .foregroundStyle(sloganColor)
                     .opacity(sloganOpacity)
                     .offset(y: sloganOffset)
@@ -169,6 +169,9 @@ struct SplashView: View {
     // MARK: - Animation
 
     private func startAnimation() {
+        // 앱 시작 햅틱
+        HapticManager.shared.playAppLaunch()
+
         // 배경 페이드인
         withAnimation(.easeIn(duration: 0.35)) {
             bgOpacity = 1.0

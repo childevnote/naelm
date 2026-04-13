@@ -17,12 +17,18 @@
 import SwiftUI
 import SwiftData
 import AuthenticationServices
+import AppTrackingTransparency
 import os
 
 // MARK: - App Entry Point
 
 @main
 struct NaelmApp: App {
+
+    // ── Pretendard 기본 폰트 적용 ────────────
+    init() {
+        applyPretendardFonts()
+    }
 
     // ── SwiftData ModelContainer ────────────
     // 모든 @Model 클래스를 스키마에 등록합니다.
@@ -48,7 +54,14 @@ struct NaelmApp: App {
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("❌ Could not create ModelContainer: \(error)")
+            // CloudKit/Persistent 실패 시 인메모리 폴백 (앱 크래시 방지)
+            AppLogger.data.error("Could not create ModelContainer: \(error.localizedDescription). Falling back to in-memory store.")
+            let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            do {
+                return try ModelContainer(for: schema, configurations: [fallbackConfig])
+            } catch {
+                fatalError("❌ In-memory ModelContainer also failed: \(error)")
+            }
         }
     }()
 
@@ -171,6 +184,8 @@ struct RootView: View {
     @State private var isDataLoaded = false
     /// 스플래시 화면 표시 여부 (처음 실행 시만)
     @State private var showSplash = true
+    /// 데이터 로드 실패 알림
+    @State private var showDataLoadError = false
 
     private var colorSchemeOverride: ColorScheme? {
         switch appearanceMode {
@@ -215,10 +230,28 @@ struct RootView: View {
         .preferredColorScheme(colorSchemeOverride)
         .task {
             if !isDataLoaded {
-                DataLoader.seedAllIfNeeded(context: modelContext)
+                let success = DataLoader.seedAllIfNeeded(context: modelContext)
+                if !success {
+                    showDataLoadError = true
+                }
                 authManager.restoreAuthState()
                 isDataLoaded = true
+                // ATT 권한 요청 (스플래시 종료 후 약간의 딜레이)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                    ATTrackingManager.requestTrackingAuthorization { _ in }
+                }
             }
+        }
+        .alert("데이터 로드 오류", isPresented: $showDataLoadError) {
+            Button("재시도") {
+                let retrySuccess = DataLoader.seedAllIfNeeded(context: modelContext)
+                if !retrySuccess {
+                    showDataLoadError = true
+                }
+            }
+            Button("계속하기", role: .cancel) {}
+        } message: {
+            Text("학습 데이터를 불러오는 데 실패했습니다. 일부 기능이 정상적으로 작동하지 않을 수 있습니다.")
         }
         .onChange(of: authManager.userID) { _, newID in
             if let uid = newID {
@@ -447,3 +480,4 @@ struct MainDashboardView: View {
             BookmarkedWord.self,
         ], inMemory: true)
 }
+

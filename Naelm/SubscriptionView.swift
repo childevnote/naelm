@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import StoreKit
 import os
 
 // MARK: - Subscription View
@@ -91,6 +92,10 @@ struct SubscriptionView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("닫기") { dismiss() }
                     .foregroundStyle(.secondary)
+                    // 👇 닫기 버튼의 애니메이션을 강제로 제거합니다.
+                    .transaction { transaction in
+                        transaction.animation = nil
+                    }
             }
         }
         .onAppear { startAnimations() }
@@ -497,9 +502,9 @@ struct SubscriptionView: View {
             .padding(.horizontal, 24)
             .padding(.top, 24)
 
-            // 복원 버튼 (실제 앱: StoreKit Transaction.currentEntitlements 검증)
+            // 복원 버튼 (App Store Review Guideline 3.1.1 필수)
             Button("구매 내역 복원") {
-                // TODO: StoreKit 2 기반 구매 복원 구현 필요
+                restorePurchases()
             }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -525,23 +530,16 @@ struct SubscriptionView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             HStack(spacing: 12) {
-                // TODO: 실제 URL로 교체 필요 (App Store 심사 요구사항)
-                Button("이용약관") { showTermsAlert = true }
+                if let termsURL = URL(string: "https://toeigo.notion.site/terms") {
+                    Link("이용약관", destination: termsURL)
+                }
                 Text("·").foregroundStyle(.tertiary)
-                Button("개인정보 처리방침") { showPrivacyAlert = true }
+                if let privacyURL = URL(string: "https://toeigo.notion.site/privacy") {
+                    Link("개인정보 처리방침", destination: privacyURL)
+                }
             }
             .font(.system(size: 10))
             .foregroundStyle(.tertiary)
-            .alert("이용약관", isPresented: $showTermsAlert) {
-                Button("확인", role: .cancel) {}
-            } message: {
-                Text("이용약관은 현재 준비 중입니다.\n정식 출시 시 제공될 예정입니다.")
-            }
-            .alert("개인정보 처리방침", isPresented: $showPrivacyAlert) {
-                Button("확인", role: .cancel) {}
-            } message: {
-                Text("개인정보 처리방침은 현재 준비 중입니다.\n정식 출시 시 제공될 예정입니다.")
-            }
         }
         .padding(.vertical, 24)
     }
@@ -599,6 +597,8 @@ struct SubscriptionView: View {
     @State private var activationError: String? = nil
     @State private var showTermsAlert = false
     @State private var showPrivacyAlert = false
+    @State private var isRestoring = false
+    @State private var restoreMessage: String? = nil
 
     private func purchasePlan() {
         guard let userID = authManager.userID else { return }
@@ -611,6 +611,7 @@ struct SubscriptionView: View {
             let success = activatePro(userID: userID)
             isProcessing = false
             if success {
+                HapticManager.shared.playSubscriptionComplete()
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     showSuccess = true
                 }
@@ -627,7 +628,7 @@ struct SubscriptionView: View {
         // 영수증을 검증한 후에만 isPro를 true로 설정해야 합니다.
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         guard let profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first else {
-            AppLogger.auth.error("Pro activation failed: UserProfile not found for \(userID)")
+            AppLogger.auth.error("Pro activation failed: UserProfile not found for \(userID, privacy: .private)")
             return false
         }
         profile.isPro = true
@@ -643,6 +644,49 @@ struct SubscriptionView: View {
             AppLogger.auth.error("Pro activation save failed: \(error.localizedDescription)")
             profile.isPro = false
             return false
+        }
+    }
+
+    // MARK: - Restore Purchases (App Store Review Guideline 3.1.1)
+
+    /// StoreKit 2 기반 구매 복원.
+    /// Transaction.currentEntitlements를 순회하여 유효한 구독을 찾고 Pro를 활성화합니다.
+    private func restorePurchases() {
+        guard let userID = authManager.userID else { return }
+        isRestoring = true
+        restoreMessage = nil
+        activationError = nil
+
+        Task {
+            var hasActiveSubscription = false
+
+            for await result in Transaction.currentEntitlements {
+                guard case .verified(let transaction) = result else { continue }
+
+                // auto-renewable subscription 또는 non-consumable
+                if transaction.revocationDate == nil {
+                    hasActiveSubscription = true
+                    break
+                }
+            }
+
+            await MainActor.run {
+                isRestoring = false
+                if hasActiveSubscription {
+                    let success = activatePro(userID: userID)
+                    if success {
+                        HapticManager.shared.playSubscriptionComplete()
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                            showSuccess = true
+                        }
+                        restoreMessage = nil
+                    } else {
+                        activationError = "구독 복원에 실패했습니다. 다시 시도해주세요."
+                    }
+                } else {
+                    activationError = "복원할 구매 내역이 없습니다."
+                }
+            }
         }
     }
 

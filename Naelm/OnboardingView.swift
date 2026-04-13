@@ -62,11 +62,11 @@ struct OnboardingView: View {
                 .foregroundStyle(BrandTheme.accent)
 
             Text("목표 TOEIC 점수를 선택해주세요")
-                .font(.title2).fontWeight(.bold)
+                .font(.pretendardBold(22))
                 .multilineTextAlignment(.center)
 
             Text("선택한 점수에 맞는 단어와 문법을 추천해 드립니다")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.pretendardMedium(15)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             VStack(spacing: 12) {
@@ -126,10 +126,10 @@ struct OnboardingView: View {
                 .foregroundStyle(BrandTheme.accent)
 
             Text("간단한 수준 파악 테스트")
-                .font(.title2).fontWeight(.bold)
+                .font(.pretendardBold(22))
 
             Text("20문제로 현재 실력을 진단합니다.\n문제당 10초 제한이 있습니다.\n약 3분 소요됩니다.")
-                .font(.subheadline).foregroundStyle(.secondary)
+                .font(.pretendardMedium(15)).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
             Spacer()
@@ -442,7 +442,7 @@ struct OnboardingView: View {
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty && $0 != g.blankTarget }
             while distractors.count < 3 {
-                distractors.append(["however", "therefore", "although", "moreover"].randomElement()!)
+                distractors.append(["however", "therefore", "although", "moreover"].randomElement() ?? "however")
             }
             var options = [g.blankTarget] + Array(distractors.prefix(3))
             options.shuffle()
@@ -534,6 +534,7 @@ struct OnboardingView: View {
         profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
 
         try? modelContext.save()
+        HapticManager.shared.playOnboardingComplete()
         onComplete()
     }
 }

@@ -128,18 +128,17 @@ final class UserProfile {
 
     /// Pro 상태 평가 (만료일 체크 포함)
     /// isPro && (만료일 없음 또는 만료일 > 현재) 일 때만 true.
-    /// 만료된 경우 isPro를 자동으로 false로 리셋합니다.
     var isProActive: Bool {
         guard isPro else { return false }
         guard let expiresAt = proExpiresAt else { return true }  // 만료일 없으면 영구 구독
-        if expiresAt > Date() {
-            return true
-        } else {
-            // 만료됨 — 자동 리셋
-            isPro = false
-            subscriptionPlan = ""
-            return false
-        }
+        return expiresAt > Date()
+    }
+
+    /// 만료된 구독을 자동 리셋합니다. 앱 시작 시 또는 데이터 로드 시 호출하세요.
+    func expireIfNeeded() {
+        guard isPro, let expiresAt = proExpiresAt, expiresAt <= Date() else { return }
+        isPro = false
+        subscriptionPlan = ""
     }
 
     /// 프로필 생성일
@@ -539,7 +538,8 @@ final class Friendship {
 // MARK: - BookmarkedWord (저장한 단어)
 
 @Model
-final class BookmarkedWord {    var userID: String = ""
+final class BookmarkedWord {
+    var userID: String = ""
     var wordID: String = ""
 
     @Relationship var vocabulary: Vocabulary?

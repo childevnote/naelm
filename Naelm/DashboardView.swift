@@ -99,11 +99,11 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if totalDaysStudied > 0 {
                     Text("학습 \(totalDaysStudied)일 만에 \(totalWordsStudied)개의 단어를 학습했어요!")
-                        .font(.subheadline).fontWeight(.semibold)
+                        .font(.pretendardSemiBold(14))
                         .foregroundStyle(AppPalette.forest)
                 } else {
                     Text("오늘부터 토익 학습을 시작해보세요!")
-                        .font(.subheadline).fontWeight(.semibold)
+                        .font(.pretendardSemiBold(14))
                         .foregroundStyle(AppPalette.forest)
                 }
             }
@@ -121,10 +121,10 @@ struct DashboardView: View {
             // 왼쪽: 연속 학습일
             VStack(spacing: 2) {
                 Text("\(streak)")
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .font(.dashboardNumber)
                     .foregroundStyle(AppPalette.forest)
                 Text("연속 학습")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(.secondary)
             }
             .frame(width: 72)
 
@@ -140,8 +140,8 @@ struct DashboardView: View {
     private var grassChart: some View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let days: [Date] = (0..<28).reversed().map {
-            calendar.date(byAdding: .day, value: -$0, to: today)!
+        let days: [Date] = (0..<28).reversed().compactMap {
+            calendar.date(byAdding: .day, value: -$0, to: today)
         }
         let maxXP = max(1, monthlyActivity.values.max() ?? 1)
 
@@ -182,11 +182,11 @@ struct DashboardView: View {
     private var todayLearningSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("오늘의 학습").font(.headline)
+                Text("오늘의 학습").font(.pretendardSemiBold(16))
                 Spacer()
                 if vocabCompleted && grammarCompleted {
                     Text("오늘 학습 완료! 🎉")
-                        .font(.caption).fontWeight(.semibold)
+                        .font(.captionBold)
                         .foregroundStyle(BrandTheme.knewIt)
                 }
             }
@@ -250,12 +250,12 @@ struct DashboardView: View {
                 .font(.title3).foregroundStyle(color).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    Text(label).font(.subheadline).fontWeight(.semibold)
+                    Text(label).font(.pretendardSemiBold(15))
                         .foregroundStyle(isCompleted ? .secondary : .primary)
                     Spacer()
-                    Text(progress).font(.subheadline).fontWeight(.bold).foregroundStyle(color)
+                    Text(progress).font(.pretendardBold(15)).foregroundStyle(color)
                 }
-                Text(subtitle).font(.caption2).foregroundStyle(.secondary)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             if !isCompleted {
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
@@ -270,7 +270,7 @@ struct DashboardView: View {
 
     private var weeklyChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("이번 주 활동").font(.headline)
+            Text("이번 주 활동").font(.pretendardSemiBold(16))
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(weeklyHistory) { day in
                     VStack(spacing: 4) {
@@ -278,7 +278,7 @@ struct DashboardView: View {
                             .fill(day.goalMet ? AppPalette.mint : (day.xpEarned > 0 ? AppPalette.leaf : Color.gray.opacity(0.2)))
                             .frame(width: 30, height: barHeight(xp: day.xpEarned))
                         Text(day.weekdayShort)
-                            .font(.system(size: 10))
+                            .font(.pretendard(10))
                             .foregroundStyle(Calendar.current.isDateInToday(day.date) ? .primary : .secondary)
                             .fontWeight(Calendar.current.isDateInToday(day.date) ? .bold : .regular)
                         if day.goalMet {
@@ -349,7 +349,7 @@ struct DashboardView: View {
         // 잔디밭용 최근 28일 데이터
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        let start = calendar.date(byAdding: .day, value: -27, to: today)!
+        let start = calendar.date(byAdding: .day, value: -27, to: today) ?? today
         var actMap: [Date: Int] = [:]
         for a in allActivities {
             let day = calendar.startOfDay(for: a.activityDate)
@@ -758,7 +758,7 @@ struct GrammarReviewContent: View {
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty && $0 != correctAnswer }
         while distractors.count < 3 {
-            distractors.append(["however","therefore","although","moreover"].randomElement()!)
+            distractors.append(["however","therefore","although","moreover"].randomElement() ?? "however")
         }
         var options = [correctAnswer] + Array(distractors.prefix(3))
         options.shuffle()

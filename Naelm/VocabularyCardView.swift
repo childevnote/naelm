@@ -15,7 +15,7 @@ struct VocabularyCardView: View {
     @State private var isFlipped: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
-    private let cardHeight: CGFloat = 480
+    private let cardHeight: CGFloat = 460
 
     // meanings 배열 정렬 (order 순서대로)
     private var sortedMeanings: [VocabularyMeaning] {
@@ -23,57 +23,48 @@ struct VocabularyCardView: View {
     }
 
     var body: some View {
-        GeometryReader { geo in
-            // 카드 좌우 여백(16pt)을 내부에서 처리해 드래그 시 경계 밖으로 나가지 않게 함
-            let hPad: CGFloat = 16
-            let cardWidth = geo.size.width - hPad * 2
-            ZStack {
-                cardBack(width: cardWidth)
-                    .opacity(isFlipped ? 1 : 0)
-                    .rotation3DEffect(
-                        .degrees(isFlipped ? 0 : 180),
-                        axis: (x: 0, y: 1, z: 0),
-                        perspective: 0.4
-                    )
-                    .allowsHitTesting(isFlipped)
+        ZStack {
+            cardBack()
+                .opacity(isFlipped ? 1 : 0)
+                .rotation3DEffect(
+                    .degrees(isFlipped ? 0 : 180),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.3
+                )
+                .allowsHitTesting(isFlipped)
 
-                cardFront(width: cardWidth)
-                    .opacity(isFlipped ? 0 : 1)
-                    .rotation3DEffect(
-                        .degrees(isFlipped ? -180 : 0),
-                        axis: (x: 0, y: 1, z: 0),
-                        perspective: 0.4
-                    )
-                    .allowsHitTesting(!isFlipped)
-            }
-            .frame(width: cardWidth, height: cardHeight)
-            // 카드 그림자가 잘리지 않도록 GeometryReader 내 중앙에 배치
-            .position(x: geo.size.width / 2, y: geo.size.height / 2)
-            .onTapGesture {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
-                    isFlipped.toggle()
-                }
-                onFlip?(isFlipped)
-                HapticManager.shared.playTap()
-            }
+            cardFront()
+                .opacity(isFlipped ? 0 : 1)
+                .rotation3DEffect(
+                    .degrees(isFlipped ? -180 : 0),
+                    axis: (x: 0, y: 1, z: 0),
+                    perspective: 0.3
+                )
+                .allowsHitTesting(!isFlipped)
         }
-        .frame(height: cardHeight)
-        // 외부 패딩 제거 — 드래그 시 ZStack 경계를 벗어나지 않도록
+        .frame(maxWidth: .infinity)
+        .onTapGesture {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                isFlipped.toggle()
+            }
+            onFlip?(isFlipped)
+            HapticManager.shared.playTap()
+        }
     }
 
     // MARK: - Front
 
-    private func cardFront(width cardWidth: CGFloat) -> some View {
+    private func cardFront() -> some View {
         VStack(spacing: 0) {
             Spacer()
             VStack(spacing: 16) {
                 Text(vocabulary.english)
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.cardWordTitle)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.center)
                 if !vocabulary.pronunciation.isEmpty {
                     Text(vocabulary.pronunciation)
-                        .font(.system(size: 18, design: .monospaced))
+                        .font(.pronunciation)
                         .foregroundStyle(.secondary)
                 }
                 let posList = posBadges
@@ -81,7 +72,7 @@ struct VocabularyCardView: View {
                     HStack(spacing: 6) {
                         ForEach(posList, id: \.self) { pos in
                             Text(pos)
-                                .font(.subheadline).fontWeight(.medium)
+                                .font(.badge)
                                 .foregroundStyle(BrandTheme.accent)
                                 .padding(.horizontal, 12).padding(.vertical, 4)
                                 .background(BrandTheme.accent.opacity(0.12))
@@ -99,20 +90,21 @@ struct VocabularyCardView: View {
             .font(.caption).foregroundStyle(.tertiary)
             .padding(.bottom, 24)
         }
-        .frame(width: cardWidth, height: cardHeight)
+        .frame(maxWidth: .infinity)
+        .frame(height: cardHeight)
         .background(cardBg)
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(.quaternary, lineWidth: 1))
     }
 
     // MARK: - Back
 
-    private func cardBack(width cardWidth: CGFloat) -> some View {
+    private func cardBack() -> some View {
         VStack(spacing: 0) {
             Spacer(minLength: 16)
             ScrollView {
                 VStack(spacing: 16) {
                     Text(vocabulary.english)
-                        .font(.title3).foregroundStyle(.secondary)
+                        .font(.pretendardMedium(17)).foregroundStyle(.secondary)
                     if sortedMeanings.isEmpty {
                         singleMeaningContent
                     } else {
@@ -135,9 +127,11 @@ struct VocabularyCardView: View {
                 }
                 .font(.caption).foregroundStyle(BrandTheme.studyIt)
             }
+            .font(.pretendard(12))
             .padding(.bottom, 24)
         }
-        .frame(width: cardWidth, height: cardHeight)
+        .frame(maxWidth: .infinity)
+        .frame(height: cardHeight)
         .background(cardBg)
         .overlay(RoundedRectangle(cornerRadius: 24).stroke(.quaternary, lineWidth: 1))
     }
@@ -154,7 +148,7 @@ struct VocabularyCardView: View {
             HStack(spacing: 6) {
                 ForEach(parts, id: \.self) { pos in
                     Text(pos)
-                        .font(.caption2).fontWeight(.semibold)
+                        .font(.badge)
                         .foregroundStyle(BrandTheme.accent)
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(BrandTheme.accent.opacity(0.12))
@@ -169,7 +163,7 @@ struct VocabularyCardView: View {
         VStack(spacing: 4) {
             ForEach(Array(koreanParts.enumerated()), id: \.offset) { idx, meaning in
                 Text(koreanParts.count > 1 ? "\(idx + 1). \(meaning)" : meaning)
-                    .font(.system(size: koreanParts.count > 1 ? 24 : 30, weight: .bold))
+                    .font(koreanParts.count > 1 ? .cardMeaningMedium : .cardMeaningLarge)
                     .foregroundStyle(.primary)
             }
         }
@@ -183,6 +177,7 @@ struct VocabularyCardView: View {
                 Image(systemName: "equal.circle").font(.caption2)
                 Text(vocabulary.synonyms).font(.caption)
             }
+            .font(.pretendard(12))
             .foregroundStyle(.secondary)
         }
     }
@@ -195,14 +190,14 @@ struct VocabularyCardView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if !meaning.pos.isEmpty {
                     Text(meaning.pos)
-                        .font(.caption2).fontWeight(.semibold)
+                        .font(.badge)
                         .foregroundStyle(BrandTheme.accent)
                         .padding(.horizontal, 8).padding(.vertical, 2)
                         .background(BrandTheme.accent.opacity(0.12))
                         .clipShape(Capsule())
                 }
                 Text(meaning.korean)
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.cardMeaningSmall)
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -212,7 +207,7 @@ struct VocabularyCardView: View {
                 if !meaning.synonyms.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "equal.circle").font(.caption2)
-                        Text(meaning.synonyms).font(.caption)
+                        Text(meaning.synonyms).font(.pretendard(12))
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -230,13 +225,13 @@ struct VocabularyCardView: View {
     private func exampleBlock(sentence: String, translation: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(sentence)
-                .font(.subheadline).italic()
+                .font(.exampleSentence).italic()
                 .foregroundStyle(.primary.opacity(0.8))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if !translation.isEmpty {
                 Text(translation)
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.exampleTranslation).foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -282,5 +277,4 @@ struct VocabularyCardView: View {
             return v
         }()
     )
-    .padding()
 }

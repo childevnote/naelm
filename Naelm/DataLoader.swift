@@ -70,18 +70,22 @@ final class DataLoader {
 
     // MARK: - Public API
 
-    static func seedAllIfNeeded(context: ModelContext) {
-        seedVocabularyIfNeeded(context: context)
-        seedGrammarIfNeeded(context: context)
+    /// 모든 시드 데이터를 로드합니다. 성공 여부를 반환합니다.
+    @discardableResult
+    static func seedAllIfNeeded(context: ModelContext) -> Bool {
+        let vocabOK = seedVocabularyIfNeeded(context: context)
+        let grammarOK = seedGrammarIfNeeded(context: context)
         try? context.save()
+        return vocabOK && grammarOK
     }
 
     // MARK: - Vocabulary 시딩
 
-    static func seedVocabularyIfNeeded(context: ModelContext) {
+    @discardableResult
+    static func seedVocabularyIfNeeded(context: ModelContext) -> Bool {
         guard let url = Bundle.main.url(forResource: "Vocabulary", withExtension: "json") else {
             AppLogger.data.warning("Vocabulary.json not found in bundle")
-            return
+            return false
         }
 
         let data: Data
@@ -89,7 +93,7 @@ final class DataLoader {
             data = try Data(contentsOf: url)
         } catch {
             AppLogger.data.error("Failed to read Vocabulary.json: \(error)")
-            return
+            return false
         }
 
         let dtos: [VocabularyDTO]
@@ -97,7 +101,7 @@ final class DataLoader {
             dtos = try JSONDecoder().decode([VocabularyDTO].self, from: data)
         } catch {
             AppLogger.data.error("Failed to decode Vocabulary.json: \(error)")
-            return
+            return false
         }
 
         let existingIDs = fetchExistingVocabularyIDs(context: context)
@@ -147,14 +151,16 @@ final class DataLoader {
         } else {
             AppLogger.data.debug("Vocabulary data already up to date")
         }
+        return true
     }
 
     // MARK: - Grammar 시딩
 
-    static func seedGrammarIfNeeded(context: ModelContext) {
+    @discardableResult
+    static func seedGrammarIfNeeded(context: ModelContext) -> Bool {
         guard let url = Bundle.main.url(forResource: "Grammar", withExtension: "json") else {
             AppLogger.data.warning("Grammar.json not found in bundle")
-            return
+            return false
         }
 
         let data: Data
@@ -162,7 +168,7 @@ final class DataLoader {
             data = try Data(contentsOf: url)
         } catch {
             AppLogger.data.error("Failed to read Grammar.json: \(error)")
-            return
+            return false
         }
 
         let dtos: [GrammarDTO]
@@ -170,7 +176,7 @@ final class DataLoader {
             dtos = try JSONDecoder().decode([GrammarDTO].self, from: data)
         } catch {
             AppLogger.data.error("Failed to decode Grammar.json: \(error)")
-            return
+            return false
         }
 
         let existingIDs = fetchExistingGrammarIDs(context: context)
@@ -203,6 +209,7 @@ final class DataLoader {
         } else {
             AppLogger.data.debug("Grammar data already up to date")
         }
+        return true
     }
 
     // MARK: - Private Helpers

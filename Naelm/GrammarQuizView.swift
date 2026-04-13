@@ -37,8 +37,10 @@ struct GrammarQuizView: View {
     @State private var grammarTimerDurationOverride: Double = 15.0
     @State private var lessonResult: LessonResult? = nil
     @State private var showLessonComplete = false
+    // 정답/오답 애니메이션
     @State private var answerBounceScale: CGFloat = 1.0
     @State private var answerShakeOffset: CGFloat = 0
+    @State private var feedbackVisible: Bool = false
 
     init() {
         let sm = LearningSessionManager()
@@ -131,6 +133,9 @@ struct GrammarQuizView: View {
             }
             .onChange(of: viewModel.currentIndex) { _, _ in
                 resetGrammarTimer()
+                answerBounceScale = 1.0
+                answerShakeOffset = 0
+                feedbackVisible = false
             }
             .onChange(of: viewModel.isQuizComplete) { _, complete in
                 if complete {
@@ -141,10 +146,10 @@ struct GrammarQuizView: View {
             .onChange(of: viewModel.isAnswerRevealed) { _, revealed in
                 if revealed {
                     grammarTimerRunning = false
-                    guard let question = viewModel.currentQuestion else { return }
-                    let isCorrect = viewModel.selectedAnswer == question.correctAnswer
+                    let isCorrect = viewModel.selectedAnswer == viewModel.currentQuestion?.correctAnswer
                     if isCorrect {
-                        // 정답: 팝 애니메이션 (햅틱은 ViewModel에서 처리)
+                        // 정답: 팝 애니메이션 + 성공 햅틱
+                        HapticManager.shared.playCorrectAnswer()
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.4)) {
                             answerBounceScale = 1.12
                         }
@@ -153,17 +158,26 @@ struct GrammarQuizView: View {
                         }
                         showGrammarSpeedFeedback()
                     } else {
-                        // 오답: 흔들기 애니메이션 (햅틱은 ViewModel에서 처리)
-                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10)) {
-                            answerShakeOffset = -8
+                        // 오답: 흔들기 애니메이션 + 실패 햅틱
+                        HapticManager.shared.playWrongAnswer()
+                        withAnimation(.default) {
+                            answerShakeOffset = 10
                         }
-                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10).delay(0.08)) {
+                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10).delay(0.05)) {
+                            answerShakeOffset = -10
+                        }
+                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 10).delay(0.15)) {
+                            answerShakeOffset = 8
+                        }
+                        withAnimation(.interpolatingSpring(stiffness: 600, damping: 12).delay(0.25)) {
                             answerShakeOffset = 0
                         }
                     }
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        feedbackVisible = true
+                    }
                 } else {
-                    answerBounceScale = 1.0
-                    answerShakeOffset = 0
+                    feedbackVisible = false
                 }
             }
         }
@@ -219,15 +233,13 @@ struct GrammarQuizView: View {
                     .padding(.horizontal, 24)
 
                     // 정답 공개 후: 다음/해설 버튼
-                    Group {
-                        if viewModel.isAnswerRevealed {
-                            feedbackSection(question: question)
-                                .scaleEffect(answerBounceScale)
-                                .offset(x: answerShakeOffset)
-                                .transition(.move(edge: .bottom).combined(with: .opacity))
-                        }
+                    if viewModel.isAnswerRevealed {
+                        feedbackSection(question: question)
+                            .scaleEffect(answerBounceScale)
+                            .offset(x: answerShakeOffset)
+                            .opacity(feedbackVisible ? 1 : 0)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.isAnswerRevealed)
 
                     Spacer(minLength: 40)
                 }
@@ -294,7 +306,7 @@ struct GrammarQuizView: View {
         grammarTimerRemaining = grammarTimerDuration
         grammarTimerRunning = true
         // 타이머가 invalidate된 경우를 대비해 재시작
-        if grammarTimer == nil || !grammarTimer!.isValid {
+        if grammarTimer == nil || !(grammarTimer?.isValid ?? false) {
             startGrammarTimer()
         }
     }
@@ -313,14 +325,13 @@ struct GrammarQuizView: View {
                 ForEach(Array(sentence.split(separator: " ").enumerated()), id: \.offset) { _, word in
                     if word == "___" {
                         Text("______")
-                            .font(.title3)
-                            .fontWeight(.bold)
+                            .font(.pretendardBold(20))
                             .foregroundStyle(.blue)
                             .underline()
                             .padding(.horizontal, 2)
                     } else {
                         Text(String(word))
-                            .font(.title3)
+                            .font(.pretendardMedium(20))
                             .padding(.horizontal, 1)
                     }
                 }
@@ -345,8 +356,7 @@ struct GrammarQuizView: View {
         } label: {
             HStack {
                 Text(option)
-                    .font(.body)
-                    .fontWeight(.medium)
+                    .font(.pretendardMedium(16))
 
                 Spacer()
 
