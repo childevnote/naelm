@@ -306,6 +306,7 @@ struct DashboardView: View {
     // MARK: - Refresh
 
     private func refreshStats() {
+        Task { @MainActor in
         guard let userID = authManager.userID else { return }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
@@ -355,6 +356,7 @@ struct DashboardView: View {
             if day >= start { actMap[day, default: 0] += a.xpEarned }
         }
         monthlyActivity = actMap
+        }
     }
 }
 
