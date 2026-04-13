@@ -68,10 +68,12 @@ func loadDeck(userID: String, context: ModelContext) {
     let masteredPred = #Predicate<LearningProgress> {
         $0.userID == userID && $0.itemType == "vocabulary" && $0.isMastered == true
     }
-    let masteredIDs = Set((try? context.fetch(FetchDescriptor<LearningProgress>(predicate: masteredPred)))?.compactMap { $0.vocabulary?.wordID } ?? [])
+    let masteredDescriptor = FetchDescriptor<LearningProgress>(predicate: masteredPred)
+    let masteredIDs = Set((try? context.fetch(masteredDescriptor))?.compactMap { $0.vocabulary?.wordID } ?? [])
 
     // 3) 전체 비숙달 단어 가져오기
-    let allDescriptor = FetchDescriptor<Vocabulary>(sortBy: [SortDescriptor(\.frequencyLevel)])
+    var allDescriptor = FetchDescriptor<Vocabulary>(sortBy: [SortDescriptor(\.frequencyLevel)])
+    allDescriptor.fetchLimit = dailyGoal * 10
     let allVocab = (try? context.fetch(allDescriptor))?.filter { !masteredIDs.contains($0.wordID) } ?? []
 
     // 4) 수준 40% + 목표 60% 구성
