@@ -3478,5 +3478,340 @@
     "category": "Legal",
     "synonyms": "truthful, accurate, honest",
     "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_241",
+    "english": "update",
+    "pronunciation": "/ˈʌp.deɪt/",
+    "frequencyLevel": 1,
+    "category": "General Business",
+    "dataVersion": 1,
+    "meanings": [
+      {
+        "meaningID": "m_241_1",
+        "pos": "verb",
+        "korean": "업데이트하다, 갱신하다",
+        "exampleSentence": "Please update your contact information in the company database as soon as your address or phone number changes.",
+        "exampleTranslation": "주소나 전화번호가 변경되는 즉시 회사 데이터베이스에 연락처 정보를 업데이트해 주세요.",
+        "synonyms": "revise, refresh, renew",
+        "order": 1
+      },
+      {
+        "meaningID": "m_241_2",
+        "pos": "noun",
+        "korean": "업데이트, 최신 정보",
+        "exampleSentence": "The HR department will send a weekly update on the progress of the ongoing recruitment process to all managers.",
+        "exampleTranslation": "인사부는 모든 관리자에게 진행 중인 채용 프로세스 현황에 대한 주간 업데이트를 발송할 것입니다.",
+        "synonyms": "revision, report, briefing",
+        "order": 2
+      }
+    ]
+  },
+  {
+    "wordID": "vocab_242",
+    "english": "permit",
+    "pronunciation": "/pəˈmɪt/",
+    "frequencyLevel": 1,
+    "category": "General Business",
+    "dataVersion": 1,
+    "meanings": [
+      {
+        "meaningID": "m_242_1",
+        "pos": "verb",
+        "korean": "허가하다, 허용하다",
+        "exampleSentence": "Company policy does not permit employees to share confidential client information with any outside parties under any circumstances.",
+        "exampleTranslation": "회사 정책은 어떠한 경우에도 직원들이 기밀 고객 정보를 외부 당사자와 공유하는 것을 허용하지 않습니다.",
+        "synonyms": "allow, authorize, approve",
+        "order": 1
+      },
+      {
+        "meaningID": "m_242_2",
+        "pos": "noun",
+        "korean": "허가증, 허가서",
+        "exampleSentence": "Contractors must obtain a valid work permit before beginning any renovation or construction work on the premises.",
+        "exampleTranslation": "계약업자들은 건물 내 어떠한 보수 또는 건설 작업을 시작하기 전에 유효한 작업 허가증을 취득해야 합니다.",
+        "synonyms": "license, authorization, clearance",
+        "order": 2
+      }
+    ]
+  },
+  {
+    "wordID": "vocab_243",
+    "english": "replace",
+    "korean": "교체하다, 대체하다",
+    "pronunciation": "/rɪˈpleɪs/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "The IT department will replace all outdated desktop computers with new laptops over the next two weeks.",
+    "exampleTranslation": "IT 부서는 향후 2주 동안 구형 데스크톱 컴퓨터를 모두 새 노트북으로 교체할 것입니다.",
+    "category": "General Business",
+    "synonyms": "substitute, exchange, swap",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_244",
+    "english": "expand",
+    "korean": "확장하다, 확대하다",
+    "pronunciation": "/ɪkˈspænd/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "The company plans to expand its operations into three additional Asian markets by the end of next fiscal year.",
+    "exampleTranslation": "회사는 다음 회계연도 말까지 세 개의 추가적인 아시아 시장으로 사업을 확장할 계획입니다.",
+    "category": "General Business",
+    "synonyms": "grow, enlarge, extend",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_245",
+    "english": "review",
+    "pronunciation": "/rɪˈvjuː/",
+    "frequencyLevel": 1,
+    "category": "General Business",
+    "dataVersion": 1,
+    "meanings": [
+      {
+        "meaningID": "m_245_1",
+        "pos": "verb",
+        "korean": "검토하다, 검사하다",
+        "exampleSentence": "The legal team will review the draft contract carefully before it is signed by the senior management.",
+        "exampleTranslation": "법무팀은 고위 경영진이 서명하기 전에 계약서 초안을 신중하게 검토할 것입니다.",
+        "synonyms": "examine, assess, evaluate",
+        "order": 1
+      },
+      {
+        "meaningID": "m_245_2",
+        "pos": "noun",
+        "korean": "검토, 평가, 리뷰",
+        "exampleSentence": "An independent performance review of each department will be conducted at the close of this quarter.",
+        "exampleTranslation": "이번 분기 말에 각 부서의 독립적인 성과 검토가 실시될 것입니다.",
+        "synonyms": "assessment, evaluation, appraisal",
+        "order": 2
+      }
+    ]
+  },
+  {
+    "wordID": "vocab_246",
+    "english": "anticipate",
+    "korean": "예상하다, 기대하다",
+    "pronunciation": "/ænˈtɪs.ɪ.peɪt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 2,
+    "exampleSentence": "Market analysts anticipate a significant increase in consumer demand following the launch of the new product line.",
+    "exampleTranslation": "시장 분석가들은 신제품 라인 출시 이후 소비자 수요가 크게 증가할 것으로 예상합니다.",
+    "category": "General Business",
+    "synonyms": "expect, foresee, predict",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_247",
+    "english": "facilitate",
+    "korean": "촉진하다, 용이하게 하다",
+    "pronunciation": "/fəˈsɪl.ɪ.teɪt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 2,
+    "exampleSentence": "The new project management software is designed to facilitate communication between teams located in different countries.",
+    "exampleTranslation": "새로운 프로젝트 관리 소프트웨어는 서로 다른 나라에 위치한 팀 간의 소통을 촉진하도록 설계되었습니다.",
+    "category": "General Business",
+    "synonyms": "assist, enable, simplify",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_248",
+    "english": "coordinate",
+    "pronunciation": "/kəʊˈɔː.dɪ.neɪt/",
+    "frequencyLevel": 2,
+    "category": "General Business",
+    "dataVersion": 1,
+    "meanings": [
+      {
+        "meaningID": "m_248_1",
+        "pos": "verb",
+        "korean": "조율하다, 조정하다",
+        "exampleSentence": "The event manager will coordinate all logistics for the upcoming annual company conference scheduled for next month.",
+        "exampleTranslation": "행사 관리자는 다음 달 예정된 연례 회사 컨퍼런스의 모든 물류를 조율할 것입니다.",
+        "synonyms": "organize, arrange, synchronize",
+        "order": 1
+      },
+      {
+        "meaningID": "m_248_2",
+        "pos": "adjective",
+        "korean": "조화된, 공동의",
+        "exampleSentence": "A coordinate effort from all departments is required to ensure the successful and timely completion of the project.",
+        "exampleTranslation": "프로젝트를 성공적으로 기한 내에 완료하기 위해서는 모든 부서의 공동 노력이 필요합니다.",
+        "synonyms": "collaborative, unified, joint",
+        "order": 2
+      }
+    ]
+  },
+  {
+    "wordID": "vocab_249",
+    "english": "sufficient",
+    "korean": "충분한",
+    "pronunciation": "/səˈfɪʃ.ənt/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 2,
+    "exampleSentence": "The company must ensure it maintains sufficient inventory levels to meet customer demand throughout the peak holiday season.",
+    "exampleTranslation": "회사는 성수기 시즌 내내 고객 수요를 충족시키기 위해 충분한 재고 수준을 유지해야 합니다.",
+    "category": "General Business",
+    "synonyms": "adequate, enough, satisfactory",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_250",
+    "english": "priority",
+    "korean": "우선 사항, 우선순위",
+    "pronunciation": "/praɪˈɒr.ɪ.ti/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 2,
+    "exampleSentence": "Customer satisfaction remains the top priority for our service team throughout the entire duration of every project.",
+    "exampleTranslation": "고객 만족은 모든 프로젝트 전 기간 동안 서비스 팀의 최우선 사항으로 남아 있습니다.",
+    "category": "General Business",
+    "synonyms": "precedence, importance, preference",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_251",
+    "english": "reconcile",
+    "korean": "조정하다, 일치시키다",
+    "pronunciation": "/ˈrek.ən.saɪl/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 3,
+    "exampleSentence": "The accounting department worked overtime to reconcile the discrepancies found in the quarterly financial statements before the audit.",
+    "exampleTranslation": "회계 부서는 감사 전에 분기 재무제표에서 발견된 불일치를 조정하기 위해 초과 근무를 했습니다.",
+    "category": "Finance",
+    "synonyms": "balance, adjust, harmonize",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_252",
+    "english": "calibrate",
+    "korean": "조정하다, 보정하다",
+    "pronunciation": "/ˈkæl.ɪ.breɪt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 3,
+    "exampleSentence": "Engineers must carefully calibrate all new manufacturing equipment before initiating the first full-scale production run.",
+    "exampleTranslation": "엔지니어들은 첫 번째 전면적인 생산 가동을 시작하기 전에 모든 새 제조 장비를 신중하게 보정해야 합니다.",
+    "category": "General Business",
+    "synonyms": "adjust, fine-tune, standardize",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_253",
+    "english": "ascertain",
+    "korean": "확인하다, 알아내다",
+    "pronunciation": "/ˌæs.əˈteɪn/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 3,
+    "exampleSentence": "The compliance team conducted a thorough investigation to ascertain the root cause of the recent data breach incident.",
+    "exampleTranslation": "준법감시팀은 최근 데이터 침해 사건의 근본 원인을 확인하기 위해 철저한 조사를 실시했습니다.",
+    "category": "General Business",
+    "synonyms": "determine, establish, verify",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_254",
+    "english": "contravene",
+    "korean": "위반하다, 저촉되다",
+    "pronunciation": "/ˌkɒn.trəˈviːn/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 3,
+    "exampleSentence": "Any business practice that contravenes the established trade regulations may result in significant financial penalties and reputational damage.",
+    "exampleTranslation": "확립된 무역 규정을 위반하는 사업 관행은 상당한 금전적 처벌과 평판 손상을 초래할 수 있습니다.",
+    "category": "Legal",
+    "synonyms": "violate, infringe, breach",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_255",
+    "english": "remit",
+    "pronunciation": "/rɪˈmɪt/",
+    "frequencyLevel": 3,
+    "category": "Finance",
+    "dataVersion": 1,
+    "meanings": [
+      {
+        "meaningID": "m_255_1",
+        "pos": "verb",
+        "korean": "송금하다, 납부하다",
+        "exampleSentence": "All vendors are required to remit their invoices to the accounts payable department by the fifteenth of each month.",
+        "exampleTranslation": "모든 공급업체는 매월 15일까지 미지급금 부서에 청구서를 제출해야 합니다.",
+        "synonyms": "send, transfer, transmit",
+        "order": 1
+      },
+      {
+        "meaningID": "m_255_2",
+        "pos": "noun",
+        "korean": "업무 범위, 위임 사항",
+        "exampleSentence": "Resolving client complaints falls squarely within the remit of the customer service manager, not the sales team.",
+        "exampleTranslation": "고객 불만 해결은 영업팀이 아닌 고객 서비스 관리자의 업무 범위에 명백히 속합니다.",
+        "synonyms": "scope, jurisdiction, responsibility",
+        "order": 2
+      }
+    ]
+  },
+  {
+    "wordID": "vocab_256",
+    "english": "approbation",
+    "korean": "승인, 공식 찬성",
+    "pronunciation": "/ˌæp.rəˈbeɪ.ʃən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 4,
+    "exampleSentence": "The proposed amendment to the corporate charter requires the formal approbation of at least two-thirds of the board of directors.",
+    "exampleTranslation": "기업 정관에 대한 제안된 수정안은 이사회 의원 3분의 2 이상의 공식 승인이 필요합니다.",
+    "category": "Legal",
+    "synonyms": "approval, sanction, endorsement",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_257",
+    "english": "interlocutory",
+    "korean": "임시의, 중간 판결의",
+    "pronunciation": "/ˌɪn.təˈlɒk.jʊ.tər.i/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "The court issued an interlocutory injunction to prevent the company from proceeding with the contested merger until a final ruling is reached.",
+    "exampleTranslation": "법원은 최종 판결이 내려질 때까지 회사가 분쟁 중인 합병을 진행하지 못하도록 임시 금지 명령을 내렸습니다.",
+    "category": "Legal",
+    "synonyms": "provisional, interim, temporary",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_258",
+    "english": "immutable",
+    "korean": "불변의, 변경 불가능한",
+    "pronunciation": "/ɪˈmjuː.tə.bəl/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "The foundational principles of data integrity are immutable and must be upheld regardless of any operational pressure or cost constraint.",
+    "exampleTranslation": "데이터 무결성의 근본 원칙은 불변적이며 어떠한 운영상의 압박이나 비용 제약에도 반드시 지켜져야 합니다.",
+    "category": "Legal",
+    "synonyms": "unchangeable, fixed, inalterable",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_259",
+    "english": "sagacious",
+    "korean": "현명한, 통찰력 있는",
+    "pronunciation": "/səˈɡeɪ.ʃəs/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "The chairman was widely regarded as a sagacious leader whose strategic foresight had guided the firm through multiple economic downturns.",
+    "exampleTranslation": "회장은 여러 경기 침체를 통해 회사를 이끈 전략적 선견지명을 가진 현명한 리더로 널리 알려져 있었습니다.",
+    "category": "General Business",
+    "synonyms": "wise, astute, perceptive",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_260",
+    "english": "recalibrate",
+    "korean": "재조정하다, 재보정하다",
+    "pronunciation": "/ˌriːˈkæl.ɪ.breɪt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 4,
+    "exampleSentence": "Following the unexpected shift in market dynamics, the board decided to recalibrate its long-term investment strategy accordingly.",
+    "exampleTranslation": "시장 역학의 예상치 못한 변화에 따라, 이사회는 그에 맞게 장기 투자 전략을 재조정하기로 결정했습니다.",
+    "category": "General Business",
+    "synonyms": "readjust, reconfigure, realign",
+    "dataVersion": 1
   }
 ]
