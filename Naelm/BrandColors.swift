@@ -136,15 +136,14 @@ struct AppGradient {
         scheme == .dark
         ? LinearGradient(
             colors: [
-                Color(hex: "#0F1A10"),
-                Color(hex: "#0A1209")
+                Color(hex: "#111111"),
+                Color(hex: "#0A0A0A")
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         : LinearGradient(
             colors: [
-                Color(hex: "#F2EDC2").opacity(0.25),
-                Color(hex: "#9FCB98").opacity(0.10),
+                Color(hex: "#F9F9F6"),
                 Color.white
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
@@ -156,16 +155,16 @@ struct AppGradient {
         scheme == .dark
         ? LinearGradient(
             colors: [
-                Color(hex: "#0F1A10"),
-                Color(hex: "#1A2B1B"),
-                Color(hex: "#0F1A10")
+                Color(hex: "#111111"),
+                Color(hex: "#1A1A1A"),
+                Color(hex: "#111111")
             ],
             startPoint: .top, endPoint: .bottom
         )
         : LinearGradient(
             colors: [
-                Color(hex: "#346739").opacity(0.08),
-                Color(hex: "#F2EDC2").opacity(0.40),
+                AppPalette.forest.opacity(0.05),
+                Color(hex: "#F9F9F6"),
                 Color.white
             ],
             startPoint: .top, endPoint: .bottom
@@ -182,11 +181,11 @@ struct AppGradient {
     static func primaryButton(scheme: ColorScheme) -> LinearGradient {
         scheme == .dark
         ? LinearGradient(
-            colors: [Color(hex: "#9FCB98"), Color(hex: "#79AE6F")],
+            colors: [AppPalette.leaf, AppPalette.forest],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         : LinearGradient(
-            colors: [Color(hex: "#346739"), Color(hex: "#2A5430")],
+            colors: [AppPalette.forest, Color(hex: "#2A5430")],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
     }
@@ -217,22 +216,21 @@ struct BrandTheme {
     static let accentLight  = AppPalette.leaf          // #79AE6F
     static let accentSoft   = AppPalette.forest.opacity(0.12)
 
-    /// 정답 색상 (Mint green)
-    static let knewIt       = AppPalette.mint          // #9FCB98
-    /// 학습 필요 색상 (Amber)
-    static let studyIt      = AppPalette.warning       // #F5A623
+    /// 정답 색상 — 차분한 초록 (forest 계열 통일)
+    static let knewIt       = AppPalette.leaf          // #79AE6F
+    /// 학습 필요 색상 — 부드러운 테라코타 (눈에 덜 자극적)
+    static let studyIt      = Color(hex: "#C4886B")    // Muted terracotta
 
     /// 카드 배경 (라이트)
-    static let cardBackground     = Color(hex: "#FAFAF5")
+    static let cardBackground     = Color(hex: "#FAFAF8")
     /// 카드 배경 (다크)
-    static let cardBackgroundDark = Color(hex: "#1A2B1B")
+    static let cardBackgroundDark = Color(hex: "#1C1C1E")
 
     // ── Gradients ────────────────────────────────
     /// 메인 배경 그라데이션 (라이트)
     static let backgroundGradient = LinearGradient(
         colors: [
-            AppPalette.cream.opacity(0.30),
-            AppPalette.mint.opacity(0.12),
+            Color(hex: "#F9F9F6"),
             Color.white
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing
@@ -241,8 +239,8 @@ struct BrandTheme {
     /// 다크모드 배경 그라데이션
     static let backgroundGradientDark = LinearGradient(
         colors: [
-            Color(hex: "#0F1A10"),
-            Color(hex: "#0A1209")
+            Color(hex: "#111111"),
+            Color(hex: "#0A0A0A")
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
