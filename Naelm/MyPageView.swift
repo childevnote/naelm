@@ -11,6 +11,7 @@ import SwiftData
 struct MyPageView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var profile: UserProfile?
     @State private var streak: Int = 0
@@ -34,8 +35,9 @@ struct MyPageView: View {
     @State private var showDeleteAccountConfirmation: Bool = false
 
     // 프로필 카드 애니메이션
-    @State private var glowPhase: CGFloat = 0
-    @State private var iconBounce: Bool = false
+    @State private var glowScale: CGFloat = 1.0
+    @State private var glowOpacity: Double = 0.5
+    @State private var iconFloat: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -49,6 +51,7 @@ struct MyPageView: View {
                 }
                 .padding(16)
             }
+            .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("마이페이지")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { loadData() }
@@ -80,22 +83,21 @@ struct MyPageView: View {
 
     private var profileCard: some View {
         VStack(spacing: 20) {
-            // 아바타 + 글로우
+            // 아바타 + 잔잔한 글로우
             ZStack {
-                // 글로우 링
+                // 부드럽게 숨쉬는 글로우
                 Circle()
-                    .stroke(
-                        AngularGradient(
-                            colors: [AppPalette.forest, AppPalette.leaf, AppPalette.mint, AppPalette.forest],
+                    .fill(
+                        RadialGradient(
+                            colors: [AppPalette.leaf.opacity(glowOpacity), .clear],
                             center: .center,
-                            startAngle: .degrees(glowPhase),
-                            endAngle: .degrees(glowPhase + 360)
-                        ),
-                        lineWidth: 3
+                            startRadius: 0,
+                            endRadius: 54
+                        )
                     )
-                    .frame(width: 96, height: 96)
-                    .blur(radius: 4)
-                    .opacity(0.7)
+                    .frame(width: 108, height: 108)
+                    .scaleEffect(glowScale)
+                    .blur(radius: 8)
 
                 Circle()
                     .fill(
@@ -106,12 +108,12 @@ struct MyPageView: View {
                         )
                     )
                     .frame(width: 84, height: 84)
-                    .shadow(color: AppPalette.forest.opacity(0.3), radius: 12, y: 4)
+                    .shadow(color: AppPalette.forest.opacity(0.25), radius: 10, y: 4)
 
                 Image(systemName: "person.fill")
                     .font(.system(size: 36, weight: .medium))
                     .foregroundStyle(.white)
-                    .offset(y: iconBounce ? -2 : 2)
+                    .offset(y: iconFloat)
             }
 
             if let p = profile {
@@ -180,11 +182,12 @@ struct MyPageView: View {
             }
         )
         .onAppear {
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
-                glowPhase = 360
+            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                glowScale = 1.18
+                glowOpacity = 0.25
             }
-            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
-                iconBounce.toggle()
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                iconFloat = -4
             }
         }
     }
