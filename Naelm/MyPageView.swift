@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import CryptoKit
 
 struct MyPageView: View {
     @Environment(AuthenticationManager.self) var authManager
@@ -28,20 +27,15 @@ struct MyPageView: View {
     @State private var timerEnabled: Bool = true
     @State private var vocabTimerSeconds: Int = 15
     @State private var grammarTimerSeconds: Int = 15
-    // 구독 상태
-    @State private var isPro: Bool = false
-    @State private var showSubscription: Bool = false
-    @State private var showCancelSubscriptionAlert: Bool = false
-    // 코드 입력
-    @State private var showCodeInput: Bool = false
-    @State private var codeInput: String = ""
-    @State private var codeError: String? = nil
-    @State private var codeSuccess: Bool = false
     // 개선사항 피드백
     @State private var showFeedback: Bool = false
     // 계정 삭제
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
+
+    // 프로필 카드 애니메이션
+    @State private var glowPhase: CGFloat = 0
+    @State private var iconBounce: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -50,8 +44,6 @@ struct MyPageView: View {
                     profileCard
                     goalSection
                     quizCategoryChart
-                    if !isPro { proPromoBanner }
-                    if isPro { subscriptionInfoSection }
                     timerSettings
                     learningSettings
                 }
@@ -66,12 +58,6 @@ struct MyPageView: View {
             } message: {
                 Text("모든 학습 데이터가 삭제되고 처음 상태로 돌아갑니다.")
             }
-            .alert("구독 취소", isPresented: $showCancelSubscriptionAlert) {
-                Button("취소하기", role: .destructive) { cancelSubscription() }
-                Button("닫기", role: .cancel) {}
-            } message: {
-                Text("구독을 취소하면 Pro 혜택이 즉시 종료됩니다. 정말 취소하시겠습니까?")
-            }
             .alert("계정 삭제", isPresented: $showDeleteAccountAlert) {
                 Button("삭제하기", role: .destructive) { showDeleteAccountConfirmation = true }
                 Button("취소", role: .cancel) {}
@@ -84,15 +70,6 @@ struct MyPageView: View {
             } message: {
                 Text("마지막 확인입니다. 계정 삭제 후에는 데이터를 복구할 수 없습니다.")
             }
-            .sheet(isPresented: $showCodeInput, onDismiss: { codeInput = ""; codeError = nil; codeSuccess = false }) {
-                codeInputSheet
-            }
-            .sheet(isPresented: $showSubscription, onDismiss: { loadData() }) {
-                NavigationStack {
-                    SubscriptionView()
-                        .environment(authManager)
-                }
-            }
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
             }
@@ -102,37 +79,132 @@ struct MyPageView: View {
     // MARK: - Profile Card
 
     private var profileCard: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
+            // 아바타 + 글로우
             ZStack {
-                Circle().fill(AppPalette.forest).frame(width: 80, height: 80)
-                Image(systemName: "person.fill").font(.system(size: 36)).foregroundStyle(.white)
+                // 글로우 링
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [AppPalette.forest, AppPalette.leaf, AppPalette.mint, AppPalette.forest],
+                            center: .center,
+                            startAngle: .degrees(glowPhase),
+                            endAngle: .degrees(glowPhase + 360)
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 96, height: 96)
+                    .blur(radius: 4)
+                    .opacity(0.7)
+
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest, AppPalette.leaf],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 84, height: 84)
+                    .shadow(color: AppPalette.forest.opacity(0.3), radius: 12, y: 4)
+
+                Image(systemName: "person.fill")
+                    .font(.system(size: 36, weight: .medium))
+                    .foregroundStyle(.white)
+                    .offset(y: iconBounce ? -2 : 2)
             }
 
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
-                VStack(spacing: 4) {
+
+                // 수준 뱃지
+                VStack(spacing: 6) {
                     Text("현재 수준")
-                        .font(.caption)
+                        .font(.pretendardMedium(12))
                         .foregroundStyle(.secondary)
+
                     Text(level.label)
-                        .font(.pretendardBold(22))
-                        .foregroundColor(.black)
+                        .font(.pretendardBold(26))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [AppPalette.forest, AppPalette.leaf],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                 }
 
-                HStack(spacing: 24) {
-                    statPill(icon: "target", label: "목표", value: "\(p.targetScore)점")
-                    Divider().frame(height: 30)
-                    statPill(icon: "flame", label: "연속학습", value: "\(streak)일")
-                    Divider().frame(height: 30)
-                    statPill(icon: "star", label: "총 XP", value: "\(totalXP)")
+                // 스탯 카드들
+                HStack(spacing: 12) {
+                    statCard(icon: "target", label: "목표", value: "\(p.targetScore)점", color: AppPalette.forest)
+                    statCard(icon: "flame.fill", label: "연속학습", value: "\(streak)일", color: .orange)
+                    statCard(icon: "star.fill", label: "총 XP", value: "\(totalXP)", color: AppPalette.gold)
                 }
             }
         }
-        .padding(20).frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .padding(.horizontal, 20)
+        .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(AppPalette.cream.opacity(0.40))
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppPalette.leaf.opacity(0.30), lineWidth: 1))
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+
+                // 은은한 그라데이션 오버레이
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                AppPalette.forest.opacity(0.06),
+                                AppPalette.leaf.opacity(0.03),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                AppPalette.leaf.opacity(0.4),
+                                AppPalette.forest.opacity(0.15),
+                                AppPalette.leaf.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
+        .onAppear {
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                glowPhase = 360
+            }
+            withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: true)) {
+                iconBounce.toggle()
+            }
+        }
+    }
+
+    private func statCard(icon: String, label: String, value: String, color: Color) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+            Text(value)
+                .font(.pretendardBold(17))
+            Text(label)
+                .font(.pretendard(11))
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.tertiarySystemBackground))
         )
     }
 
@@ -142,41 +214,6 @@ struct MyPageView: View {
             Text(value).font(.pretendardBold(16))
             Text(label).font(.caption2).foregroundStyle(.secondary)
         }
-    }
-
-    // MARK: - Pro Promo Banner
-
-    private var proPromoBanner: some View {
-        Button { showSubscription = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "crown.fill")
-                    .font(.title3)
-                    .foregroundStyle(AppPalette.leaf)
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text("Pro로 업그레이드")
-                            .font(.subheadline).fontWeight(.bold)
-                            .foregroundStyle(.primary)
-                        ProBadgeView()
-                    }
-                    Text("무제한 학습 · 단어저장 · 타이머 설정")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption).foregroundStyle(.tertiary)
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(AppPalette.leaf.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(AppPalette.leaf.opacity(0.25), lineWidth: 1)
-                    )
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Goal Section
@@ -298,83 +335,62 @@ struct MyPageView: View {
 
     private var timerSettings: some View {
         VStack(alignment: .leading, spacing: 14) {
+            Text("시간 제한 설정").font(.headline)
+
             HStack {
-                Text("시간 제한 설정").font(.headline)
-                if !isPro {
-                    ProBadgeView()
-                }
+                Label("시간 제한 기능", systemImage: "timer")
+                    .font(.subheadline)
+                Spacer()
+                Toggle("", isOn: $timerEnabled)
+                    .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
             }
 
-            if !isPro {
-                // 비Pro: 잠금 안내
-                Button { showSubscription = true } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "lock.fill")
-                            .foregroundStyle(AppPalette.leaf)
-                        Text("Pro 구독 시 타이머 설정 가능")
-                            .font(.subheadline).foregroundStyle(.secondary)
+            if timerEnabled {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("단어 학습 시간", systemImage: "character.book.closed")
+                            .font(.subheadline)
                         Spacer()
-                        Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                        Text("\(vocabTimerSeconds)초")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(AppPalette.forest)
+                            .frame(width: 44)
+                    }
+                    Slider(value: Binding(
+                        get: { Double(vocabTimerSeconds) },
+                        set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
+                    ), in: 5...25, step: 1)
+                    .tint(AppPalette.forest)
+                    HStack {
+                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
-                .buttonStyle(.plain)
-            } else {
-                // Pro: 정상 표시
-                HStack {
-                    Label("시간 제한 기능", systemImage: "timer")
-                        .font(.subheadline)
-                    Spacer()
-                    Toggle("", isOn: $timerEnabled)
-                        .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
-                }
 
-                if timerEnabled {
-                    Divider()
+                Divider()
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Label("단어 학습 시간", systemImage: "character.book.closed")
-                                .font(.subheadline)
-                            Spacer()
-                            Text("\(vocabTimerSeconds)초")
-                                .font(.subheadline).fontWeight(.semibold)
-                                .foregroundStyle(AppPalette.forest)
-                                .frame(width: 44)
-                        }
-                        Slider(value: Binding(
-                            get: { Double(vocabTimerSeconds) },
-                            set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
-                        ), in: 5...25, step: 1)
-                        .tint(AppPalette.forest)
-                        HStack {
-                            Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                            Spacer()
-                            Text("25초").font(.caption2).foregroundStyle(.tertiary)
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Label("문법 학습 시간", systemImage: "text.book.closed")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("\(grammarTimerSeconds)초")
+                            .font(.subheadline).fontWeight(.semibold)
+                            .foregroundStyle(AppPalette.forest)
+                            .frame(width: 44)
                     }
-
-                    Divider()
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Label("문법 학습 시간", systemImage: "text.book.closed")
-                                .font(.subheadline)
-                            Spacer()
-                            Text("\(grammarTimerSeconds)초")
-                                .font(.subheadline).fontWeight(.semibold)
-                                .foregroundStyle(AppPalette.forest)
-                                .frame(width: 44)
-                        }
-                        Slider(value: Binding(
-                            get: { Double(grammarTimerSeconds) },
-                            set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
-                        ), in: 5...25, step: 1)
-                        .tint(AppPalette.forest)
-                        HStack {
-                            Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                            Spacer()
-                            Text("25초").font(.caption2).foregroundStyle(.tertiary)
-                        }
+                    Slider(value: Binding(
+                        get: { Double(grammarTimerSeconds) },
+                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
+                    ), in: 5...25, step: 1)
+                    .tint(AppPalette.forest)
+                    HStack {
+                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -405,16 +421,6 @@ struct MyPageView: View {
 
             Divider()
 
-            Button { showCodeInput = true } label: {
-                HStack {
-                    Label("코드 입력", systemImage: "gift")
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                }.font(.subheadline)
-            }.buttonStyle(.plain)
-
-            Divider()
-
             Button { showFeedback = true } label: {
                 HStack {
                     Label("개선사항 보내기", systemImage: "envelope")
@@ -422,19 +428,6 @@ struct MyPageView: View {
                     Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                 }.font(.subheadline)
             }.buttonStyle(.plain)
-
-            if isPro {
-                Divider()
-
-                Button { showCancelSubscriptionAlert = true } label: {
-                    HStack {
-                        Label("구독 취소", systemImage: "xmark.circle")
-                            .foregroundStyle(.red)
-                        Spacer()
-                        Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                    }.font(.subheadline)
-                }.buttonStyle(.plain)
-            }
 
             Divider()
 
@@ -506,11 +499,9 @@ struct MyPageView: View {
 
         // 타이머 설정 로드
         if let p = profile {
-            p.expireIfNeeded()
             timerEnabled = p.timerEnabled
             vocabTimerSeconds = p.vocabTimerSeconds
             grammarTimerSeconds = p.grammarTimerSeconds
-            isPro = p.isProActive
         }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
@@ -567,17 +558,6 @@ struct MyPageView: View {
         authManager.needsOnboarding = true
     }
 
-    // MARK: - Cancel Subscription
-
-    private func cancelSubscription() {
-        guard let p = profile else { return }
-        p.isPro = false
-        p.subscriptionPlan = ""
-        p.proExpiresAt = nil
-        try? modelContext.save()
-        isPro = false
-    }
-
     // MARK: - Delete Account
 
     /// App Store Review Guideline 5.1.1 — 계정 삭제 기능
@@ -628,186 +608,5 @@ struct MyPageView: View {
 
         // 8. 로그아웃
         authManager.signOut()
-    }
-
-    // MARK: - Redeem Code
-
-    private func redeemCode() {
-        let trimmed = codeInput.trimmingCharacters(in: .whitespaces)
-        guard let p = profile else { codeError = "프로필 정보를 불러올 수 없습니다."; return }
-
-        // 코드를 SHA256 해시로 비교하여 소스 코드 내 평문 노출 방지
-        let inputHash = sha256(trimmed)
-        // "kdjnaelm" → SHA256
-        let validCodeHash = "84911caeaa631cd52f66595184d0a0b4cae2761162fb5ff3efaf3ef98f3237e6"
-
-        if inputHash == validCodeHash {
-            // 영구 구독 코드
-            p.isPro = true
-            p.subscriptionPlan = "lifetime"
-            p.proExpiresAt = nil   // nil = 영구
-            if p.subscribedAt == nil { p.subscribedAt = Date() }
-            try? modelContext.save()
-            isPro = true
-            codeSuccess = true
-            codeError = nil
-            HapticManager.shared.playSubscriptionComplete()
-        } else {
-            codeError = "유효하지 않은 코드입니다."
-            codeSuccess = false
-        }
-    }
-
-    /// SHA256 해시 계산
-    private func sha256(_ input: String) -> String {
-        let data = Data(input.utf8)
-        let digest = SHA256.hash(data: data)
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-
-    // MARK: - Subscription Info Section
-
-    private var subscriptionInfoSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("구독 정보").font(.headline)
-
-            if let p = profile {
-                let plan = p.subscriptionPlan
-                let planLabel: String = {
-                    switch plan {
-                    case "monthly":  return "월간 구독"
-                    case "annual":   return "연간 구독"
-                    case "lifetime": return "영구 구독 👑"
-                    default:         return "구독 중"
-                    }
-                }()
-
-                HStack {
-                    Label("플랜", systemImage: "crown.fill")
-                        .font(.subheadline).foregroundStyle(AppPalette.forest)
-                    Spacer()
-                    Text(planLabel)
-                        .font(.subheadline).fontWeight(.semibold)
-                }
-
-                if let startDate = p.subscribedAt {
-                    Divider()
-                    HStack {
-                        Label("구독 시작", systemImage: "calendar")
-                            .font(.subheadline)
-                        Spacer()
-                        Text(startDate, style: .date)
-                            .font(.subheadline).fontWeight(.semibold)
-                    }
-                }
-
-                if let expiresAt = p.proExpiresAt {
-                    Divider()
-                    HStack {
-                        Label("만료일", systemImage: "calendar.badge.clock")
-                            .font(.subheadline)
-                        Spacer()
-                        Text(expiresAt, style: .date)
-                            .font(.subheadline).fontWeight(.semibold)
-                    }
-                    Divider()
-                    HStack {
-                        Label("남은 기간", systemImage: "hourglass")
-                            .font(.subheadline)
-                        Spacer()
-                        let remaining = Calendar.current.dateComponents([.day], from: Date(), to: expiresAt).day ?? 0
-                        Text(remaining > 0 ? "\(remaining)일 남음" : "만료됨")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(remaining > 7 ? AppPalette.forest : .red)
-                    }
-                } else if plan == "lifetime" {
-                    Divider()
-                    HStack {
-                        Label("남은 기간", systemImage: "infinity")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("영구")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(AppPalette.forest)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemBackground))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.leaf.opacity(0.3), lineWidth: 1))
-        )
-    }
-
-    // MARK: - Code Input Sheet
-
-    private var codeInputSheet: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-
-                Image(systemName: "gift.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(AppPalette.forest)
-
-                VStack(spacing: 8) {
-                    Text("코드 입력")
-                        .font(.title2).fontWeight(.bold)
-                    Text("보유하신 구독 코드를 입력해주세요.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                VStack(spacing: 12) {
-                    TextField("코드를 입력하세요", text: $codeInput)
-                        .textFieldStyle(.roundedBorder)
-                        .autocapitalization(.none)
-                        .autocorrectionDisabled()
-                        .font(.system(.body, design: .monospaced))
-                        .padding(.horizontal, 32)
-
-                    if let error = codeError {
-                        Text(error)
-                            .font(.caption).foregroundStyle(.red)
-                    }
-
-                    if codeSuccess {
-                        HStack(spacing: 6) {
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(AppPalette.forest)
-                            Text("구독이 활성화되었습니다!")
-                                .foregroundStyle(AppPalette.forest)
-                        }
-                        .font(.subheadline).fontWeight(.semibold)
-                    }
-                }
-
-                Button {
-                    redeemCode()
-                } label: {
-                    Text("적용하기")
-                        .font(.headline).fontWeight(.bold)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14)
-                                .fill(AppPalette.forest)
-                        )
-                }
-                .disabled(codeInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                .padding(.horizontal, 32)
-
-                Spacer()
-            }
-            .navigationTitle("코드 입력")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("닫기") { showCodeInput = false }
-                }
-            }
-        }
     }
 }

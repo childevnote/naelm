@@ -32,7 +32,6 @@ struct DashboardView: View {
     @State private var showGrammarSession = false
     @State private var showVocabConfirm = false
     @State private var showGrammarConfirm = false
-    @State private var isPro: Bool = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -176,8 +175,8 @@ struct DashboardView: View {
 
     // MARK: - Today Learning Section
 
-    private var vocabCompleted: Bool { !isPro && todayWordsStudied >= dailyVocabGoal }
-    private var grammarCompleted: Bool { !isPro && todayGrammarStudied >= dailyGrammarGoal }
+    private var vocabCompleted: Bool { false }
+    private var grammarCompleted: Bool { false }
 
     private var todayLearningSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -326,7 +325,6 @@ struct DashboardView: View {
             targetScore = profile.targetScore
             dailyVocabGoal = profile.dailyVocabGoal
             dailyGrammarGoal = profile.dailyGrammarGoal
-            isPro = profile.isProActive
         }
 
         // 복습 대기: 단어(markedForReview) + 문법(틀린 문제)

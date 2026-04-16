@@ -15,7 +15,6 @@ struct BookmarkListView: View {
 
     @State private var bookmarks: [BookmarkedWord] = []
     @State private var showMeaning: Bool = true
-    @State private var isPro: Bool = false
 
     // MARK: - 필터 상태
     @State private var selectedCategory: String = "전체"
@@ -56,17 +55,10 @@ struct BookmarkListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if !isPro {
-                    SubscriptionGateView(onSubscriptionDismiss: { loadProStatus() })
-                        .environment(authManager)
-                } else {
-                    bookmarkContent
-                }
-            }
+            bookmarkContent
             .navigationTitle("저장한 단어")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { loadBookmarks(); loadProStatus() }
+            .onAppear { loadBookmarks() }
         }
     }
 
@@ -314,12 +306,6 @@ struct BookmarkListView: View {
     }
 
     // MARK: - Data
-
-    private func loadProStatus() {
-        guard let userID = authManager.userID else { return }
-        let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        isPro = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first?.isProActive) ?? false
-    }
 
     private func loadBookmarks() {
         guard let userID = authManager.userID else { return }

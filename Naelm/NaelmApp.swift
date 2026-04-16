@@ -17,7 +17,6 @@
 import SwiftUI
 import SwiftData
 import AuthenticationServices
-import AppTrackingTransparency
 import os
 
 // MARK: - App Entry Point
@@ -236,10 +235,6 @@ struct RootView: View {
                 }
                 authManager.restoreAuthState()
                 isDataLoaded = true
-                // ATT 권한 요청 (스플래시 종료 후 약간의 딜레이)
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    ATTrackingManager.requestTrackingAuthorization { _ in }
-                }
             }
         }
         .alert("데이터 로드 오류", isPresented: $showDataLoadError) {
@@ -265,6 +260,7 @@ struct RootView: View {
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         return (try? modelContext.fetch(descriptor).first?.hasCompletedOnboarding) ?? false
     }
+
 }
 
 

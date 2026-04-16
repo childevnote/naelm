@@ -114,33 +114,6 @@ final class UserProfile {
     /// 문법 학습 제한 시간 (초, 5~25)
     var grammarTimerSeconds: Int = 15
 
-    /// 프로 구독 여부
-    var isPro: Bool = false
-
-    /// 프로 구독 만료일 (nil이면 미구독 또는 평생 구독)
-    var proExpiresAt: Date? = nil
-
-    /// 구독 플랜 타입 ("monthly" / "annual" / "lifetime" / "")
-    var subscriptionPlan: String = ""
-
-    /// 구독 시작일 (최초 구독 시 설정)
-    var subscribedAt: Date? = nil
-
-    /// Pro 상태 평가 (만료일 체크 포함)
-    /// isPro && (만료일 없음 또는 만료일 > 현재) 일 때만 true.
-    var isProActive: Bool {
-        guard isPro else { return false }
-        guard let expiresAt = proExpiresAt else { return true }  // 만료일 없으면 영구 구독
-        return expiresAt > Date()
-    }
-
-    /// 만료된 구독을 자동 리셋합니다. 앱 시작 시 또는 데이터 로드 시 호출하세요.
-    func expireIfNeeded() {
-        guard isPro, let expiresAt = proExpiresAt, expiresAt <= Date() else { return }
-        isPro = false
-        subscriptionPlan = ""
-    }
-
     /// 프로필 생성일
     var createdAt: Date = Date()
 
