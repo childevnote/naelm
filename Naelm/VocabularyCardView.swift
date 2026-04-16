@@ -251,9 +251,32 @@ struct VocabularyCardView: View {
     }
 
     private var cardBg: some View {
-        RoundedRectangle(cornerRadius: 24)
-            .fill(colorScheme == .dark ? BrandTheme.cardBackgroundDark : BrandTheme.cardBackground)
-            .shadow(color: .black.opacity(colorScheme == .dark ? 0.5 : 0.12), radius: 16, y: 8)
+        ZStack {
+            RoundedRectangle(cornerRadius: 24)
+                .fill(colorScheme == .dark ? BrandTheme.cardBackgroundDark : BrandTheme.cardBackground)
+            RoundedRectangle(cornerRadius: 24)
+                .fill(
+                    LinearGradient(
+                        colors: colorScheme == .dark
+                            ? [Color.white.opacity(0.04), .clear]
+                            : [Color.white.opacity(0.85), Color.white.opacity(0.0)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(
+                    LinearGradient(
+                        colors: colorScheme == .dark
+                            ? [Color.white.opacity(0.12), Color.white.opacity(0.03)]
+                            : [Color.white.opacity(0.9), AppPalette.leaf.opacity(0.2)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+        .shadow(color: .black.opacity(colorScheme == .dark ? 0.45 : 0.09), radius: 16, y: 8)
     }
 }
 

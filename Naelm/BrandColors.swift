@@ -131,19 +131,20 @@ extension Color {
 /// 앱 전반에서 사용하는 표준 그라데이션.
 struct AppGradient {
 
-    /// 메인 화면 배경 그라데이션
+    /// 메인 화면 배경 그라데이션 — 은은한 숲초록 → 흰색
     static func background(scheme: ColorScheme) -> LinearGradient {
         scheme == .dark
         ? LinearGradient(
             colors: [
-                Color(hex: "#111111"),
+                Color(hex: "#0E1612"),
                 Color(hex: "#0A0A0A")
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         : LinearGradient(
             colors: [
-                Color(hex: "#F9F9F6"),
+                AppPalette.forest.opacity(0.06),
+                AppPalette.leaf.opacity(0.04),
                 Color.white
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
@@ -155,17 +156,38 @@ struct AppGradient {
         scheme == .dark
         ? LinearGradient(
             colors: [
+                AppPalette.forest.opacity(0.25),
                 Color(hex: "#111111"),
-                Color(hex: "#1A1A1A"),
-                Color(hex: "#111111")
+                Color(hex: "#0A0A0A")
             ],
             startPoint: .top, endPoint: .bottom
         )
         : LinearGradient(
             colors: [
-                AppPalette.forest.opacity(0.05),
-                Color(hex: "#F9F9F6"),
+                AppPalette.forest.opacity(0.10),
+                AppPalette.leaf.opacity(0.06),
                 Color.white
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+    }
+
+    /// Hero / 로그인 배경 — 더 진한 그라데이션
+    static func hero(scheme: ColorScheme) -> LinearGradient {
+        scheme == .dark
+        ? LinearGradient(
+            colors: [
+                Color(hex: "#0E1612"),
+                Color(hex: "#1A2B1C"),
+                Color(hex: "#0E1612")
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
+        : LinearGradient(
+            colors: [
+                AppPalette.forest.opacity(0.10),
+                AppPalette.mint.opacity(0.08),
+                Color(hex: "#F4F8F4")
             ],
             startPoint: .top, endPoint: .bottom
         )
@@ -189,7 +211,70 @@ struct AppGradient {
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
     }
+
+    /// 카드 하이라이트 그라데이션 (카드 상단 shimmer용)
+    static func cardShimmer(scheme: ColorScheme) -> LinearGradient {
+        scheme == .dark
+        ? LinearGradient(
+            colors: [AppPalette.leaf.opacity(0.12), .clear],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+        : LinearGradient(
+            colors: [Color.white.opacity(0.7), Color.white.opacity(0.0)],
+            startPoint: .topLeading, endPoint: .bottomTrailing
+        )
+    }
 }
+
+// MARK: - Glass Design Helpers (리퀴드 글래스 디자인)
+
+extension View {
+    /// 리퀴드 글래스 카드 배경을 적용합니다 (iOS 26+).
+    func glassCard(cornerRadius: CGFloat = 20, scheme: ColorScheme = .light) -> some View {
+        self.background(
+            GlassCardBackground(cornerRadius: cornerRadius, scheme: scheme)
+        )
+    }
+
+    /// 탭바 / 네비게이션 글래스 배경 설정
+    func glassTabBar() -> some View {
+        self
+            .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+            .toolbarBackgroundVisibility(.visible, for: .tabBar)
+    }
+}
+
+/// 리퀴드 글래스 카드 배경 뷰.
+/// ultraThinMaterial + 그라데이션 오버레이 + 테두리로 glass 효과를 구현합니다.
+struct GlassCardBackground: View {
+    let cornerRadius: CGFloat
+    let scheme: ColorScheme
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(.ultraThinMaterial)
+
+            // 상단 shimmer
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(AppGradient.cardShimmer(scheme: scheme))
+
+            // 테두리
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(
+                    LinearGradient(
+                        colors: scheme == .dark
+                            ? [Color.white.opacity(0.15), Color.white.opacity(0.04)]
+                            : [Color.white.opacity(0.8), AppPalette.leaf.opacity(0.15)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+    }
+}
+
 
 // MARK: - Typography Helpers (텍스트 스타일 보조)
 
@@ -230,7 +315,8 @@ struct BrandTheme {
     /// 메인 배경 그라데이션 (라이트)
     static let backgroundGradient = LinearGradient(
         colors: [
-            Color(hex: "#F9F9F6"),
+            AppPalette.forest.opacity(0.06),
+            AppPalette.leaf.opacity(0.04),
             Color.white
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing
@@ -239,7 +325,7 @@ struct BrandTheme {
     /// 다크모드 배경 그라데이션
     static let backgroundGradientDark = LinearGradient(
         colors: [
-            Color(hex: "#111111"),
+            Color(hex: "#0E1612"),
             Color(hex: "#0A0A0A")
         ],
         startPoint: .topLeading, endPoint: .bottomTrailing

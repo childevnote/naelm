@@ -109,8 +109,19 @@ struct DashboardView: View {
             Spacer()
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 14).fill(AppPalette.cream.opacity(0.55))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.leaf.opacity(0.25), lineWidth: 1)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.08), .clear],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16).stroke(AppPalette.leaf.opacity(0.20), lineWidth: 1)
+            }
+        )
     }
 
     // MARK: - Top Section (연속학습 + 잔디밭 한 줄)
@@ -131,7 +142,15 @@ struct DashboardView: View {
             grassChart
         }
         .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(AppGradient.cardShimmer(scheme: colorScheme))
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.70), lineWidth: 1)
+            }
+        )
     }
 
     // MARK: - Grass Chart (GitHub style, 넓게)
@@ -240,7 +259,7 @@ struct DashboardView: View {
             .disabled(grammarCompleted)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
     }
 
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
@@ -293,7 +312,7 @@ struct DashboardView: View {
             .frame(height: 120)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
+        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
     }
 
     private func barHeight(xp: Int) -> CGFloat {
