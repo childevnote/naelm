@@ -104,7 +104,7 @@ struct VocabularyCardView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     Text(vocabulary.english)
-                        .font(.pretendardMedium(17)).foregroundStyle(.secondary)
+                        .font(.pretendardSemiBold(19)).foregroundStyle(.secondary)
                     if sortedMeanings.isEmpty {
                         singleMeaningContent
                     } else {

@@ -75,25 +75,25 @@ extension Font {
     // ── App Typography Scale ────────────────────────────────────────
 
     /// 단어 카드 영어 단어 (Large Title급, Bold)
-    static let cardWordTitle: Font    = pretendardBold(40)
+    static let cardWordTitle: Font    = pretendardBold(44)
 
     /// 단어 카드 한국어 뜻 — 단일 (Bold, 큰 사이즈)
-    static let cardMeaningLarge: Font = pretendardBold(30)
+    static let cardMeaningLarge: Font = pretendardBold(34)
 
     /// 단어 카드 한국어 뜻 — 복수 (Bold, 중간 사이즈)
-    static let cardMeaningMedium: Font = pretendardBold(24)
+    static let cardMeaningMedium: Font = pretendardBold(28)
 
     /// 카드 뒷면 멀티 뜻 항목
-    static let cardMeaningSmall: Font  = pretendardBold(22)
+    static let cardMeaningSmall: Font  = pretendardBold(24)
 
-    /// 발음 기호 (Monospaced-like, Regular)
-    static let pronunciation: Font     = pretendard(17)
+    /// 발음 기호 (Monospaced-like, Medium)
+    static let pronunciation: Font     = pretendardMedium(18)
 
-    /// 예문 (Regular, 이탤릭 처리는 뷰에서)
-    static let exampleSentence: Font   = pretendard(15)
+    /// 예문 (Medium, 이탤릭 처리는 뷰에서)
+    static let exampleSentence: Font   = pretendardMedium(15)
 
     /// 예문 번역 (Regular, Small)
-    static let exampleTranslation: Font = pretendard(13)
+    static let exampleTranslation: Font = pretendard(14)
 
     /// 일반 본문
     static let body: Font              = pretendard(16)
