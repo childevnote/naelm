@@ -275,32 +275,70 @@ struct SignInView: View {
 
     var body: some View {
         ZStack {
-            // 배경 그라디언트
-            AppGradient.background(scheme: colorScheme)
+            // 배경 그라디언트 — hero 버전 사용
+            AppGradient.hero(scheme: colorScheme)
                 .ignoresSafeArea()
+
+            // 상단 장식 blob
+            Circle()
+                .fill(AppPalette.forest.opacity(colorScheme == .dark ? 0.15 : 0.08))
+                .frame(width: 300, height: 300)
+                .blur(radius: 60)
+                .offset(x: -80, y: -200)
+                .allowsHitTesting(false)
+
+            Circle()
+                .fill(AppPalette.leaf.opacity(colorScheme == .dark ? 0.10 : 0.06))
+                .frame(width: 240, height: 240)
+                .blur(radius: 50)
+                .offset(x: 120, y: 100)
+                .allowsHitTesting(false)
 
             VStack(spacing: 32) {
                 Spacer()
 
-                // ── 앱 로고 / 타이틀 ──
-                VStack(spacing: 16) {
-                    Image(systemName: "book.closed.fill")
-                        .font(.system(size: 80))
-                        .foregroundStyle(AppPalette.forest)
-                        .shadow(color: AppPalette.forest.opacity(0.3), radius: 10, y: 4)
+                // ── 앱 로고 / 타이틀 — 글래스 카드 ──
+                VStack(spacing: 18) {
+                    ZStack {
+                        Circle()
+                            .fill(AppPalette.forest.opacity(0.15))
+                            .frame(width: 110, height: 110)
+                            .blur(radius: 16)
 
-                    Text("Naelm")
-                        .font(.system(size: 42, weight: .bold, design: .rounded))
-                        .foregroundStyle(AppPalette.forest)
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [AppPalette.forest, AppPalette.leaf],
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 88, height: 88)
+                            .shadow(color: AppPalette.forest.opacity(0.35), radius: 16, y: 6)
 
-                    Text("TOEIC 영단어 · 문법 마스터")
-                        .font(.subheadline)
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 38, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+
+                    Text("낼름")
+                        .font(.system(size: 46, weight: .bold, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [AppPalette.forest, AppPalette.leaf],
+                                startPoint: .leading, endPoint: .trailing
+                            )
+                        )
+
+                    Text("토익 영단어 · 문법 마스터")
+                        .font(.pretendardMedium(16))
                         .foregroundStyle(.secondary)
                 }
+                .padding(.vertical, 32).padding(.horizontal, 40)
+                .glassCard(cornerRadius: 28, scheme: colorScheme)
 
                 Spacer()
 
-                VStack(spacing: 16) {
+                VStack(spacing: 14) {
                     // ── Sign in with Apple 버튼 ──
                     SignInWithAppleButton(.signIn) { request in
                         isSigningIn = true
@@ -323,18 +361,16 @@ struct SignInView: View {
                     .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
                     .frame(height: 54)
                     .frame(maxWidth: 320)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
 
                     if isSigningIn {
-                        ProgressView()
-                            .tint(AppPalette.forest)
+                        ProgressView().tint(AppPalette.forest)
                     }
 
                     if let error = signInError {
                         Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                            .font(.caption).foregroundStyle(.red)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 32)
                     }
@@ -348,17 +384,15 @@ struct SignInView: View {
                             Image(systemName: "person")
                             Text("게스트로 시작")
                         }
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundStyle(BrandTheme.accent)
+                        .font(.pretendardMedium(15))
+                        .foregroundStyle(AppPalette.forest)
                         .frame(maxWidth: 320)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 13)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(BrandTheme.accent.opacity(0.5), lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: 14)
+                                .stroke(AppPalette.forest.opacity(0.45), lineWidth: 1.5)
                         )
                     }
-                    .padding(.top, 4)
                 }
 
                 // ── 개발/시뮬레이터용: 인증 건너뛰기 ──
@@ -370,21 +404,20 @@ struct SignInView: View {
                         Image(systemName: "play.fill")
                         Text("테스트 모드로 시작")
                     }
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.pretendardSemiBold(15))
                     .foregroundStyle(.white)
                     .frame(maxWidth: 320)
-                    .padding(.vertical, 12)
+                    .padding(.vertical, 13)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: 14)
                             .fill(AppGradient.primaryButton(scheme: colorScheme))
                     )
+                    .shadow(color: AppPalette.forest.opacity(0.3), radius: 8, y: 3)
                 }
                 .padding(.top, 4)
                 #endif
 
-                Spacer()
-                    .frame(height: 60)
+                Spacer().frame(height: 60)
             }
             .padding(.horizontal, 32)
         }
@@ -435,45 +468,15 @@ struct MainDashboardView: View {
             .tag(3)
         }
         .tint(AppPalette.forest)
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackgroundVisibility(.visible, for: .tabBar)
     }
 }
 
 
 // MARK: - Previews
 
-#Preview("Root View") {
-    RootView()
-        .modelContainer(for: [
-            Vocabulary.self,
-            VocabularyMeaning.self,
-            Grammar.self,
-            LearningProgress.self,
-            UserActivity.self,
-            UserProfile.self,
-            MonthlyScore.self,
-            Friendship.self,
-            BookmarkedWord.self,
-        ], inMemory: true)
-}
-
 #Preview("Sign In") {
-    SignInView()
-        .environment(AuthenticationManager())
-}
-
-#Preview("Dashboard") {
-    MainDashboardView()
-        .environment(AuthenticationManager())
-        .modelContainer(for: [
-            Vocabulary.self,
-            VocabularyMeaning.self,
-            Grammar.self,
-            LearningProgress.self,
-            UserActivity.self,
-            UserProfile.self,
-            MonthlyScore.self,
-            Friendship.self,
-            BookmarkedWord.self,
-        ], inMemory: true)
+    SignInView().environment(AuthenticationManager())
 }
 

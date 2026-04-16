@@ -48,8 +48,8 @@ struct SplashView: View {
                 Spacer().frame(height: 32)
 
                 // ── 앱 이름 ────────────────────────────
-                Text("Naelm")
-                    .font(.sfRounded(46, weight: .bold))
+                Text("낼름")
+                    .font(.sfRounded(52, weight: .bold))
                     .foregroundStyle(titleColor)
                     .opacity(titleOpacity)
                     .offset(y: titleOffset)
@@ -81,16 +81,16 @@ struct SplashView: View {
         colorScheme == .dark
         ? LinearGradient(
             colors: [
-                Color(hex: "#0B1A0C"),
-                Color(hex: "#0F2210"),
-                Color(hex: "#091408")
+                Color(hex: "#0A1A0C"),
+                Color(hex: "#111111"),
+                Color(hex: "#0A0A0A")
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
         )
         : LinearGradient(
             colors: [
                 AppPalette.forest,
-                Color(hex: "#2A5430"),
+                Color(hex: "#2D6333"),
                 Color(hex: "#1E3D22")
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
