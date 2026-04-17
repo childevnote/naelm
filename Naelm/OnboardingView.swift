@@ -177,7 +177,7 @@ struct OnboardingView: View {
                 Spacer()
                 if currentQ < placementQuestions.count {
                     let lvl = placementQuestions[currentQ].difficulty
-                    let scoreLbl = lvl == 1 ? "600" : lvl == 2 ? "700" : lvl == 3 ? "800" : "900"
+                    let scoreLbl = TOEICScoreRange.from(frequencyLevel: lvl).shortLabel
                     Text("\(scoreLbl)++")
                         .font(.caption2).fontWeight(.bold)
                         .padding(.horizontal, 8).padding(.vertical, 3)

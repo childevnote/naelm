@@ -284,7 +284,7 @@ struct GlassCardBackground: View {
 
 // MARK: - Liquid Press Effect (물방울 터치 효과)
 
-/// 터치 시 눌린 부분이 물방울처럼 살짝 확대되었다가 원래 크기로 돌아오는 효과.
+/// 터치 시 눌린 부분이 물방울처럼 살짝 축소되었다가 원래 크기로 돌아오는 효과.
 struct LiquidPressModifier: ViewModifier {
     @State private var isPressed = false
 
