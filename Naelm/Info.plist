@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>낼름</string>
+	<string>NLLM</string>
 	<key>CFBundleName</key>
-	<string>낼름</string>
+	<string>NLLM</string>
 	<key>CADisableMinimumFrameDuration</key>
 	<true/>
 	<key>UIBackgroundModes</key>

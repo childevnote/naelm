@@ -321,7 +321,7 @@ struct SignInView: View {
                             .foregroundStyle(.white)
                     }
 
-                    Text("낼름")
+                    Text("NLLM")
                         .font(.system(size: 46, weight: .bold, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(
