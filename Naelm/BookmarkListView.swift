@@ -97,17 +97,24 @@ struct BookmarkListView: View {
                 }
                 Spacer()
             } else {
-                List {
-                    ForEach(filteredBookmarks, id: \.wordID) { bm in
-                        if let vocab = bm.vocabulary {
-                            bookmarkRow(vocab: vocab)
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        ForEach(filteredBookmarks, id: \.wordID) { bm in
+                            if let vocab = bm.vocabulary {
+                                bookmarkRow(vocab: vocab)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            deleteBookmark(bm)
+                                        } label: {
+                                            Label("삭제", systemImage: "trash")
+                                        }
+                                    }
+                            }
                         }
                     }
-                    .onDelete { indexSet in
-                        deleteBookmarks(at: indexSet)
-                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
                 }
-                .listStyle(.plain)
             }
         }
     }
@@ -226,61 +233,99 @@ struct BookmarkListView: View {
     // MARK: - Row
 
     private func bookmarkRow(vocab: Vocabulary) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 10) {
+            // 상단: 영어 단어 + 품사 뱃지 + 발음기호
+            HStack(alignment: .center, spacing: 6) {
                 Text(vocab.english)
-                    .font(.pretendardBold(16))
+                    .font(.pretendardBold(18))
+                    .foregroundStyle(.primary)
 
-                // 품사 (여러 개일 때 모두 표시)
                 let parts = vocab.partOfSpeech
                     .components(separatedBy: ",")
                     .map { $0.trimmingCharacters(in: .whitespaces) }
                     .filter { !$0.isEmpty }
                 ForEach(parts, id: \.self) { pos in
                     Text(pos)
-                        .font(.caption2)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Capsule().fill(BrandTheme.accent))
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(BrandTheme.accent)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(BrandTheme.accent.opacity(0.12))
+                        )
                 }
 
                 Spacer()
 
                 if !vocab.pronunciation.isEmpty {
                     Text(vocab.pronunciation)
-                        .font(.caption).foregroundStyle(.tertiary)
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
                 }
             }
 
             if showMeaning {
-                // 여러 의미를 줄바꿈으로 구분
+                // 뜻 영역
                 let meanings = vocab.korean
                     .components(separatedBy: ",")
                     .map { $0.trimmingCharacters(in: .whitespaces) }
                     .filter { !$0.isEmpty }
+
                 if meanings.count > 1 {
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 3) {
                         ForEach(Array(meanings.enumerated()), id: \.offset) { idx, meaning in
-                            Text("\(idx + 1). \(meaning)")
-                                .font(.pretendardSemiBold(14)).foregroundStyle(BrandTheme.accent)
+                            HStack(spacing: 6) {
+                                Text("\(idx + 1)")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 16, height: 16)
+                                    .background(Circle().fill(BrandTheme.accent.opacity(0.7)))
+                                Text(meaning)
+                                    .font(.pretendardSemiBold(14))
+                                    .foregroundStyle(.primary)
+                            }
                         }
                     }
                 } else {
                     Text(vocab.korean)
-                        .font(.pretendardSemiBold(14)).foregroundStyle(BrandTheme.accent)
+                        .font(.pretendardSemiBold(15))
+                        .foregroundStyle(BrandTheme.accent)
                 }
 
+                // 예문
                 if !vocab.exampleSentence.isEmpty {
-                    highlightedExampleText(sentence: vocab.exampleSentence, keyword: vocab.english)
-                        .font(.caption).italic()
-                        .lineLimit(2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        highlightedExampleText(sentence: vocab.exampleSentence, keyword: vocab.english)
+                            .font(.caption).italic()
+                            .lineLimit(2)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 7)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(.tertiarySystemBackground))
+                    )
                 }
             } else {
-                Text("???")
-                    .font(.subheadline).foregroundStyle(.quaternary)
+                // 뜻 숨김 상태
+                HStack(spacing: 4) {
+                    ForEach(0..<5, id: \.self) { _ in
+                        Circle()
+                            .fill(Color.secondary.opacity(0.3))
+                            .frame(width: 5, height: 5)
+                    }
+                }
+                .padding(.vertical, 4)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.secondarySystemBackground))
+                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(BrandTheme.accent.opacity(0.08), lineWidth: 1)
+        )
     }
 
     // MARK: - Highlighted Example Text
@@ -312,6 +357,14 @@ struct BookmarkListView: View {
         let predicate = #Predicate<BookmarkedWord> { $0.userID == userID }
         let descriptor = FetchDescriptor<BookmarkedWord>(predicate: predicate, sortBy: [SortDescriptor(\.createdAt, order: .reverse)])
         bookmarks = (try? modelContext.fetch(descriptor)) ?? []
+    }
+
+    private func deleteBookmark(_ item: BookmarkedWord) {
+        if let idx = bookmarks.firstIndex(where: { $0.wordID == item.wordID }) {
+            modelContext.delete(bookmarks[idx])
+            bookmarks.remove(at: idx)
+        }
+        try? modelContext.save()
     }
 
     private func deleteBookmarks(at offsets: IndexSet) {

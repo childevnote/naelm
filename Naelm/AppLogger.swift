@@ -8,7 +8,8 @@
 import Foundation
 import os
 
-/// 앱 전용 로거. Release 빌드에서 민감 정보 노출을 방지한다.
+/// 앱 전용 로거. os.Logger는 Release 빌드에서 문자열 interpolation을 자동 redact합니다.
+/// ARCH FIX: 민감 정보(userID 등)는 \(value, privacy: .private) 사용 권장
 enum AppLogger {
 
     private static let subsystem = "com.toeigo"

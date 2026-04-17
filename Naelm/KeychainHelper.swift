@@ -42,7 +42,8 @@ final class KeychainHelper {
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
             kSecValueData as String: data,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            // ARCH FIX: ThisDeviceOnly prevents keychain items from being restored to a different device via backup
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
 
         let status = SecItemAdd(query as CFDictionary, nil)

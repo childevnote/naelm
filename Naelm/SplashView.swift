@@ -195,14 +195,14 @@ struct SplashView: View {
             sloganOffset  = 0
         }
 
-        // 2초 후 페이드아웃 후 전환
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+        // ARCH FIX: Use Task instead of DispatchQueue.main.asyncAfter
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
             withAnimation(.easeIn(duration: 0.45)) {
                 wholeOpacity = 0.0
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-                onComplete()
-            }
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            onComplete()
         }
     }
 }

@@ -84,7 +84,6 @@ struct MyPageView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     profileCard
-                    encouragementBanner
                     goalSection
                     quizCategoryChart
                     timerSettings
@@ -177,7 +176,7 @@ struct MyPageView: View {
         VStack(spacing: 20) {
             // 아바타 + 잔잔한 글로우
             ZStack {
-                // 부드럽게 숨쉬는 글로우
+                // 부드럽게 숨쉬는 글로우 — opacity만 애니메이션 (scale 제거로 카드 크기 변동 방지)
                 Circle()
                     .fill(
                         RadialGradient(
@@ -188,7 +187,6 @@ struct MyPageView: View {
                         )
                     )
                     .frame(width: 108, height: 108)
-                    .scaleEffect(glowScale)
                     .blur(radius: 8)
 
                 Circle()
@@ -210,6 +208,8 @@ struct MyPageView: View {
 
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
+                // 목표 점수 → plusLabel 변환
+                let targetLabel = TOEICScoreRange.rangesUpTo(target: p.targetScore).last?.plusLabel ?? "\(p.targetScore)++"
 
                 // 수준 뱃지
                 VStack(spacing: 6) {
@@ -217,7 +217,7 @@ struct MyPageView: View {
                         .font(.pretendardMedium(12))
                         .foregroundStyle(.secondary)
 
-                    Text(level.label)
+                    Text(level.plusLabel)
                         .font(.pretendardBold(26))
                         .foregroundStyle(
                             LinearGradient(
@@ -226,11 +226,18 @@ struct MyPageView: View {
                                 endPoint: .trailing
                             )
                         )
+
+                    // 격려 멘트 — 현재 수준 바로 아래
+                    Text(Self.encouragements[dailyEncouragementIndex])
+                        .font(.pretendardMedium(12))
+                        .foregroundStyle(AppPalette.forest.opacity(0.70))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 2)
                 }
 
                 // 스탯 카드들
                 HStack(spacing: 12) {
-                    statCard(icon: "target", label: "목표", value: "\(p.targetScore)점", color: AppPalette.forest)
+                    statCard(icon: "target", label: "목표", value: targetLabel, color: AppPalette.forest)
                     statCard(icon: "flame.fill", label: "연속학습", value: "\(streak)일", color: .orange)
                     statCard(icon: "star.fill", label: "총 XP", value: "\(totalXP)", color: AppPalette.gold)
                 }
@@ -275,8 +282,7 @@ struct MyPageView: View {
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                glowScale = 1.18
-                glowOpacity = 0.25
+                glowOpacity = 0.15
             }
             withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
                 iconFloat = -4

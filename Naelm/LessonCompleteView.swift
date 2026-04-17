@@ -286,6 +286,7 @@ struct LessonCompleteView: View {
 
     // MARK: - Animation Sequence
 
+    // ARCH FIX: Replaced DispatchQueue.main.asyncAfter with structured Task for memory safety
     private func startAnimation() {
         // 1) 인트로 텍스트 팝인
         withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
@@ -293,50 +294,45 @@ struct LessonCompleteView: View {
             introOpacity = 1.0
         }
 
-        // 파티클 폭발
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        Task { @MainActor in
+            // 파티클 폭발
+            try? await Task.sleep(nanoseconds: 300_000_000)
             withAnimation(.easeOut(duration: 0.4)) {
                 particleOpacity = 1.0
             }
             HapticManager.shared.playCelebration()
             animateParticles()
-        }
 
-        // 2) 인트로 텍스트 페이드아웃
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
+            // 2) 인트로 텍스트 페이드아웃
+            try? await Task.sleep(nanoseconds: 1_100_000_000)
             withAnimation(.easeIn(duration: 0.5)) {
                 introOpacity = 0
                 introScale = 1.3
             }
-        }
 
-        // 3) 결과 컨텐츠 등장
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.9) {
+            // 3) 결과 컨텐츠 등장
+            try? await Task.sleep(nanoseconds: 500_000_000)
             phase = .content
             withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
                 contentOpacity = 1.0
                 contentOffset = 0
             }
-        }
 
-        // 4) XP 카드 팝인
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.1) {
+            // 4) XP 카드 팝인
+            try? await Task.sleep(nanoseconds: 200_000_000)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
                 xpCardScale = 1.0
             }
-            // XP 카운트 업
             animateXPCount()
-        }
 
-        // 5) 스트릭 카드 팝인 (있는 경우)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.35) {
+            // 5) 스트릭 카드 팝인
+            try? await Task.sleep(nanoseconds: 250_000_000)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.6)) {
                 streakCardScale = 1.0
             }
-        }
 
-        // 6) 버튼 페이드인
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.6) {
+            // 6) 버튼 페이드인
+            try? await Task.sleep(nanoseconds: 250_000_000)
             withAnimation(.easeOut(duration: 0.4)) {
                 buttonOpacity = 1.0
             }
@@ -353,10 +349,11 @@ struct LessonCompleteView: View {
         let steps = min(target, 60)
         let stepInterval = duration / Double(steps)
 
-        for i in 1...steps {
-            DispatchQueue.main.asyncAfter(deadline: .now() + stepInterval * Double(i)) {
+        // ARCH FIX: Use Task instead of DispatchQueue.main.asyncAfter loop
+        Task { @MainActor in
+            for i in 1...steps {
+                try? await Task.sleep(nanoseconds: UInt64(stepInterval * 1_000_000_000))
                 let progress = Double(i) / Double(steps)
-                // 이징: easeOut
                 let easedProgress = 1.0 - pow(1.0 - progress, 2)
                 withAnimation(.linear(duration: stepInterval)) {
                     xpCountDisplayed = Int(Double(target) * easedProgress)
@@ -366,9 +363,11 @@ struct LessonCompleteView: View {
     }
 
     private func animateParticles() {
+        // ARCH FIX: Use Task instead of DispatchQueue.main.asyncAfter
         for i in particles.indices {
-            let delay = Double.random(in: 0...0.3)
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            let delay = UInt64(Double.random(in: 0...0.3) * 1_000_000_000)
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: delay)
                 withAnimation(
                     .easeOut(duration: Double.random(in: 1.2...2.0))
                 ) {

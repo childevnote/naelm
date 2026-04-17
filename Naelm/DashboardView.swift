@@ -54,18 +54,27 @@ struct DashboardView: View {
             .refreshable { refreshStats() }
             .onChange(of: showVocabSession) { _, active in
                 if !active {
-                    // SwiftData flush 대기 후 갱신
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { refreshStats() }
+                    // ARCH FIX: Use Task.sleep instead of DispatchQueue.main.asyncAfter
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        refreshStats()
+                    }
                 }
             }
             .onChange(of: showGrammarSession) { _, active in
                 if !active {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { refreshStats() }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        refreshStats()
+                    }
                 }
             }
             .onChange(of: showReviewSession) { _, active in
                 if !active {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { refreshStats() }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        refreshStats()
+                    }
                 }
             }
             .navigationDestination(isPresented: $showVocabSession) {
@@ -251,7 +260,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: grammarCompleted ? AppPalette.forest : AppPalette.leaf,
+                    color: grammarCompleted ? AppPalette.grammarBrown : AppPalette.grammarBrown,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
@@ -265,10 +274,15 @@ struct DashboardView: View {
 
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
-                .font(.title3)
-                .foregroundStyle(color)
-                .frame(width: 36, height: 36)
+            // 아이콘 컨테이너 — 색상이 명확하게 보이도록 채워진 원형 배경
+            ZStack {
+                Circle()
+                    .fill(color.opacity(isCompleted ? 0.12 : 0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(color)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.pretendardSemiBold(15))
@@ -288,7 +302,11 @@ struct DashboardView: View {
             }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(isCompleted ? 0.04 : 0.06)))
+        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(isCompleted ? 0.03 : 0.05)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(color.opacity(0.12), lineWidth: 1)
+        )
         .opacity(isCompleted ? 0.75 : 1.0)
         .contentShape(Rectangle())
     }
@@ -453,34 +471,60 @@ struct ReviewSessionView: View {
             Spacer()
             Image(systemName: "arrow.clockwise")
                 .font(.system(size: 56))
-                .foregroundStyle(AppPalette.forest)
+                .foregroundStyle(.orange)
             Text("어떤 복습을 할까요?")
                 .font(.title3).fontWeight(.bold)
 
             VStack(spacing: 12) {
                 Button { selectedMode = .vocabulary } label: {
-                    HStack {
-                        Image(systemName: "character.book.closed")
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(AppPalette.forest.opacity(0.18))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "character.book.closed")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(AppPalette.forest)
+                        }
                         Text("단어 복습")
                             .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
+                            .foregroundStyle(.tertiary)
                     }
-                    .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(AppPalette.forest.opacity(0.08)))
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(AppPalette.forest.opacity(0.05))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.forest.opacity(0.12), lineWidth: 1))
+                    )
                 }
                 .buttonStyle(.plain)
 
                 Button { selectedMode = .grammar } label: {
-                    HStack {
-                        Image(systemName: "text.book.closed")
+                    HStack(spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(AppPalette.grammarBrown.opacity(0.18))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "text.book.closed")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(AppPalette.grammarBrown)
+                        }
                         Text("문법 오답 복습")
                             .fontWeight(.semibold)
+                            .foregroundStyle(.primary)
                         Spacer()
                         Image(systemName: "chevron.right")
+                            .foregroundStyle(.tertiary)
                     }
-                    .padding(16)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(AppPalette.warning.opacity(0.08)))
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(AppPalette.grammarBrown.opacity(0.05))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.grammarBrown.opacity(0.12), lineWidth: 1))
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -569,7 +613,12 @@ struct VocabReviewContent: View {
             if !isComplete {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        showLeaveAlert = true
+                        // 복습한 단어가 없으면 알림 없이 바로 나가기
+                        if sessionManager.stats.wordsStudied == 0 {
+                            dismiss()
+                        } else {
+                            showLeaveAlert = true
+                        }
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")

@@ -176,15 +176,15 @@ func loadReviewDeck(context: ModelContext) {
 }
 
 // MARK: - Timer
+    // ARCH FIX: Timer closure now uses Task @MainActor to avoid retain cycle and thread-safety issues
     func startTimer() {
         guard timerEnabled else { return }
         timerRemaining = timerDuration
         isTimerRunning = true
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                guard self.isTimerRunning else { return }
+            Task { @MainActor [weak self] in
+                guard let self, self.isTimerRunning else { return }
                 self.timerRemaining -= 0.1
                 if self.timerRemaining <= 0 {
                     self.timerExpired()

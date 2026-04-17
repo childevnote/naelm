@@ -32,12 +32,15 @@ final class HapticManager {
         #endif
     }
 
+    // ARCH FIX: Replaced all DispatchQueue.main.asyncAfter with Task for @MainActor safety
+
     /// 문법 퀴즈 정답 시 햅틱 (팝 느낌 — success + soft impact)
     func playCorrectAnswer() {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 80_000_000)
             let impact = UIImpactFeedbackGenerator(style: .soft)
             impact.impactOccurred(intensity: 0.6)
         }
@@ -49,7 +52,8 @@ final class HapticManager {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.error)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000)
             let impact = UIImpactFeedbackGenerator(style: .rigid)
             impact.impactOccurred(intensity: 0.7)
         }
@@ -94,7 +98,8 @@ final class HapticManager {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
         // 짧은 딜레이 후 한 번 더 (더블 탭 느낌)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
             let second = UIImpactFeedbackGenerator(style: .heavy)
             second.impactOccurred()
         }
@@ -122,13 +127,11 @@ final class HapticManager {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            let impact = UIImpactFeedbackGenerator(style: .heavy)
-            impact.impactOccurred(intensity: 0.9)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-            let impact = UIImpactFeedbackGenerator(style: .medium)
-            impact.impactOccurred(intensity: 0.6)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 0.9)
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.6)
         }
         #endif
     }
@@ -146,17 +149,13 @@ final class HapticManager {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            let impact = UIImpactFeedbackGenerator(style: .heavy)
-            impact.impactOccurred()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) {
-            let impact = UIImpactFeedbackGenerator(style: .heavy)
-            impact.impactOccurred()
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            let impact = UIImpactFeedbackGenerator(style: .medium)
-            impact.impactOccurred(intensity: 0.5)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.5)
         }
         #endif
     }
@@ -166,9 +165,9 @@ final class HapticManager {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            let impact = UIImpactFeedbackGenerator(style: .soft)
-            impact.impactOccurred(intensity: 0.8)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 0.8)
         }
         #endif
     }
@@ -178,13 +177,11 @@ final class HapticManager {
         #if os(iOS)
         let notification = UINotificationFeedbackGenerator()
         notification.notificationOccurred(.success)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            let impact = UIImpactFeedbackGenerator(style: .medium)
-            impact.impactOccurred(intensity: 0.8)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            let impact = UIImpactFeedbackGenerator(style: .light)
-            impact.impactOccurred(intensity: 0.5)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred(intensity: 0.8)
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.5)
         }
         #endif
     }

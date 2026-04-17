@@ -216,45 +216,45 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
         overlayDirection = direction
         HapticManager.shared.playSwipeComplete()
 
-        // 버튼 tap이면 오버레이 즉시 최대로
+        // ARCH FIX: Replaced nested DispatchQueue.main.asyncAfter with structured Task for memory safety
         if !fromDrag {
             withAnimation(.easeIn(duration: 0.12)) {
                 overlayOpacity = 1.0
             }
         }
 
-        // 오버레이 표시 유지 후 카드 날아가기
-        let delay: Double = fromDrag ? 0.05 : 0.18
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+        let delay: UInt64 = fromDrag ? 50_000_000 : 180_000_000
+        let capturedIndex = currentIndex
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: delay)
+            guard capturedIndex == currentIndex else { return }
+
             let flyX: CGFloat = direction == .right ? flyDistance : -flyDistance
             withAnimation(.easeIn(duration: 0.20)) {
                 dragOffset = CGSize(width: flyX, height: 0)
                 cardOpacity = 0
             }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.20) {
-                // 콜백 + 인덱스 증가
-                let item = items[currentIndex]
-                onSwiped(item, direction)
-                currentIndex += 1
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard capturedIndex == currentIndex else { return }
 
-                // 오버레이·오프셋 초기화 (페이드인 전)
-                dragOffset = .zero
-                overlayOpacity = 0
-                cardOpacity = 0
+            let item = items[currentIndex]
+            onSwiped(item, direction)
+            currentIndex += 1
 
-                if currentIndex >= items.count {
-                    isLocked = false
-                    onAllSwiped()
-                } else {
-                    // 다음 카드 페이드인
-                    withAnimation(.easeOut(duration: 0.22)) {
-                        cardOpacity = 1.0
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                        isLocked = false
-                    }
+            dragOffset = .zero
+            overlayOpacity = 0
+            cardOpacity = 0
+
+            if currentIndex >= items.count {
+                isLocked = false
+                onAllSwiped()
+            } else {
+                withAnimation(.easeOut(duration: 0.22)) {
+                    cardOpacity = 1.0
                 }
+                try? await Task.sleep(nanoseconds: 220_000_000)
+                isLocked = false
             }
         }
     }

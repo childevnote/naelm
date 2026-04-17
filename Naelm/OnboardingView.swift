@@ -313,6 +313,7 @@ struct OnboardingView: View {
 
     // MARK: - Timer
 
+    // ARCH FIX: Timer uses Task @MainActor for safe struct state mutation
     private func startTimer() {
         timerRemaining = 10.0
         timerRunning = true
@@ -322,7 +323,6 @@ struct OnboardingView: View {
                 guard timerRunning else { return }
                 timerRemaining -= 0.1
                 if timerRemaining <= 0 {
-                    // 시간 초과 → 오답 처리 후 다음
                     if currentQ < placementQuestions.count {
                         let q = placementQuestions[currentQ]
                         placementAnswers.append((level: q.difficulty, correct: false))

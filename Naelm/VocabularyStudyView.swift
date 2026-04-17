@@ -298,7 +298,9 @@ struct VocabularyStudyView: View {
         else { msg = "느리네요." }
 
         withAnimation(.easeInOut(duration: 0.25)) { speedFeedback = msg }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+        // ARCH FIX: Use Task instead of DispatchQueue.main.asyncAfter
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_200_000_000)
             withAnimation(.easeOut(duration: 0.3)) { speedFeedback = nil }
         }
     }
