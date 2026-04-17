@@ -279,7 +279,6 @@ struct DashboardView: View {
             }
         )
         .opacity(isCompleted ? 0.75 : 1.0)
-        .scaleEffect(1.0) // base for press animation
         .pressAnimation()
     }
 

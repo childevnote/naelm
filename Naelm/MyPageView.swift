@@ -34,9 +34,8 @@ struct MyPageView: View {
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
 
-    // 프로필 카드 애니메이션 (글로우/아이콘 부유 제거됨)
+    // 프로필 카드 — 글로우/아이콘 부유 효과 제거됨
     // 응원 배너 슬라이딩
-    @State private var bannerOffset: CGFloat = 0
 
     private let encouragements = [
         "오늘도 좋은 하루 되세요! ☀️",
@@ -185,15 +184,13 @@ struct MyPageView: View {
                 .fill(AppPalette.forest.opacity(0.06))
         )
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .onAppear {
-            startBannerTimer()
-        }
-    }
-
-    private func startBannerTimer() {
-        Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { _ in
-            withAnimation {
-                currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { break }
+                withAnimation {
+                    currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
+                }
             }
         }
     }
