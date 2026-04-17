@@ -275,7 +275,7 @@ struct OnboardingView: View {
                 ForEach([1, 2, 3, 4], id: \.self) { lvl in
                     let lvlAnswers = placementAnswers.filter { $0.level == lvl }
                     let lvlCorrect = lvlAnswers.filter(\.correct).count
-                    let scoreLbl = lvl == 1 ? "600++" : lvl == 2 ? "700++" : lvl == 3 ? "800++" : "900++"
+                    let scoreLbl = TOEICScoreRange(rawValue: lvl)?.label ?? ""
                     HStack {
                         Text(scoreLbl).font(.caption).frame(width: 60, alignment: .leading)
                         ProgressView(value: Double(lvlCorrect), total: 5.0)
