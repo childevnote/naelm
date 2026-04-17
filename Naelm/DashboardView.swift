@@ -236,7 +236,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: grammarCompleted ? AppPalette.grammarBrown : AppPalette.grammarBrown,
+                    color: AppPalette.grammarBrown,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
