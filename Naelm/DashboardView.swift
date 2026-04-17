@@ -32,6 +32,7 @@ struct DashboardView: View {
     @State private var showGrammarSession = false
     @State private var showVocabConfirm = false
     @State private var showGrammarConfirm = false
+    @State private var selectedWeekDay: DailySummary? = nil
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -110,8 +111,17 @@ struct DashboardView: View {
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppPalette.forest.opacity(0.06))
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.08), .clear],
+                            startPoint: .leading, endPoint: .trailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16).stroke(AppPalette.leaf.opacity(0.20), lineWidth: 1)
+            }
         )
     }
 
@@ -134,8 +144,13 @@ struct DashboardView: View {
         }
         .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color(.secondarySystemBackground))
+            ZStack {
+                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(AppGradient.cardShimmer(scheme: colorScheme))
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.70), lineWidth: 1)
+            }
         )
     }
 
@@ -236,7 +251,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: AppPalette.grammarBrown,
+                    color: grammarCompleted ? AppPalette.forest : AppPalette.leaf,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
@@ -245,7 +260,7 @@ struct DashboardView: View {
             .disabled(grammarCompleted)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
     }
 
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
@@ -253,39 +268,54 @@ struct DashboardView: View {
             Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
                 .font(.title3).foregroundStyle(color).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .center) {
+                HStack {
                     Text(label).font(.pretendardSemiBold(15))
                         .foregroundStyle(isCompleted ? .secondary : .primary)
                     Spacer()
                     Text(progress).font(.pretendardBold(15)).foregroundStyle(color)
-                    if !isCompleted {
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
                 }
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
+            if !isCompleted {
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
         }
         .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(color.opacity(isCompleted ? 0.04 : 0.06))
-        )
+        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(isCompleted ? 0.04 : 0.06)))
         .opacity(isCompleted ? 0.75 : 1.0)
-        .pressAnimation()
+        .contentShape(Rectangle())
     }
 
     // MARK: - Weekly Chart
 
     private var weeklyChartSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("이번 주 활동").font(.pretendardSemiBold(16))
+            HStack {
+                Text("이번 주 활동").font(.pretendardSemiBold(16))
+                Spacer()
+                if let sel = selectedWeekDay {
+                    Text("\(sel.weekdayShort) \(sel.xpEarned) XP")
+                        .font(.pretendardBold(13))
+                        .foregroundStyle(AppPalette.forest)
+                        .transition(.opacity.combined(with: .scale))
+                }
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 ForEach(weeklyHistory) { day in
                     VStack(spacing: 4) {
+                        // XP 라벨 (선택된 날만 표시)
+                        if selectedWeekDay?.id == day.id && day.xpEarned > 0 {
+                            Text("\(day.xpEarned)")
+                                .font(.pretendard(9)).fontWeight(.bold)
+                                .foregroundStyle(AppPalette.forest)
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else {
+                            Text(" ").font(.pretendard(9))
+                        }
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(day.goalMet ? AppPalette.mint : (day.xpEarned > 0 ? AppPalette.leaf : Color.gray.opacity(0.2)))
+                            .fill(selectedWeekDay?.id == day.id
+                                  ? AppPalette.gold
+                                  : (day.goalMet ? AppPalette.mint : (day.xpEarned > 0 ? AppPalette.leaf : Color.gray.opacity(0.2))))
                             .frame(width: 30, height: barHeight(xp: day.xpEarned))
                         Text(day.weekdayShort)
                             .font(.pretendard(10))
@@ -299,12 +329,23 @@ struct DashboardView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            if selectedWeekDay?.id == day.id {
+                                selectedWeekDay = nil
+                            } else {
+                                selectedWeekDay = day
+                            }
+                        }
+                        HapticManager.shared.playTap()
+                    }
                 }
             }
-            .frame(height: 120)
+            .frame(height: 130)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
     }
 
     private func barHeight(xp: Int) -> CGFloat {

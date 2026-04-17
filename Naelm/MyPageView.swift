@@ -34,17 +34,50 @@ struct MyPageView: View {
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
 
-    // 프로필 카드 — 글로우/아이콘 부유 효과 제거됨
-    // 응원 배너 슬라이딩
+    // 프로필 카드 애니메이션
+    @State private var glowScale: CGFloat = 1.0
+    @State private var glowOpacity: Double = 0.5
+    @State private var iconFloat: CGFloat = 0
 
-    private let encouragements = [
+    // 응원 배너 (30개 - 매일 하나씩)
+    private static let encouragements: [String] = [
         "오늘도 좋은 하루 되세요! ☀️",
         "꾸준한 학습이 실력을 만들어요 💪",
         "한 걸음씩, 목표에 가까워지고 있어요 🎯",
         "오늘의 노력이 내일의 점수가 돼요 📈",
         "당신의 도전을 응원합니다! 🌟",
+        "작은 습관이 큰 변화를 만들어요 🌱",
+        "포기하지 않는 당신이 최고예요 🏆",
+        "매일 조금씩, 반드시 성장해요 🚀",
+        "오늘의 학습이 내일의 자신감이 돼요 ✨",
+        "토익 목표 달성, 충분히 가능해요! 💡",
+        "지금 이 순간도 성장 중이에요 🌿",
+        "단어 하나하나가 점수로 쌓여요 📚",
+        "어제보다 오늘 더 나은 당신 👍",
+        "꾸준함이 재능을 이겨요! 🔥",
+        "오늘도 멋진 하루 만들어봐요 🌈",
+        "실수해도 괜찮아요, 그게 학습이에요 😊",
+        "당신의 노력은 반드시 결실을 맺어요 🌸",
+        "영어 실력, 매일 조금씩 올라가고 있어요 📊",
+        "목표를 향해 꾸준히! 응원해요 🎉",
+        "오늘도 한 걸음 더 나아가는 당신! 👣",
+        "스스로를 믿으세요, 할 수 있어요 💎",
+        "새벽을 달리는 당신의 열정이 빛나요 🌙",
+        "지금 당장 결과가 안 보여도, 쌓이고 있어요 ⏳",
+        "학습의 즐거움을 느끼는 하루 되세요 🎵",
+        "최고의 투자는 자기 자신에게! 💰",
+        "원하는 점수, 반드시 나올 거예요 🎊",
+        "매일 학습하는 당신은 이미 승리자예요 🏅",
+        "오늘의 복습이 장기 기억의 열쇠예요 🔑",
+        "끝까지 해내는 당신을 믿어요! 💫",
+        "작은 도전들이 모여 큰 성취를 만들어요 🌊",
     ]
-    @State private var currentEncouragementIndex: Int = 0
+    private var dailyEncouragementIndex: Int {
+        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
+        return (dayOfYear - 1) % Self.encouragements.count
+    }
+    @State private var marqueeOffset: CGFloat = 400
+    @State private var marqueeTextWidth: CGFloat = 300
 
     var body: some View {
         NavigationStack {
@@ -87,22 +120,75 @@ struct MyPageView: View {
         }
     }
 
+    // MARK: - Encouragement Banner (전광판 마키 애니메이션)
+
+    private var encouragementBanner: some View {
+        let message = "✦  " + Self.encouragements[dailyEncouragementIndex] + "     "
+        return GeometryReader { geo in
+            let containerWidth = geo.size.width
+            ZStack(alignment: .leading) {
+                // 두 개의 텍스트로 끊김 없는 루프 효과
+                HStack(spacing: 0) {
+                    Text(message)
+                        .font(.pretendardMedium(13))
+                        .foregroundStyle(AppPalette.forest)
+                        .fixedSize()
+                    Text(message)
+                        .font(.pretendardMedium(13))
+                        .foregroundStyle(AppPalette.forest)
+                        .fixedSize()
+                }
+                .offset(x: marqueeOffset)
+            }
+            .frame(width: containerWidth, alignment: .leading)
+            .clipped()
+            .onAppear {
+                marqueeOffset = containerWidth
+                // 텍스트 폭을 대략 계산해서 연속 이동
+                let approxWidth = CGFloat(message.count) * 8.5
+                marqueeTextWidth = approxWidth
+                withAnimation(.linear(duration: Double(approxWidth) / 45).repeatForever(autoreverses: false)) {
+                    marqueeOffset = -approxWidth
+                }
+            }
+        }
+        .frame(height: 20)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppPalette.forest.opacity(0.06))
+        )
+        .overlay(
+            HStack {
+                LinearGradient(colors: [Color(.systemBackground).opacity(0.5), .clear], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 20)
+                Spacer()
+                LinearGradient(colors: [.clear, Color(.systemBackground).opacity(0.5)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 20)
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
     // MARK: - Profile Card
 
     private var profileCard: some View {
         VStack(spacing: 20) {
-            // 아바타 (정적, 애니메이션 제거)
+            // 아바타 + 잔잔한 글로우
             ZStack {
+                // 부드럽게 숨쉬는 글로우
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [AppPalette.leaf.opacity(0.3), .clear],
+                            colors: [AppPalette.leaf.opacity(glowOpacity), .clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: 54
                         )
                     )
                     .frame(width: 108, height: 108)
+                    .scaleEffect(glowScale)
                     .blur(radius: 8)
 
                 Circle()
@@ -119,19 +205,20 @@ struct MyPageView: View {
                 Image(systemName: "person.fill")
                     .font(.system(size: 36, weight: .medium))
                     .foregroundStyle(.white)
+                    .offset(y: iconFloat)
             }
 
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
 
-                // 수준 뱃지 — 글자 크기 확대
+                // 수준 뱃지
                 VStack(spacing: 6) {
                     Text("현재 수준")
-                        .font(.pretendardMedium(13))
+                        .font(.pretendardMedium(12))
                         .foregroundStyle(.secondary)
 
                     Text(level.label)
-                        .font(.pretendardBold(34))
+                        .font(.pretendardBold(26))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [AppPalette.forest, AppPalette.leaf],
@@ -153,42 +240,46 @@ struct MyPageView: View {
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+
+                // 은은한 그라데이션 오버레이
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                AppPalette.forest.opacity(0.06),
+                                AppPalette.leaf.opacity(0.03),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                AppPalette.leaf.opacity(0.4),
+                                AppPalette.forest.opacity(0.15),
+                                AppPalette.leaf.opacity(0.2)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
         )
-    }
-
-    // MARK: - Encouragement Banner (슬라이딩 배너)
-
-    private var encouragementBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-                .foregroundStyle(AppPalette.forest)
-                .font(.system(size: 14))
-
-            Text(encouragements[currentEncouragementIndex])
-                .font(.pretendardMedium(14))
-                .foregroundStyle(AppPalette.forest)
-                .id(currentEncouragementIndex)
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .move(edge: .leading).combined(with: .opacity)
-                ))
-                .animation(.easeInOut(duration: 0.6), value: currentEncouragementIndex)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppPalette.forest.opacity(0.06))
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(4))
-                guard !Task.isCancelled else { break }
-                currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
+        .onAppear {
+            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
+                glowScale = 1.18
+                glowOpacity = 0.25
+            }
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                iconFloat = -4
             }
         }
     }
@@ -336,8 +427,14 @@ struct MyPageView: View {
     }
 
     // MARK: - Timer Settings
+    // ⚠️ 시간 제한 UI 비활성화됨 - 코드는 유지하되 UI는 숨김
+    // 기본값: timerEnabled = true, 15초 고정
+    // 활성화하려면 timerSettings를 body VStack에 다시 추가하세요
 
     private var timerSettings: some View {
+        // UI 숨김 처리 - EmptyView 반환
+        EmptyView()
+        /* --- 비활성화된 UI (코드 보존) ---
         VStack(alignment: .leading, spacing: 14) {
             Text("시간 제한 설정").font(.headline)
 
@@ -387,6 +484,22 @@ struct MyPageView: View {
                             .frame(width: 44)
                     }
                     Slider(value: Binding(
+                        get: { Double(grammarTimerSeconds) },
+                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
+                    ), in: 5...25, step: 1)
+                    .tint(AppPalette.forest)
+                    HStack {
+                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        --- */
+    }
                         get: { Double(grammarTimerSeconds) },
                         set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
                     ), in: 5...25, step: 1)
@@ -464,23 +577,11 @@ struct MyPageView: View {
 
             Divider()
 
-            // 이용약관 / 개인정보 처리방침
-            if let termsURL = URL(string: "https://toeigo.notion.site/terms") {
-                Link(destination: termsURL) {
+            // 개인정보 처리방침 및 이용약관 (통합)
+            if let policyURL = URL(string: "https://lively-mayonnaise-192.notion.site/naelm") {
+                Link(destination: policyURL) {
                     HStack {
-                        Label("이용약관", systemImage: "doc.text")
-                        Spacer()
-                        Image(systemName: "arrow.up.right.square").foregroundStyle(.tertiary)
-                    }.font(.subheadline)
-                }.buttonStyle(.plain)
-            }
-
-            Divider()
-
-            if let privacyURL = URL(string: "https://toeigo.notion.site/privacy") {
-                Link(destination: privacyURL) {
-                    HStack {
-                        Label("개인정보 처리방침", systemImage: "hand.raised")
+                        Label("개인정보 처리방침 및 이용약관", systemImage: "doc.text")
                         Spacer()
                         Image(systemName: "arrow.up.right.square").foregroundStyle(.tertiary)
                     }.font(.subheadline)
@@ -501,11 +602,15 @@ struct MyPageView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
 
-        // 타이머 설정 로드
+        // 타이머 설정 로드 (현재 UI 비활성화 - 기본값 15초 고정)
         if let p = profile {
-            timerEnabled = p.timerEnabled
-            vocabTimerSeconds = p.vocabTimerSeconds
-            grammarTimerSeconds = p.grammarTimerSeconds
+            timerEnabled = true  // 항상 활성화
+            vocabTimerSeconds = 15  // 기본 15초 고정
+            grammarTimerSeconds = 15  // 기본 15초 고정
+            // 저장된 값 업데이트
+            p.timerEnabled = true
+            p.vocabTimerSeconds = 15
+            p.grammarTimerSeconds = 15
         }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)

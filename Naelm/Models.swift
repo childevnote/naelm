@@ -29,11 +29,21 @@ enum TOEICScoreRange: Int, CaseIterable, Codable {
 
     var label: String {
         switch self {
-        case .below600: return "600 미만"
+        case .below600: return "600점 미만"
         case .range600: return "600점대"
         case .range700: return "700점대"
         case .range800: return "800점대"
         case .range900: return "900점대"
+        }
+    }
+
+    var plusLabel: String {
+        switch self {
+        case .below600: return "600 미만"
+        case .range600: return "600++"
+        case .range700: return "700++"
+        case .range800: return "800++"
+        case .range900: return "900++"
         }
     }
 
