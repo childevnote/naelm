@@ -269,14 +269,8 @@ struct DashboardView: View {
         }
         .padding(12)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(color.opacity(isCompleted ? 0.03 : 0.05))
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(color.opacity(0.12), lineWidth: 0.5)
-            }
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(isCompleted ? 0.04 : 0.06))
         )
         .opacity(isCompleted ? 0.75 : 1.0)
         .pressAnimation()
