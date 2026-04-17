@@ -500,21 +500,6 @@ struct MyPageView: View {
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
         --- */
     }
-                        get: { Double(grammarTimerSeconds) },
-                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
-                    ), in: 5...25, step: 1)
-                    .tint(AppPalette.forest)
-                    HStack {
-                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-    }
 
     // MARK: - Settings
 
