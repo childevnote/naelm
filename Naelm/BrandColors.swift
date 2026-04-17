@@ -293,14 +293,13 @@ struct LiquidPressModifier: ViewModifier {
             .scaleEffect(isPressed ? 0.96 : 1.0)
             .brightness(isPressed ? 0.02 : 0)
             .animation(.spring(response: 0.3, dampingFraction: 0.5, blendDuration: 0), value: isPressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        if !isPressed { isPressed = true }
-                    }
-                    .onEnded { _ in
-                        isPressed = false
-                    }
+            .onLongPressGesture(
+                minimumDuration: 0,
+                maximumDistance: 10,
+                pressing: { pressing in
+                    isPressed = pressing
+                },
+                perform: {}
             )
     }
 }
