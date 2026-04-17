@@ -67,8 +67,8 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 currentCardView
             }
             .frame(maxWidth: .infinity)
-            // ZStack 자체에 수직 여백 → rotation3DEffect가 이 공간 안에서 팽창
-            .padding(.vertical, 12)
+            // 상하 여백을 넉넉히 줘서 3D flip 도중 잘리지 않도록 함
+            .padding(.vertical, 24)
             .onAppear { lastItemsID = makeItemsID() }
             .onChange(of: makeItemsID()) { _, newID in
                 guard newID != lastItemsID else { return }
@@ -128,7 +128,6 @@ struct SwipeableCardStack<Item: Identifiable, CardContent: View>: View {
                 .id("card-\(items[currentIndex].id)")
                 // 오버레이를 카드 크기 안에만 클리핑
                 .overlay(overlayView)
-                .clipShape(RoundedRectangle(cornerRadius: 24))
                 .padding(.horizontal, 20)
                 .offset(x: dragOffset.width, y: dragOffset.height * 0.05)
                 .rotationEffect(.degrees(Double(dragOffset.width) / 28))

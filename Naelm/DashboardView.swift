@@ -266,18 +266,25 @@ struct DashboardView: View {
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
-                .font(.title3).foregroundStyle(color).frame(width: 36)
+                .font(.title3)
+                .foregroundStyle(color)
+                .frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
-                    Text(label).font(.pretendardSemiBold(15))
-                        .foregroundStyle(isCompleted ? .secondary : .primary)
-                    Spacer()
-                    Text(progress).font(.pretendardBold(15)).foregroundStyle(color)
-                }
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                Text(label)
+                    .font(.pretendardSemiBold(15))
+                    .foregroundStyle(isCompleted ? .secondary : .primary)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            Spacer()
+            Text(progress)
+                .font(.pretendardBold(15))
+                .foregroundStyle(color)
             if !isCompleted {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
         }
         .padding(12)
@@ -438,6 +445,7 @@ struct ReviewSessionView: View {
         }
         .navigationTitle("복습")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private var reviewChoiceView: some View {

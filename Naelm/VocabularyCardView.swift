@@ -42,7 +42,7 @@ struct VocabularyCardView: View {
                 )
                 .allowsHitTesting(!isFlipped)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, minHeight: cardHeight, maxHeight: cardHeight)
         .onTapGesture {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
                 isFlipped.toggle()
@@ -114,6 +114,7 @@ struct VocabularyCardView: View {
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
             }
+            .scrollDisabled(true)
             Spacer(minLength: 8)
             HStack(spacing: 20) {
                 HStack(spacing: 4) {
