@@ -48,7 +48,7 @@ struct SplashView: View {
                 Spacer().frame(height: 32)
 
                 // ── 앱 이름 ────────────────────────────
-                Text("낼름")
+                Text("NLLM")
                     .font(.sfRounded(52, weight: .bold))
                     .foregroundStyle(titleColor)
                     .opacity(titleOpacity)
@@ -107,13 +107,13 @@ struct SplashView: View {
                 .frame(width: 150, height: 150)
                 .blur(radius: 20)
 
-            // 아이콘 배경
-            RoundedRectangle(cornerRadius: 30)
+            // 앱 아이콘 스타일 (실제 앱 아이콘처럼 둥근 모서리)
+            RoundedRectangle(cornerRadius: 26)
                 .fill(
                     LinearGradient(
                         colors: [
-                            AppPalette.mint.opacity(colorScheme == .dark ? 0.9 : 1.0),
-                            AppPalette.leaf.opacity(colorScheme == .dark ? 0.9 : 1.0)
+                            Color(hex: "#FFFFFF"),
+                            Color(hex: "#F0F0F0")
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -121,23 +121,22 @@ struct SplashView: View {
                 )
                 .frame(width: 108, height: 108)
                 .shadow(
-                    color: AppPalette.forest.opacity(0.5),
+                    color: Color.black.opacity(0.35),
                     radius: 20, x: 0, y: 8
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 30)
-                        .stroke(Color.white.opacity(0.25), lineWidth: 1.5)
+                    RoundedRectangle(cornerRadius: 26)
+                        .stroke(Color.white.opacity(0.6), lineWidth: 1)
                 )
-
-            // 아이콘 심볼 (캐릭터 추가 전 placeholder)
-            VStack(spacing: 4) {
-                Image(systemName: "book.closed.fill")
-                    .font(.system(size: 38, weight: .bold))
-                    .foregroundStyle(.white)
-                Text("T")
-                    .font(.system(size: 20, weight: .black, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.85))
-            }
+                .overlay(
+                    // 캐릭터 이미지
+                    Image("AppCharacter")
+                        .resizable()
+                        .scaledToFit()
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                        .shadow(radius: 10)
+                )
         }
     }
 
