@@ -34,10 +34,8 @@ struct MyPageView: View {
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
 
-    // 프로필 카드 애니메이션
-    @State private var glowScale: CGFloat = 1.0
-    @State private var glowOpacity: Double = 0.5
-    @State private var iconFloat: CGFloat = 0
+    // 프로필 카드 투명도 조절용 상태 변수
+    @State private var glowOpacity: Double = 1.0
 
     // 응원 배너 (30개 - 매일 하나씩)
     private static let encouragements: [String] = [
@@ -126,7 +124,6 @@ struct MyPageView: View {
         return GeometryReader { geo in
             let containerWidth = geo.size.width
             ZStack(alignment: .leading) {
-                // 두 개의 텍스트로 끊김 없는 루프 효과
                 HStack(spacing: 0) {
                     Text(message)
                         .font(.pretendardMedium(13))
@@ -143,7 +140,6 @@ struct MyPageView: View {
             .clipped()
             .onAppear {
                 marqueeOffset = containerWidth
-                // 텍스트 폭을 대략 계산해서 연속 이동
                 let approxWidth = CGFloat(message.count) * 8.5
                 marqueeTextWidth = approxWidth
                 withAnimation(.linear(duration: Double(approxWidth) / 45).repeatForever(autoreverses: false)) {
@@ -174,13 +170,13 @@ struct MyPageView: View {
 
     private var profileCard: some View {
         VStack(spacing: 20) {
-            // 아바타 + 잔잔한 글로우
+            // 아바타
             ZStack {
-                // 부드럽게 숨쉬는 글로우 — opacity만 애니메이션 (scale 제거로 카드 크기 변동 방지)
+                // 부드럽게 숨쉬는 글로우 - 크기 변동 착시를 막기 위해 도형 전체에 opacity 적용
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [AppPalette.leaf.opacity(glowOpacity), .clear],
+                            colors: [AppPalette.leaf, .clear], // 그라데이션 자체의 색상은 고정
                             center: .center,
                             startRadius: 0,
                             endRadius: 54
@@ -188,6 +184,11 @@ struct MyPageView: View {
                     )
                     .frame(width: 108, height: 108)
                     .blur(radius: 8)
+                    .opacity(glowOpacity) // 여기서 도형 전체의 밝기를 조절
+                    .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: glowOpacity)
+                    .onAppear {
+                        glowOpacity = 0.15
+                    }
 
                 Circle()
                     .fill(
@@ -203,12 +204,10 @@ struct MyPageView: View {
                 Image(systemName: "person.fill")
                     .font(.system(size: 36, weight: .medium))
                     .foregroundStyle(.white)
-                    .offset(y: iconFloat)
             }
 
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
-                // 목표 점수 → plusLabel 변환
                 let targetLabel = TOEICScoreRange.rangesUpTo(target: p.targetScore).last?.plusLabel ?? "\(p.targetScore)++"
 
                 // 수준 뱃지
@@ -227,7 +226,7 @@ struct MyPageView: View {
                             )
                         )
 
-                    // 격려 멘트 — 현재 수준 바로 아래
+                    // 격려 멘트
                     Text(Self.encouragements[dailyEncouragementIndex])
                         .font(.pretendardMedium(12))
                         .foregroundStyle(AppPalette.forest.opacity(0.70))
@@ -251,7 +250,6 @@ struct MyPageView: View {
                 RoundedRectangle(cornerRadius: 24)
                     .fill(.ultraThinMaterial)
 
-                // 은은한 그라데이션 오버레이
                 RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
@@ -280,14 +278,6 @@ struct MyPageView: View {
                     )
             }
         )
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                glowOpacity = 0.15
-            }
-            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-                iconFloat = -4
-            }
-        }
     }
 
     private func statCard(icon: String, label: String, value: String, color: Color) -> some View {
@@ -414,7 +404,6 @@ struct MyPageView: View {
                     }
                 }
 
-                // 범례
                 HStack(spacing: 16) {
                     HStack(spacing: 4) {
                         Circle().fill(AppPalette.mint).frame(width: 8, height: 8)
@@ -433,78 +422,8 @@ struct MyPageView: View {
     }
 
     // MARK: - Timer Settings
-    // ⚠️ 시간 제한 UI 비활성화됨 - 코드는 유지하되 UI는 숨김
-    // 기본값: timerEnabled = true, 15초 고정
-    // 활성화하려면 timerSettings를 body VStack에 다시 추가하세요
-
     private var timerSettings: some View {
-        // UI 숨김 처리 - EmptyView 반환
         EmptyView()
-        /* --- 비활성화된 UI (코드 보존) ---
-        VStack(alignment: .leading, spacing: 14) {
-            Text("시간 제한 설정").font(.headline)
-
-            HStack {
-                Label("시간 제한 기능", systemImage: "timer")
-                    .font(.subheadline)
-                Spacer()
-                Toggle("", isOn: $timerEnabled)
-                    .onChange(of: timerEnabled) { _, _ in saveTimerSettings() }
-            }
-
-            if timerEnabled {
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Label("단어 학습 시간", systemImage: "character.book.closed")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("\(vocabTimerSeconds)초")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(AppPalette.forest)
-                            .frame(width: 44)
-                    }
-                    Slider(value: Binding(
-                        get: { Double(vocabTimerSeconds) },
-                        set: { vocabTimerSeconds = Int($0); saveTimerSettings() }
-                    ), in: 5...25, step: 1)
-                    .tint(AppPalette.forest)
-                    HStack {
-                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Label("문법 학습 시간", systemImage: "text.book.closed")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("\(grammarTimerSeconds)초")
-                            .font(.subheadline).fontWeight(.semibold)
-                            .foregroundStyle(AppPalette.forest)
-                            .frame(width: 44)
-                    }
-                    Slider(value: Binding(
-                        get: { Double(grammarTimerSeconds) },
-                        set: { grammarTimerSeconds = Int($0); saveTimerSettings() }
-                    ), in: 5...25, step: 1)
-                    .tint(AppPalette.forest)
-                    HStack {
-                        Text("5초").font(.caption2).foregroundStyle(.tertiary)
-                        Spacer()
-                        Text("25초").font(.caption2).foregroundStyle(.tertiary)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
-        --- */
     }
 
     // MARK: - Settings
@@ -513,7 +432,6 @@ struct MyPageView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("설정").font(.headline)
 
-            // 화면 모드
             HStack {
                 Label("화면 모드", systemImage: "circle.lefthalf.filled")
                     .font(.subheadline)
@@ -568,7 +486,6 @@ struct MyPageView: View {
 
             Divider()
 
-            // 개인정보 처리방침 및 이용약관 (통합)
             if let policyURL = URL(string: "https://lively-mayonnaise-192.notion.site/naelm") {
                 Link(destination: policyURL) {
                     HStack {
@@ -593,12 +510,10 @@ struct MyPageView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
 
-        // 타이머 설정 로드 (현재 UI 비활성화 - 기본값 15초 고정)
         if let p = profile {
-            timerEnabled = true  // 항상 활성화
-            vocabTimerSeconds = 15  // 기본 15초 고정
-            grammarTimerSeconds = 15  // 기본 15초 고정
-            // 저장된 값 업데이트
+            timerEnabled = true
+            vocabTimerSeconds = 15
+            grammarTimerSeconds = 15
             p.timerEnabled = true
             p.vocabTimerSeconds = 15
             p.grammarTimerSeconds = 15
@@ -607,7 +522,6 @@ struct MyPageView: View {
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         totalXP = GamificationService.totalXP(userID: userID, context: modelContext)
 
-        // 문제유형별 통계
         let grammarPred = #Predicate<LearningProgress> {
             $0.userID == userID && $0.itemType == "grammar"
         }
@@ -660,53 +574,41 @@ struct MyPageView: View {
 
     // MARK: - Delete Account
 
-    /// App Store Review Guideline 5.1.1 — 계정 삭제 기능
-    /// 사용자의 모든 데이터를 영구 삭제하고 로그아웃합니다.
     private func deleteAccount() {
         guard let userID = authManager.userID else { return }
 
-        // 1. UserProfile 삭제
         let profilePred = #Predicate<UserProfile> { $0.userID == userID }
         if let profiles = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePred)) {
             for p in profiles { modelContext.delete(p) }
         }
 
-        // 2. LearningProgress 삭제
         let progressPred = #Predicate<LearningProgress> { $0.userID == userID }
         if let progresses = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: progressPred)) {
             for p in progresses { modelContext.delete(p) }
         }
 
-        // 3. UserActivity 삭제
         let activityPred = #Predicate<UserActivity> { $0.userID == userID }
         if let activities = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: activityPred)) {
             for a in activities { modelContext.delete(a) }
         }
 
-        // 4. MonthlyScore 삭제
         let scorePred = #Predicate<MonthlyScore> { $0.userID == userID }
         if let scores = try? modelContext.fetch(FetchDescriptor<MonthlyScore>(predicate: scorePred)) {
             for s in scores { modelContext.delete(s) }
         }
 
-        // 5. BookmarkedWord 삭제
         let bookmarkPred = #Predicate<BookmarkedWord> { $0.userID == userID }
         if let bookmarks = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: bookmarkPred)) {
             for b in bookmarks { modelContext.delete(b) }
         }
 
-        // 6. Friendship 삭제
         let friendPred = #Predicate<Friendship> { $0.userID == userID || $0.friendID == userID }
         if let friends = try? modelContext.fetch(FetchDescriptor<Friendship>(predicate: friendPred)) {
             for f in friends { modelContext.delete(f) }
         }
 
         try? modelContext.save()
-
-        // 7. Keychain 정리
         KeychainHelper.delete(key: KeychainHelper.userIDKey)
-
-        // 8. 로그아웃
         authManager.signOut()
     }
 }
