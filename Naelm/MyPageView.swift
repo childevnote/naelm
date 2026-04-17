@@ -188,9 +188,7 @@ struct MyPageView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(4))
                 guard !Task.isCancelled else { break }
-                withAnimation {
-                    currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
-                }
+                currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
             }
         }
     }
