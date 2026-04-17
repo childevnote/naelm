@@ -34,16 +34,24 @@ struct MyPageView: View {
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
 
-    // 프로필 카드 애니메이션
-    @State private var glowScale: CGFloat = 1.0
-    @State private var glowOpacity: Double = 0.5
-    @State private var iconFloat: CGFloat = 0
+    // 프로필 카드 — 글로우/아이콘 부유 효과 제거됨
+    // 응원 배너 슬라이딩
+
+    private let encouragements = [
+        "오늘도 좋은 하루 되세요! ☀️",
+        "꾸준한 학습이 실력을 만들어요 💪",
+        "한 걸음씩, 목표에 가까워지고 있어요 🎯",
+        "오늘의 노력이 내일의 점수가 돼요 📈",
+        "당신의 도전을 응원합니다! 🌟",
+    ]
+    @State private var currentEncouragementIndex: Int = 0
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
                     profileCard
+                    encouragementBanner
                     goalSection
                     quizCategoryChart
                     timerSettings
@@ -83,20 +91,18 @@ struct MyPageView: View {
 
     private var profileCard: some View {
         VStack(spacing: 20) {
-            // 아바타 + 잔잔한 글로우
+            // 아바타 (정적, 애니메이션 제거)
             ZStack {
-                // 부드럽게 숨쉬는 글로우
                 Circle()
                     .fill(
                         RadialGradient(
-                            colors: [AppPalette.leaf.opacity(glowOpacity), .clear],
+                            colors: [AppPalette.leaf.opacity(0.3), .clear],
                             center: .center,
                             startRadius: 0,
                             endRadius: 54
                         )
                     )
                     .frame(width: 108, height: 108)
-                    .scaleEffect(glowScale)
                     .blur(radius: 8)
 
                 Circle()
@@ -113,20 +119,19 @@ struct MyPageView: View {
                 Image(systemName: "person.fill")
                     .font(.system(size: 36, weight: .medium))
                     .foregroundStyle(.white)
-                    .offset(y: iconFloat)
             }
 
             if let p = profile {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
 
-                // 수준 뱃지
+                // 수준 뱃지 — 글자 크기 확대
                 VStack(spacing: 6) {
                     Text("현재 수준")
-                        .font(.pretendardMedium(12))
+                        .font(.pretendardMedium(13))
                         .foregroundStyle(.secondary)
 
                     Text(level.label)
-                        .font(.pretendardBold(26))
+                        .font(.pretendardBold(34))
                         .foregroundStyle(
                             LinearGradient(
                                 colors: [AppPalette.forest, AppPalette.leaf],
@@ -148,46 +153,42 @@ struct MyPageView: View {
         .padding(.horizontal, 20)
         .frame(maxWidth: .infinity)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial)
-
-                // 은은한 그라데이션 오버레이
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                AppPalette.forest.opacity(0.06),
-                                AppPalette.leaf.opacity(0.03),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                AppPalette.leaf.opacity(0.4),
-                                AppPalette.forest.opacity(0.15),
-                                AppPalette.leaf.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color(.secondarySystemBackground))
         )
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) {
-                glowScale = 1.18
-                glowOpacity = 0.25
-            }
-            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-                iconFloat = -4
+    }
+
+    // MARK: - Encouragement Banner (슬라이딩 배너)
+
+    private var encouragementBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(AppPalette.forest)
+                .font(.system(size: 14))
+
+            Text(encouragements[currentEncouragementIndex])
+                .font(.pretendardMedium(14))
+                .foregroundStyle(AppPalette.forest)
+                .id(currentEncouragementIndex)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                ))
+                .animation(.easeInOut(duration: 0.6), value: currentEncouragementIndex)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppPalette.forest.opacity(0.06))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(4))
+                guard !Task.isCancelled else { break }
+                currentEncouragementIndex = (currentEncouragementIndex + 1) % encouragements.count
             }
         }
     }

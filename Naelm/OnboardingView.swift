@@ -177,8 +177,8 @@ struct OnboardingView: View {
                 Spacer()
                 if currentQ < placementQuestions.count {
                     let lvl = placementQuestions[currentQ].difficulty
-                    let scoreLbl = lvl == 1 ? "600" : lvl == 2 ? "700" : lvl == 3 ? "800" : "900"
-                    Text("\(scoreLbl)점대")
+                    let scoreLbl = TOEICScoreRange.from(frequencyLevel: lvl).shortLabel
+                    Text("\(scoreLbl)++")
                         .font(.caption2).fontWeight(.bold)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Capsule().fill(BrandTheme.accent.opacity(0.15)))
@@ -275,7 +275,7 @@ struct OnboardingView: View {
                 ForEach([1, 2, 3, 4], id: \.self) { lvl in
                     let lvlAnswers = placementAnswers.filter { $0.level == lvl }
                     let lvlCorrect = lvlAnswers.filter(\.correct).count
-                    let scoreLbl = lvl == 1 ? "600점대" : lvl == 2 ? "700점대" : lvl == 3 ? "800점대" : "900점대"
+                    let scoreLbl = TOEICScoreRange(rawValue: lvl)?.label ?? ""
                     HStack {
                         Text(scoreLbl).font(.caption).frame(width: 60, alignment: .leading)
                         ProgressView(value: Double(lvlCorrect), total: 5.0)

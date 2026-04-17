@@ -110,17 +110,8 @@ struct DashboardView: View {
         }
         .padding(14)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [AppPalette.forest.opacity(0.08), .clear],
-                            startPoint: .leading, endPoint: .trailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 16).stroke(AppPalette.leaf.opacity(0.20), lineWidth: 1)
-            }
+            RoundedRectangle(cornerRadius: 12)
+                .fill(AppPalette.forest.opacity(0.06))
         )
     }
 
@@ -143,13 +134,8 @@ struct DashboardView: View {
         }
         .padding(14)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(AppGradient.cardShimmer(scheme: colorScheme))
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.70), lineWidth: 1)
-            }
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(.secondarySystemBackground))
         )
     }
 
@@ -250,7 +236,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: grammarCompleted ? AppPalette.forest : AppPalette.leaf,
+                    color: AppPalette.grammarBrown,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
@@ -259,7 +245,7 @@ struct DashboardView: View {
             .disabled(grammarCompleted)
         }
         .padding(16)
-        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
     }
 
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
@@ -267,21 +253,27 @@ struct DashboardView: View {
             Image(systemName: isCompleted ? "checkmark.circle.fill" : icon)
                 .font(.title3).foregroundStyle(color).frame(width: 36)
             VStack(alignment: .leading, spacing: 2) {
-                HStack {
+                HStack(alignment: .center) {
                     Text(label).font(.pretendardSemiBold(15))
                         .foregroundStyle(isCompleted ? .secondary : .primary)
                     Spacer()
                     Text(progress).font(.pretendardBold(15)).foregroundStyle(color)
+                    if !isCompleted {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
-            if !isCompleted {
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-            }
         }
         .padding(12)
-        .background(RoundedRectangle(cornerRadius: 12).fill(color.opacity(isCompleted ? 0.04 : 0.06)))
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(color.opacity(isCompleted ? 0.04 : 0.06))
+        )
         .opacity(isCompleted ? 0.75 : 1.0)
+        .pressAnimation()
     }
 
     // MARK: - Weekly Chart
@@ -312,7 +304,7 @@ struct DashboardView: View {
             .frame(height: 120)
         }
         .padding(16)
-        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
+        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
     }
 
     private func barHeight(xp: Int) -> CGFloat {
