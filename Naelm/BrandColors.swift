@@ -46,6 +46,8 @@ enum AppPalette {
     static let warning  = Color(hex: "#F5A623")
     /// XP/포인트 — 골드
     static let gold     = Color(hex: "#F5C842")
+    /// 문법 — 진한 갈색
+    static let grammarBrown = Color(hex: "#6B4226")
 }
 
 // MARK: - Semantic Color Tokens (시맨틱 토큰)
@@ -242,6 +244,11 @@ extension View {
             .toolbarBackground(.ultraThinMaterial, for: .tabBar)
             .toolbarBackgroundVisibility(.visible, for: .tabBar)
     }
+
+    /// 리퀴드 글래스 프레스 애니메이션 — 터치 시 물방울 효과
+    func pressAnimation() -> some View {
+        self.modifier(LiquidPressModifier())
+    }
 }
 
 /// 리퀴드 글래스 카드 배경 뷰.
@@ -272,6 +279,29 @@ struct GlassCardBackground: View {
                     lineWidth: 1
                 )
         }
+    }
+}
+
+// MARK: - Liquid Press Effect (물방울 터치 효과)
+
+/// 터치 시 눌린 부분이 물방울처럼 살짝 확대되었다가 원래 크기로 돌아오는 효과.
+struct LiquidPressModifier: ViewModifier {
+    @State private var isPressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.96 : 1.0)
+            .brightness(isPressed ? 0.02 : 0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.5, blendDuration: 0), value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !isPressed { isPressed = true }
+                    }
+                    .onEnded { _ in
+                        isPressed = false
+                    }
+            )
     }
 }
 
