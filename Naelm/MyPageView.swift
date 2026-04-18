@@ -665,6 +665,9 @@ struct MyPageView: View {
         guard let p = profile else { return }
         p.targetScore = newScore
         // 목표 점수에 따른 일일 목표 자동 조정
+        // gap = 목표 점수와 현재 추정 수준 간의 차이 (400은 기준 점수 오프셋)
+        // 단어: 기본 15개 + gap/50 (최소 10, 최대 40)
+        // 문법: 기본 8개 + gap/80 (최소 5, 최대 20)
         let gap = max(0, newScore - p.estimatedLevel * 100 - 400)
         p.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
         p.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))

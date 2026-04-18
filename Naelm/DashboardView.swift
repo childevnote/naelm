@@ -583,7 +583,7 @@ struct VocabReviewContent: View {
                     Text("복습 완료!").font(.title).fontWeight(.bold)
                     Text("모든 단어를 숙달했어요 🎉").font(.subheadline).foregroundStyle(.secondary)
                     if bonusXPAwarded {
-                        Text("+50 XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
+                        Text("+\(LearningSessionManager.reviewCompletionBonusXP) XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
                     }
 
                     Button {
@@ -705,7 +705,7 @@ struct VocabReviewContent: View {
             activity = UserActivity(userID: userID, activityDate: today)
             modelContext.insert(activity)
         }
-        activity.xpEarned += 50
+        activity.xpEarned += LearningSessionManager.reviewCompletionBonusXP
         if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
             activity.dailyGoalMet = true
         }
@@ -745,7 +745,7 @@ struct GrammarReviewContent: View {
                     Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(AppPalette.gold)
                     Text("오답 복습 완료!").font(.title).fontWeight(.bold)
                     if bonusXPAwarded {
-                        Text("+50 XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
+                        Text("+\(LearningSessionManager.reviewCompletionBonusXP) XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
                     }
 
                     Button {
@@ -945,7 +945,7 @@ struct GrammarReviewContent: View {
             activity = UserActivity(userID: userID, activityDate: today)
             modelContext.insert(activity)
         }
-        activity.xpEarned += 50
+        activity.xpEarned += LearningSessionManager.reviewCompletionBonusXP
         if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
             activity.dailyGoalMet = true
         }

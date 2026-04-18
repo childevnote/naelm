@@ -438,8 +438,8 @@ struct OnboardingView: View {
             distractors = Array(Set(distractors)).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != v.korean }
             var options = [v.korean] + Array(distractors.prefix(3))
             options.shuffle()
-            // 옵션이 4개 미만이면 건너뜀
-            guard options.count >= 2 else { continue }
+            // 옵션이 4개 미만이면 건너뜀 (4지선다 보장)
+            guard options.count >= 4 else { continue }
             result.append(PlacementQuestion(
                 type: .vocabulary,
                 question: "'\(v.english)'의 뜻은?",
@@ -476,11 +476,12 @@ struct OnboardingView: View {
                 .filter { !$0.isEmpty && $0 != g.blankTarget }
             // 빈칸인 보기 제거 및 중복 제거
             distractors = Array(Set(distractors)).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            while distractors.count < 3 {
-                let fallbacks = ["however", "therefore", "although", "moreover", "consequently", "nevertheless"]
-                if let f = fallbacks.randomElement(), f != g.blankTarget, !distractors.contains(f) {
+            let fallbacks = ["however", "therefore", "although", "moreover", "consequently", "nevertheless"]
+            for f in fallbacks.shuffled() {
+                guard distractors.count < 3 else { break }
+                if f != g.blankTarget && !distractors.contains(f) {
                     distractors.append(f)
-                } else { break }
+                }
             }
             var options = [g.blankTarget] + Array(distractors.prefix(3))
             options.shuffle()

@@ -65,6 +65,9 @@ final class LearningSessionManager {
     /// 문법 퀴즈 오답 시 XP (참여 보상)
     static let xpPerGrammarIncorrect: Int = 5
 
+    /// 복습 완료 보너스 XP (단어/문법 각각)
+    static let reviewCompletionBonusXP: Int = 50
+
     /// 일일 기본 목표 XP
     static let defaultDailyGoalXP: Int = 100
 
