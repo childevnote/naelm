@@ -135,7 +135,7 @@ struct VocabularyStudyView: View {
                     }
                 }
             }
-            .toolbar(isSessionActive ? .hidden : .visible, for: .tabBar)
+            .toolbar(isSessionActive || showLessonComplete ? .hidden : .visible, for: .tabBar)
             .onAppear {
                 if viewModel.cardDeck.isEmpty && !viewModel.isSessionComplete {
                     loadDeck()

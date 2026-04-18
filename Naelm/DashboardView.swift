@@ -33,6 +33,8 @@ struct DashboardView: View {
     @State private var showVocabConfirm = false
     @State private var showGrammarConfirm = false
     @State private var selectedWeekDay: DailySummary? = nil
+    @State private var showVocabCompleteAlert = false
+    @State private var showGrammarCompleteAlert = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -97,6 +99,16 @@ struct DashboardView: View {
                 Button("시작!") { showGrammarSession = true }
             } message: {
                 Text("약 3분 정도 소요됩니다. 퀴즈를 시작할까요?")
+            }
+            .alert("학습 완료", isPresented: $showVocabCompleteAlert) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("오늘의 학습이 완료되었습니다.")
+            }
+            .alert("학습 완료", isPresented: $showGrammarCompleteAlert) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("오늘의 학습이 완료되었습니다.")
             }
         }
     }
@@ -204,8 +216,8 @@ struct DashboardView: View {
 
     // MARK: - Today Learning Section
 
-    private var vocabCompleted: Bool { false }
-    private var grammarCompleted: Bool { false }
+    private var vocabCompleted: Bool { todayWordsStudied >= dailyVocabGoal }
+    private var grammarCompleted: Bool { todayGrammarStudied >= dailyGrammarGoal }
 
     private var todayLearningSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -235,38 +247,40 @@ struct DashboardView: View {
             .buttonStyle(.plain)
 
             Button {
-                if !vocabCompleted {
+                if vocabCompleted {
+                    showVocabCompleteAlert = true
+                } else {
                     showVocabConfirm = true
                     HapticManager.shared.playTap()
                 }
             } label: {
                 todayTaskRow(
                     icon: "character.book.closed", label: "단어",
-                    progress: "\(todayWordsStudied)/\(dailyVocabGoal)개",
+                    progress: vocabCompleted ? "완료!" : "\(todayWordsStudied)/\(dailyVocabGoal)개",
                     color: vocabCompleted ? AppPalette.forest : AppPalette.forest,
                     subtitle: vocabCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 단어 학습 시작",
                     isCompleted: vocabCompleted
                 )
             }
             .buttonStyle(.plain)
-            .disabled(vocabCompleted)
 
             Button {
-                if !grammarCompleted {
+                if grammarCompleted {
+                    showGrammarCompleteAlert = true
+                } else {
                     showGrammarConfirm = true
                     HapticManager.shared.playTap()
                 }
             } label: {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
-                    progress: "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
+                    progress: grammarCompleted ? "완료!" : "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
                     color: grammarCompleted ? AppPalette.grammarBrown : AppPalette.grammarBrown,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
             }
             .buttonStyle(.plain)
-            .disabled(grammarCompleted)
         }
         .padding(16)
         .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
@@ -551,6 +565,8 @@ struct VocabReviewContent: View {
     @State private var currentRoundStudyWords: [Vocabulary] = []
     /// 현재 라운드 남은 단어 수 (스와이프마다 감소)
     @State private var remainingCount: Int = 0
+    /// 복습 완료 보너스 XP 지급 여부
+    @State private var bonusXPAwarded: Bool = false
 
     var body: some View {
         ZStack {
@@ -566,6 +582,9 @@ struct VocabReviewContent: View {
                     Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(AppPalette.gold)
                     Text("복습 완료!").font(.title).fontWeight(.bold)
                     Text("모든 단어를 숙달했어요 🎉").font(.subheadline).foregroundStyle(.secondary)
+                    if bonusXPAwarded {
+                        Text("+50 XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
+                    }
 
                     Button {
                         dismiss()
@@ -609,6 +628,7 @@ struct VocabReviewContent: View {
             }
         }
         .navigationBarBackButtonHidden(!isComplete)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             if !isComplete {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -656,6 +676,7 @@ struct VocabReviewContent: View {
     private func handleRoundComplete() {
         if currentRoundStudyWords.isEmpty {
             sessionManager.endSession(context: modelContext)
+            awardVocabReviewBonusXP()
             isComplete = true
             HapticManager.shared.playCelebration()
         } else {
@@ -665,6 +686,31 @@ struct VocabReviewContent: View {
             cardStackID = UUID()
         }
     }
+
+    private func awardVocabReviewBonusXP() {
+        guard !bonusXPAwarded, let userID = authManager.userID else { return }
+        bonusXPAwarded = true
+        // 복습 완료 보너스 50 XP
+        let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+        let predicate = #Predicate<UserActivity> {
+            $0.userID == userID &&
+            $0.activityDate >= today &&
+            $0.activityDate < tomorrow
+        }
+        let activity: UserActivity
+        if let found = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: predicate)).first {
+            activity = found
+        } else {
+            activity = UserActivity(userID: userID, activityDate: today)
+            modelContext.insert(activity)
+        }
+        activity.xpEarned += 50
+        if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
+            activity.dailyGoalMet = true
+        }
+        try? modelContext.save()
+    }
 }
 
 // MARK: - Grammar Review (오답 재풀기, 시도 횟수 표시)
@@ -672,6 +718,7 @@ struct VocabReviewContent: View {
 struct GrammarReviewContent: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     @State private var wrongGrammars: [(grammar: Grammar, attempts: Int)] = []
     @State private var currentIndex: Int = 0
@@ -679,10 +726,16 @@ struct GrammarReviewContent: View {
     @State private var isAnswerRevealed: Bool = false
     @State private var isComplete: Bool = false
     @State private var currentQuestion: QuizQuestion? = nil
+    /// 이번 라운드에서 틀린 문법들
+    @State private var currentRoundWrong: [(grammar: Grammar, attempts: Int)] = []
+    /// 한 사이클 완료 후 못 푼 문제 알림
+    @State private var showUnsolvedAlert: Bool = false
+    /// 복습 완료 XP 보너스 지급 여부
+    @State private var bonusXPAwarded: Bool = false
 
     var body: some View {
         VStack {
-            if wrongGrammars.isEmpty {
+            if wrongGrammars.isEmpty && !isComplete {
                 VStack(spacing: 16) {
                     Image(systemName: "checkmark.seal.fill").font(.system(size: 56)).foregroundStyle(AppPalette.mint)
                     Text("복습할 문법이 없어요!").font(.title3).fontWeight(.bold)
@@ -691,12 +744,44 @@ struct GrammarReviewContent: View {
                 VStack(spacing: 20) {
                     Image(systemName: "trophy.fill").font(.system(size: 64)).foregroundStyle(AppPalette.gold)
                     Text("오답 복습 완료!").font(.title).fontWeight(.bold)
+                    if bonusXPAwarded {
+                        Text("+50 XP 보너스 획득! 🎉").font(.subheadline).foregroundStyle(AppPalette.gold)
+                    }
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("홈으로", systemImage: "house.fill")
+                            .font(.headline)
+                            .frame(maxWidth: 280)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AppPalette.forest)
                 }
             } else if let q = currentQuestion {
                 reviewQuizView(question: q)
             }
         }
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { loadWrongGrammars(); loadCurrentQuestion() }
+        .alert("풀지 못한 문제가 있습니다", isPresented: $showUnsolvedAlert) {
+            Button("홈으로") {
+                awardReviewBonusXP()
+                isComplete = true
+            }
+            Button("다시 풀기") {
+                // 틀린 문제들로 다시 시작
+                wrongGrammars = currentRoundWrong
+                currentRoundWrong = []
+                currentIndex = 0
+                selectedAnswer = nil
+                isAnswerRevealed = false
+                loadCurrentQuestion()
+            }
+        } message: {
+            Text("남은 문제를 다시 풀어볼까요?")
+        }
     }
 
     private func reviewQuizView(question: QuizQuestion) -> some View {
@@ -753,6 +838,10 @@ struct GrammarReviewContent: View {
                             } else {
                                 HapticManager.shared.playIncorrect()
                                 incrementAttempt(grammar: question.grammar)
+                                // 이번 라운드 틀린 문제 기록
+                                if currentIndex < wrongGrammars.count {
+                                    currentRoundWrong.append(wrongGrammars[currentIndex])
+                                }
                             }
                         } label: {
                             HStack {
@@ -780,6 +869,10 @@ struct GrammarReviewContent: View {
                             isAnswerRevealed = true
                             HapticManager.shared.playIncorrect()
                             incrementAttempt(grammar: question.grammar)
+                            // 이번 라운드 틀린 문제 기록
+                            if currentIndex < wrongGrammars.count {
+                                currentRoundWrong.append(wrongGrammars[currentIndex])
+                            }
                         } label: {
                             Text("모르겠다")
                                 .font(.body).foregroundStyle(.secondary)
@@ -819,11 +912,44 @@ struct GrammarReviewContent: View {
         selectedAnswer = nil
         isAnswerRevealed = false
         if currentIndex + 1 >= wrongGrammars.count {
-            isComplete = true
+            // 한 사이클 완료
+            if currentRoundWrong.isEmpty {
+                // 모든 문제 정답 → 완료
+                awardReviewBonusXP()
+                isComplete = true
+            } else {
+                // 못 푼 문제 있음 → 알림
+                showUnsolvedAlert = true
+            }
         } else {
             currentIndex += 1
             loadCurrentQuestion()
         }
+    }
+
+    private func awardReviewBonusXP() {
+        guard !bonusXPAwarded, let userID = authManager.userID else { return }
+        bonusXPAwarded = true
+        // 복습 완료 보너스 50 XP
+        let today = Calendar.current.startOfDay(for: Date())
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+        let predicate = #Predicate<UserActivity> {
+            $0.userID == userID &&
+            $0.activityDate >= today &&
+            $0.activityDate < tomorrow
+        }
+        let activity: UserActivity
+        if let found = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: predicate)).first {
+            activity = found
+        } else {
+            activity = UserActivity(userID: userID, activityDate: today)
+            modelContext.insert(activity)
+        }
+        activity.xpEarned += 50
+        if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
+            activity.dailyGoalMet = true
+        }
+        try? modelContext.save()
     }
 
     private func loadWrongGrammars() {

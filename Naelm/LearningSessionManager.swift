@@ -202,8 +202,7 @@ final class LearningSessionManager {
             stats.xpEarned += Self.xpPerVocabulary
         } else {
             stats.incorrectCount += 1
-            // 모르는 단어도 참여 XP 부여 (절반)
-            stats.xpEarned += Self.xpPerVocabulary / 2
+            // 모르는 단어: XP 없음
         }
 
         // 햅틱 피드백
@@ -228,7 +227,7 @@ final class LearningSessionManager {
             stats.xpEarned += Self.xpPerGrammarCorrect
         } else {
             stats.incorrectCount += 1
-            stats.xpEarned += Self.xpPerGrammarIncorrect
+            // 오답: XP 없음
         }
     }
 

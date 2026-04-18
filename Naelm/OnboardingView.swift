@@ -377,8 +377,7 @@ struct OnboardingView: View {
 
     private func loadPlacementQuestions() {
         // 각 수준별 5문제씩 = 20문제
-        // Vocab 수준: 1→600, 2→700, 3→800/900
-        // Grammar 수준: 1→600, 2→700, 3→800, 4→900
+        // 기존 Vocabulary/Grammar 데이터에서 수준별 선정
         let vocabs = fetchAllVocab()
         let grammars = fetchAllGrammar()
 
@@ -409,52 +408,92 @@ struct OnboardingView: View {
     private func makeVocabQuestions(from vocabs: [Vocabulary], level: Int, count: Int, targetLevel: Int, allVocabs: [Vocabulary]) -> [PlacementQuestion] {
         let filtered = vocabs.filter { $0.frequencyLevel == level }.shuffled()
         let selected = Array(filtered.prefix(count))
-        return selected.map { v in
-            // 같은 품사에서 오답을 뽑아 더 어렵게
-            let samePOS = allVocabs.filter { $0.partOfSpeech == v.partOfSpeech && $0.korean != v.korean }
+        // 이미 사용된 영어 단어 추적 (중복 방지)
+        var usedEnglish = Set<String>()
+        var result: [PlacementQuestion] = []
+        for v in selected {
+            // 이미 동일한 영어 단어가 사용된 경우 건너뜀
+            guard !usedEnglish.contains(v.english.lowercased()) else { continue }
+            usedEnglish.insert(v.english.lowercased())
+
+            // 같은 품사에서 오답을 뽑되, 정답과 동일 korean이 아닌 것만
+            let samePOS = allVocabs.filter {
+                $0.partOfSpeech == v.partOfSpeech &&
+                $0.korean != v.korean &&
+                $0.english.lowercased() != v.english.lowercased()
+            }
             var distractors = Array(samePOS.map(\.korean).shuffled().prefix(3))
+            // 빈 문자열 필터링 및 중복 제거
+            distractors = distractors.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != v.korean }
             // 부족하면 다른 단어에서 채움
             if distractors.count < 3 {
-                let others = allVocabs.filter { $0.korean != v.korean && !distractors.contains($0.korean) }
+                let others = allVocabs.filter {
+                    $0.korean != v.korean &&
+                    !distractors.contains($0.korean) &&
+                    !$0.korean.trimmingCharacters(in: .whitespaces).isEmpty
+                }
                 distractors += Array(others.map(\.korean).shuffled().prefix(3 - distractors.count))
             }
+            // 최종 빈칸/정답과 동일한 보기 제거
+            distractors = Array(Set(distractors)).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && $0 != v.korean }
             var options = [v.korean] + Array(distractors.prefix(3))
             options.shuffle()
-            return PlacementQuestion(
+            // 옵션이 4개 미만이면 건너뜀
+            guard options.count >= 2 else { continue }
+            result.append(PlacementQuestion(
                 type: .vocabulary,
                 question: "'\(v.english)'의 뜻은?",
                 options: options,
                 correctAnswer: v.korean,
                 difficulty: targetLevel
-            )
+            ))
         }
+        return result
     }
 
     private func makeGrammarQuestions(from grammars: [Grammar], level: Int, count: Int, targetLevel: Int) -> [PlacementQuestion] {
         let filtered = grammars.filter { $0.difficultyLevel == level }.shuffled()
-        let selected = Array(filtered.prefix(count))
-        return selected.compactMap { g -> PlacementQuestion? in
-            guard !g.blankTarget.isEmpty else { return nil }
+        // blankTarget이 있고 correctExample에 실제로 포함되는 문법만 선택
+        let validGrammars = filtered.filter { g in
+            !g.blankTarget.isEmpty &&
+            !g.correctExample.isEmpty &&
+            g.correctExample.contains(g.blankTarget) &&
+            !g.distractors.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        let selected = Array(validGrammars.prefix(count))
+        // 이미 사용된 blankTarget 추적 (중복 방지)
+        var usedTargets = Set<String>()
+        var result: [PlacementQuestion] = []
+        for g in selected {
+            guard !usedTargets.contains(g.blankTarget.lowercased()) else { continue }
+            usedTargets.insert(g.blankTarget.lowercased())
+
             let sentenceWithBlank = g.correctExample.replacingOccurrences(of: g.blankTarget, with: "___")
-            guard sentenceWithBlank != g.correctExample else { return nil }
+            guard sentenceWithBlank != g.correctExample else { continue }
 
             var distractors = g.distractors.components(separatedBy: ",")
                 .map { $0.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty && $0 != g.blankTarget }
+            // 빈칸인 보기 제거 및 중복 제거
+            distractors = Array(Set(distractors)).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
             while distractors.count < 3 {
-                distractors.append(["however", "therefore", "although", "moreover"].randomElement() ?? "however")
+                let fallbacks = ["however", "therefore", "although", "moreover", "consequently", "nevertheless"]
+                if let f = fallbacks.randomElement(), f != g.blankTarget, !distractors.contains(f) {
+                    distractors.append(f)
+                } else { break }
             }
             var options = [g.blankTarget] + Array(distractors.prefix(3))
             options.shuffle()
 
-            return PlacementQuestion(
+            result.append(PlacementQuestion(
                 type: .grammar,
                 question: sentenceWithBlank,
                 options: options,
                 correctAnswer: g.blankTarget,
                 difficulty: targetLevel
-            )
+            ))
         }
+        return result
     }
 
     private func fetchAllVocab() -> [Vocabulary] {

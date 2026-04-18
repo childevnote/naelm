@@ -33,6 +33,11 @@ struct MyPageView: View {
     // 계정 삭제
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
+    // 목표 점수 수정
+    @State private var showTargetScorePicker: Bool = false
+    @State private var selectedTargetScore: Int = 700
+    // 도움말
+    @State private var showHelpPage: Bool = false
 
     // 프로필 카드 투명도 조절용 상태 변수
     @State private var glowOpacity: Double = 1.0
@@ -113,6 +118,12 @@ struct MyPageView: View {
             }
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
+            }
+            .sheet(isPresented: $showTargetScorePicker) {
+                targetScorePickerSheet
+            }
+            .sheet(isPresented: $showHelpPage) {
+                HelpPageView()
             }
         }
     }
@@ -311,8 +322,29 @@ struct MyPageView: View {
 
     private var goalSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("일일 목표").font(.pretendardSemiBold(16))
+            HStack {
+                Text("일일 목표").font(.pretendardSemiBold(16))
+                Spacer()
+                Button {
+                    if let p = profile {
+                        selectedTargetScore = p.targetScore
+                    }
+                    showTargetScorePicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text("목표 점수 변경")
+                            .font(.pretendardMedium(13))
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                    }
+                    .foregroundStyle(AppPalette.forest)
+                }
+            }
             if let p = profile {
+                HStack {
+                    Label("목표 점수", systemImage: "target"); Spacer()
+                    Text("\(p.targetScore)점").font(.pretendardSemiBold(15))
+                }.font(.pretendardMedium(15))
                 HStack {
                     Label("단어", systemImage: "character.book.closed"); Spacer()
                     Text("\(p.dailyVocabGoal)개/일").font(.pretendardSemiBold(15))
@@ -325,6 +357,80 @@ struct MyPageView: View {
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+    }
+
+    // MARK: - Target Score Picker Sheet
+
+    private var targetScorePickerSheet: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Text("목표 TOEIC 점수를 변경해주세요")
+                    .font(.pretendardBold(20))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 24)
+
+                Text("선택한 점수에 맞는 단어와 문법이 추천됩니다")
+                    .font(.pretendardMedium(14)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+
+                VStack(spacing: 12) {
+                    ForEach([600, 700, 800, 900], id: \.self) { score in
+                        Button {
+                            selectedTargetScore = score
+                            HapticManager.shared.playTap()
+                        } label: {
+                            HStack {
+                                Text("\(score)점 이상")
+                                    .font(.pretendardSemiBold(16))
+                                Spacer()
+                                if selectedTargetScore == score {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(AppPalette.forest)
+                                }
+                            }
+                            .padding(16)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(selectedTargetScore == score ? AppPalette.forest.opacity(0.12) : Color(.secondarySystemBackground))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(selectedTargetScore == score ? AppPalette.forest : .clear, lineWidth: 2)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 24)
+
+                Spacer()
+
+                Button {
+                    updateTargetScore(selectedTargetScore)
+                    showTargetScorePicker = false
+                } label: {
+                    Text("변경하기")
+                        .font(.pretendardBold(17))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(AppPalette.forest)
+                        )
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 16)
+            }
+            .navigationTitle("목표 점수 변경")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") { showTargetScorePicker = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 
     // MARK: - Category Korean Names
@@ -447,6 +553,16 @@ struct MyPageView: View {
 
             Divider()
 
+            Button { showHelpPage = true } label: {
+                HStack {
+                    Label("도움말", systemImage: "questionmark.circle")
+                    Spacer()
+                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                }.font(.subheadline)
+            }.buttonStyle(.plain)
+
+            Divider()
+
             Button { showFeedback = true } label: {
                 HStack {
                     Label("개선사항 보내기", systemImage: "envelope")
@@ -543,6 +659,18 @@ struct MyPageView: View {
         p.vocabTimerSeconds = vocabTimerSeconds
         p.grammarTimerSeconds = grammarTimerSeconds
         try? modelContext.save()
+    }
+
+    private func updateTargetScore(_ newScore: Int) {
+        guard let p = profile else { return }
+        p.targetScore = newScore
+        // 목표 점수에 따른 일일 목표 자동 조정
+        let gap = max(0, newScore - p.estimatedLevel * 100 - 400)
+        p.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
+        p.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
+        try? modelContext.save()
+        // 프로필 리로드
+        profile = p
     }
 
     private func resetOnboarding() {
