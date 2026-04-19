@@ -434,23 +434,18 @@ struct MainDashboardView: View {
     @State private var selectedTab: Int = 0
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // ── 콘텐츠 영역 ──
-            Group {
-                switch selectedTab {
-                case 0: DashboardView().environment(authManager)
-                case 1: RankingView().environment(authManager)
-                case 2: BookmarkListView().environment(authManager)
-                case 3: MyPageView().environment(authManager)
-                default: DashboardView().environment(authManager)
-                }
+        Group {
+            switch selectedTab {
+            case 0: DashboardView().environment(authManager)
+            case 1: RankingView().environment(authManager)
+            case 2: BookmarkListView().environment(authManager)
+            case 3: MyPageView().environment(authManager)
+            default: DashboardView().environment(authManager)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            // ── 커스텀 탭바 (배경 없음) ──
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             CustomTabBar(selectedTab: $selectedTab)
         }
-        .ignoresSafeArea(.keyboard)
     }
 }
 
