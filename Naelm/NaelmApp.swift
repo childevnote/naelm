@@ -427,69 +427,72 @@ struct SignInView: View {
 }
 
 
-// MARK: - 📊 Main Dashboard View (메인 대시보드 — Placeholder)
+// MARK: - 📊 Main Dashboard View (메인 대시보드)
 
-/// 인증 후 표시되는 메인 학습 대시보드.
-/// Week 1에서는 기본 탭 구조와 데이터 확인용 placeholder를 구성합니다.
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @State private var selectedTab: Int = 0
 
-    init() {
-        // 탭바 배경 및 그림자선 완전 투명
-        let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundColor = .clear
-        appearance.shadowColor = .clear
-        appearance.shadowImage = UIImage()
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-        UITabBar.appearance().isTranslucent = true
-        UITabBar.appearance().backgroundColor = .clear
-    }
-
     var body: some View {
-        TabView(selection: $selectedTab) {
-            // ── Tab 1: 학습 홈 ──
-            DashboardView()
-                .environment(authManager)
-            .tabItem {
-                Label("홈", systemImage: "house.fill")
+        ZStack(alignment: .bottom) {
+            // ── 콘텐츠 영역 ──
+            Group {
+                switch selectedTab {
+                case 0: DashboardView().environment(authManager)
+                case 1: RankingView().environment(authManager)
+                case 2: BookmarkListView().environment(authManager)
+                case 3: MyPageView().environment(authManager)
+                default: DashboardView().environment(authManager)
+                }
             }
-            .tag(0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // ── Tab 2: 순위 ──
-            RankingView()
-                .environment(authManager)
-            .tabItem {
-                Label("순위", systemImage: "chart.bar.fill")
-            }
-            .tag(1)
-
-            // ── Tab 3: 저장 ──
-            BookmarkListView()
-                .environment(authManager)
-            .tabItem {
-                Label("저장", systemImage: "star.fill")
-            }
-            .tag(2)
-
-            // ── Tab 4: 마이페이지 ──
-            MyPageView()
-                .environment(authManager)
-            .tabItem {
-                Label("마이", systemImage: "person.fill")
-            }
-            .tag(3)
+            // ── 커스텀 탭바 (배경 없음) ──
+            CustomTabBar(selectedTab: $selectedTab)
         }
-        .tint(AppPalette.forest)
+        .ignoresSafeArea(.keyboard)
     }
 }
 
+// MARK: - Custom Tab Bar
+
+struct CustomTabBar: View {
+    @Binding var selectedTab: Int
+
+    private let items: [(icon: String, label: String, tag: Int)] = [
+        ("house.fill",      "홈",   0),
+        ("chart.bar.fill",  "순위", 1),
+        ("star.fill",       "저장", 2),
+        ("person.fill",     "마이", 3),
+    ]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(items, id: \.tag) { item in
+                Button {
+                    HapticManager.shared.playTap()
+                    selectedTab = item.tag
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: item.icon)
+                            .font(.system(size: 22, weight: .medium))
+                        Text(item.label)
+                            .font(.system(size: 10, weight: .medium))
+                    }
+                    .foregroundStyle(selectedTab == item.tag ? AppPalette.forest : Color(.tertiaryLabel))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.bottom, 20)
+    }
+}
 
 // MARK: - Previews
 
 #Preview("Sign In") {
     SignInView().environment(AuthenticationManager())
 }
-
