@@ -62,8 +62,8 @@ final class LearningSessionManager {
     /// 문법 퀴즈 정답 시 XP
     static let xpPerGrammarCorrect: Int = 20
 
-    /// 문법 퀴즈 오답 시 XP (참여 보상)
-    static let xpPerGrammarIncorrect: Int = 5
+    /// 복습 완료 보너스 XP (단어/문법 각각)
+    static let reviewCompletionBonusXP: Int = 50
 
     /// 일일 기본 목표 XP
     static let defaultDailyGoalXP: Int = 100
@@ -202,8 +202,7 @@ final class LearningSessionManager {
             stats.xpEarned += Self.xpPerVocabulary
         } else {
             stats.incorrectCount += 1
-            // 모르는 단어도 참여 XP 부여 (절반)
-            stats.xpEarned += Self.xpPerVocabulary / 2
+            // 모르는 단어: XP 없음
         }
 
         // 햅틱 피드백
@@ -228,7 +227,7 @@ final class LearningSessionManager {
             stats.xpEarned += Self.xpPerGrammarCorrect
         } else {
             stats.incorrectCount += 1
-            stats.xpEarned += Self.xpPerGrammarIncorrect
+            // 오답: XP 없음
         }
     }
 
