@@ -98,24 +98,25 @@ struct BookmarkListView: View {
                 }
                 Spacer()
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 12) {
-                        ForEach(filteredBookmarks, id: \.wordID) { bm in
-                            if let vocab = bm.vocabulary {
-                                bookmarkRow(vocab: vocab)
-                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) {
-                                            deleteBookmark(bm)
-                                        } label: {
-                                            Label("삭제", systemImage: "trash")
-                                        }
+                List {
+                    ForEach(filteredBookmarks, id: \.wordID) { bm in
+                        if let vocab = bm.vocabulary {
+                            bookmarkRow(vocab: vocab)
+                                .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                    Button(role: .destructive) {
+                                        deleteBookmark(bm)
+                                    } label: {
+                                        Label("삭제", systemImage: "trash")
                                     }
-                            }
+                                }
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
     }

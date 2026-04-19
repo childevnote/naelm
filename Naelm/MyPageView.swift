@@ -343,7 +343,7 @@ struct MyPageView: View {
             if let p = profile {
                 HStack {
                     Label("목표 점수", systemImage: "target"); Spacer()
-                    Text("\(p.targetScore)점").font(.pretendardSemiBold(15))
+                    Text("\(p.targetScore)++").font(.pretendardSemiBold(15))
                 }.font(.pretendardMedium(15))
                 HStack {
                     Label("단어", systemImage: "character.book.closed"); Spacer()
@@ -358,19 +358,19 @@ struct MyPageView: View {
         .padding(16)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: [AppPalette.forest.opacity(0.06), .clear],
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.15)],
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
@@ -382,81 +382,89 @@ struct MyPageView: View {
     // MARK: - Target Score Picker Sheet
 
     private var targetScorePickerSheet: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Text("목표 TOEIC 점수를 변경해주세요")
-                    .font(.pretendardBold(20))
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 24)
+        VStack(spacing: 0) {
+            // 핸들 바
+            Capsule()
+                .fill(Color(.systemFill))
+                .frame(width: 36, height: 5)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
 
-                Text("선택한 점수에 맞는 단어와 문법이 추천됩니다")
-                    .font(.pretendardMedium(14)).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                VStack(spacing: 12) {
-                    ForEach([600, 700, 800, 900], id: \.self) { score in
-                        Button {
-                            selectedTargetScore = score
-                            HapticManager.shared.playTap()
-                        } label: {
-                            HStack {
-                                Text("\(score)점 이상")
-                                    .font(.pretendardSemiBold(16))
-                                Spacer()
-                                if selectedTargetScore == score {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .foregroundStyle(AppPalette.forest)
-                                }
-                            }
-                            .padding(16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(selectedTargetScore == score ? AppPalette.forest.opacity(0.12) : Color(.secondarySystemBackground))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(selectedTargetScore == score ? AppPalette.forest : .clear, lineWidth: 2)
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 24)
-
+            // 헤더
+            HStack {
+                Button("취소") { showTargetScorePicker = false }
+                    .font(.pretendardMedium(16))
+                    .foregroundStyle(AppPalette.forest)
                 Spacer()
-
-                Button {
+                Text("목표 점수 변경")
+                    .font(.pretendardSemiBold(17))
+                Spacer()
+                Button("변경하기") {
                     updateTargetScore(selectedTargetScore)
                     showTargetScorePicker = false
-                } label: {
-                    Text("변경하기")
-                        .font(.pretendardBold(17))
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(AppPalette.forest)
-                        )
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 16)
+                .font(.pretendardSemiBold(16))
+                .foregroundStyle(AppPalette.forest)
             }
-            .navigationTitle("목표 점수 변경")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("취소") { showTargetScorePicker = false }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+
+            Divider()
+
+            ScrollView {
+                VStack(spacing: 16) {
+                    Text("목표 TOEIC 점수를 변경해주세요")
+                        .font(.pretendardBold(18))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 20)
+
+                    Text("선택한 점수에 맞는 단어와 문법이 추천됩니다")
+                        .font(.pretendardMedium(14))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    VStack(spacing: 12) {
+                        ForEach([600, 700, 800, 900], id: \.self) { score in
+                            Button {
+                                selectedTargetScore = score
+                                HapticManager.shared.playTap()
+                            } label: {
+                                HStack {
+                                    Text("\(score)점 이상")
+                                        .font(.pretendardSemiBold(16))
+                                    Spacer()
+                                    if selectedTargetScore == score {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(AppPalette.forest)
+                                    }
+                                }
+                                .padding(16)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(selectedTargetScore == score ? AppPalette.forest.opacity(0.12) : Color(.secondarySystemBackground))
+                                )
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(selectedTargetScore == score ? AppPalette.forest : .clear, lineWidth: 2)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
                 }
             }
         }
         .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.hidden)
     }
 
     // MARK: - Category Korean Names
 
     private static let categoryKoreanNames: [String: String] = [
         "Agreement": "일치",
+        "Subject-Verb Agreement": "주어-동사 일치",
         "Collocation": "연어",
         "Conjunction": "접속사",
         "Gerund/Infinitive": "동명사/부정사",
@@ -546,19 +554,19 @@ struct MyPageView: View {
         .padding(16)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: [AppPalette.mint.opacity(0.08), .clear],
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.15)],
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
@@ -657,19 +665,19 @@ struct MyPageView: View {
         .padding(16)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.5), .clear],
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
                     .stroke(
                         LinearGradient(
-                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.12)],
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
                             startPoint: .topLeading, endPoint: .bottomTrailing
                         ),
                         lineWidth: 1
@@ -760,6 +768,7 @@ struct MyPageView: View {
             for b in bookmarks { modelContext.delete(b) }
         }
         try? modelContext.save()
+        // 로그인은 유지하고 온보딩만 다시 진행
         authManager.needsOnboarding = true
     }
 

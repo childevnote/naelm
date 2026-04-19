@@ -51,7 +51,7 @@ struct DashboardView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 24)
             }
-            .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
+            .background(Color(.systemBackground).ignoresSafeArea())
             .navigationTitle("학습 홈")
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }

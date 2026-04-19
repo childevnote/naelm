@@ -103,7 +103,7 @@ struct RankingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                AppGradient.background(scheme: colorScheme)
+                Color(.systemBackground)
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {

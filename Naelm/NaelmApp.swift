@@ -303,24 +303,23 @@ struct SignInView: View {
                 // ── 앱 로고 / 타이틀 — 글래스 카드 ──
                 VStack(spacing: 18) {
                     ZStack {
+                        // 외곽 글로우 링
                         Circle()
-                            .fill(AppPalette.forest.opacity(0.15))
-                            .frame(width: 110, height: 110)
-                            .blur(radius: 16)
+                            .fill(AppPalette.mint.opacity(colorScheme == .dark ? 0.15 : 0.20))
+                            .frame(width: 140, height: 140)
+                            .blur(radius: 20)
 
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [AppPalette.forest, AppPalette.leaf],
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
+                        // 앱 아이콘 스타일 (실제 앱 아이콘처럼 둥근 모서리)
+                        RoundedRectangle(cornerRadius: 26)
+                            .fill(Color.white)
+                            .frame(width: 108, height: 108)
+                            .shadow(color: Color.black.opacity(0.25), radius: 20, x: 0, y: 8)
+                            .overlay(
+                                Image("AppCharacter")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                             )
-                            .frame(width: 88, height: 88)
-                            .shadow(color: AppPalette.forest.opacity(0.35), radius: 16, y: 6)
-
-                        Image(systemName: "book.closed.fill")
-                            .font(.system(size: 38, weight: .semibold))
-                            .foregroundStyle(.white)
                     }
 
                     Text("NLLM")
@@ -436,6 +435,15 @@ struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @State private var selectedTab: Int = 0
 
+    init() {
+        // 탭바 배경 완전 투명
+        let appearance = UITabBarAppearance()
+        appearance.configureWithTransparentBackground()
+        appearance.backgroundColor = .clear
+        UITabBar.appearance().standardAppearance = appearance
+        UITabBar.appearance().scrollEdgeAppearance = appearance
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
             // ── Tab 1: 학습 홈 ──
@@ -471,8 +479,6 @@ struct MainDashboardView: View {
             .tag(3)
         }
         .tint(AppPalette.forest)
-        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        .toolbarBackgroundVisibility(.visible, for: .tabBar)
     }
 }
 

@@ -22,6 +22,10 @@ final class NotificationService {
     private let center = UNUserNotificationCenter.current()
 
     /// 일일 알림 식별자 (취소 시 사용)
+    private let morningReminderIdentifier = "naelm.daily.reminder.morning"
+    private let eveningReminderIdentifier = "naelm.daily.reminder.evening"
+
+    /// 하위 호환용 — 기존 단일 식별자 (제거 대상)
     private let dailyReminderIdentifier = "naelm.daily.reminder"
 
     private init() {}
@@ -43,12 +47,8 @@ final class NotificationService {
 
     // MARK: - 일일 학습 알림 예약
 
-    /// 오늘의 학습(단어 또는 문법)이 미완료인 경우 당일 저녁 알림을 예약합니다.
-    /// 이미 두 가지 모두 완료된 경우 당일 예약을 취소합니다.
-    /// - Parameters:
-    ///   - vocabCompleted: 오늘 단어 학습 완료 여부
-    ///   - grammarCompleted: 오늘 문법 학습 완료 여부
-    ///   - reminderHour: 알림 시각 (기본 저녁 8시)
+    /// 오늘의 학습(단어 또는 문법)이 미완료인 경우 08시, 20시 두 번 알림을 예약합니다.
+    /// 이미 두 가지 모두 완료된 경우 예약된 알림을 취소합니다.
     func scheduleDailyReminderIfNeeded(
         vocabCompleted: Bool,
         grammarCompleted: Bool,
@@ -62,7 +62,7 @@ final class NotificationService {
             return
         }
 
-        // 두 가지 모두 완료된 경우 당일 알림 취소
+        // 두 가지 모두 완료된 경우 모든 알림 취소
         if vocabCompleted && grammarCompleted {
             cancelDailyReminder()
             return
@@ -81,46 +81,46 @@ final class NotificationService {
             return
         }
 
-        let content = UNMutableNotificationContent()
-        content.title = "Naelm — 오늘의 학습"
-        content.body = body
-        content.sound = .default
-        content.badge = 1
+        // 08시, 20시 두 번 예약
+        let schedule: [(id: String, hour: Int)] = [
+            (morningReminderIdentifier, 8),
+            (eveningReminderIdentifier, 20)
+        ]
 
-        // 오늘 reminderHour시에 트리거.
-        // 이미 해당 시각이 지난 경우 UNCalendarNotificationTrigger는 내일 같은 시각에 자동 예약됩니다.
-        // repeats: false 이므로 매일 refreshStats() 호출 시 재예약됩니다.
-        var dateComponents = DateComponents()
-        dateComponents.hour = reminderHour
-        dateComponents.minute = 0
-
-        let trigger = UNCalendarNotificationTrigger(
-            dateMatching: dateComponents,
-            repeats: false
+        center.removePendingNotificationRequests(
+            withIdentifiers: [morningReminderIdentifier, eveningReminderIdentifier, dailyReminderIdentifier]
         )
 
-        let request = UNNotificationRequest(
-            identifier: dailyReminderIdentifier,
-            content: content,
-            trigger: trigger
-        )
+        for item in schedule {
+            let content = UNMutableNotificationContent()
+            content.title = "Naelm — 오늘의 학습"
+            content.body = body
+            content.sound = .default
+            content.badge = 1
 
-        // 기존 예약 교체 (remove + add)
-        center.removePendingNotificationRequests(withIdentifiers: [dailyReminderIdentifier])
+            var dateComponents = DateComponents()
+            dateComponents.hour = item.hour
+            dateComponents.minute = 0
 
-        do {
-            try await center.add(request)
-            AppLogger.session.info("일일 학습 알림 예약 완료 (\(reminderHour)시)")
-        } catch {
-            AppLogger.session.error("알림 예약 실패: \(error)")
+            let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
+            let request = UNNotificationRequest(identifier: item.id, content: content, trigger: trigger)
+
+            do {
+                try await center.add(request)
+                AppLogger.session.info("일일 학습 알림 예약 완료 (\(item.hour)시)")
+            } catch {
+                AppLogger.session.error("알림 예약 실패 (\(item.hour)시): \(error)")
+            }
         }
     }
 
     // MARK: - 알림 취소
 
-    /// 예약된 일일 학습 알림을 취소합니다.
+    /// 예약된 모든 일일 학습 알림을 취소합니다.
     func cancelDailyReminder() {
-        center.removePendingNotificationRequests(withIdentifiers: [dailyReminderIdentifier])
+        center.removePendingNotificationRequests(
+            withIdentifiers: [morningReminderIdentifier, eveningReminderIdentifier, dailyReminderIdentifier]
+        )
         AppLogger.session.info("일일 학습 알림 취소됨")
     }
 }
