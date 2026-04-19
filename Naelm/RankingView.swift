@@ -188,25 +188,8 @@ struct RankingView: View {
         }
         .padding(16)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(
-                        LinearGradient(
-                            colors: [BrandTheme.accent.opacity(0.10), .clear],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.6), BrandTheme.accent.opacity(0.15)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
+            RoundedRectangle(cornerRadius: 16)
+                .fill(Color(.secondarySystemBackground))
         )
     }
 
@@ -250,24 +233,12 @@ struct RankingView: View {
         }
         .padding(12)
         .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(
-                        LinearGradient(
-                            colors: isMe
-                                ? [BrandTheme.accent.opacity(0.10), .clear]
-                                : [Color.white.opacity(0.5), .clear],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(
-                        isMe ? BrandTheme.accent.opacity(0.25) : Color.white.opacity(0.4),
-                        lineWidth: 1
-                    )
-            }
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isMe ? BrandTheme.accent.opacity(0.10) : Color(.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isMe ? BrandTheme.accent.opacity(0.30) : Color.clear, lineWidth: 1)
         )
     }
 

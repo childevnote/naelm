@@ -436,12 +436,16 @@ struct MainDashboardView: View {
     @State private var selectedTab: Int = 0
 
     init() {
-        // 탭바 배경 완전 투명
+        // 탭바 배경 및 그림자선 완전 투명
         let appearance = UITabBarAppearance()
         appearance.configureWithTransparentBackground()
         appearance.backgroundColor = .clear
+        appearance.shadowColor = .clear
+        appearance.shadowImage = UIImage()
         UITabBar.appearance().standardAppearance = appearance
         UITabBar.appearance().scrollEdgeAppearance = appearance
+        UITabBar.appearance().isTranslucent = true
+        UITabBar.appearance().backgroundColor = .clear
     }
 
     var body: some View {
