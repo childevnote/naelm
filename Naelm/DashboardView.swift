@@ -257,7 +257,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "character.book.closed", label: "단어",
                     progress: vocabCompleted ? "완료!" : "\(todayWordsStudied)/\(dailyVocabGoal)개",
-                    color: vocabCompleted ? AppPalette.forest : AppPalette.forest,
+                    color: vocabCompleted ? AppPalette.mint : AppPalette.forest,
                     subtitle: vocabCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 단어 학습 시작",
                     isCompleted: vocabCompleted
                 )
@@ -275,7 +275,7 @@ struct DashboardView: View {
                 todayTaskRow(
                     icon: "text.book.closed", label: "문법",
                     progress: grammarCompleted ? "완료!" : "\(todayGrammarStudied)/\(dailyGrammarGoal)개",
-                    color: grammarCompleted ? AppPalette.grammarBrown : AppPalette.grammarBrown,
+                    color: grammarCompleted ? AppPalette.mint : AppPalette.grammarBrown,
                     subtitle: grammarCompleted ? "오늘 목표 달성! 내일 다시 만나요" : "탭하여 문법 퀴즈 시작",
                     isCompleted: grammarCompleted
                 )
@@ -445,6 +445,21 @@ struct DashboardView: View {
             if day >= start { actMap[day, default: 0] += a.xpEarned }
         }
         monthlyActivity = actMap
+
+        // 위젯 데이터 업데이트
+        let vCompleted = todayWordsStudied >= dailyVocabGoal
+        let gCompleted = todayGrammarStudied >= dailyGrammarGoal
+        WidgetDataProvider.shared.update(
+            streak: streak,
+            vocabCompleted: vCompleted,
+            grammarCompleted: gCompleted
+        )
+
+        // 일일 알림 예약/취소
+        await NotificationService.shared.scheduleDailyReminderIfNeeded(
+            vocabCompleted: vCompleted,
+            grammarCompleted: gCompleted
+        )
         }
     }
 }
@@ -689,7 +704,6 @@ struct VocabReviewContent: View {
 
     private func awardVocabReviewBonusXP() {
         guard !bonusXPAwarded, let userID = authManager.userID else { return }
-        bonusXPAwarded = true
         // 복습 완료 보너스 50 XP
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
@@ -709,7 +723,17 @@ struct VocabReviewContent: View {
         if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
             activity.dailyGoalMet = true
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            bonusXPAwarded = true
+        } catch {
+            // 저장 실패 시 XP 롤백 및 로그
+            activity.xpEarned -= LearningSessionManager.reviewCompletionBonusXP
+            if activity.xpEarned < LearningSessionManager.defaultDailyGoalXP {
+                activity.dailyGoalMet = false
+            }
+            AppLogger.session.error("Failed to save vocab review bonus XP: \(error)")
+        }
     }
 }
 
@@ -928,7 +952,6 @@ struct GrammarReviewContent: View {
 
     private func awardReviewBonusXP() {
         guard !bonusXPAwarded, let userID = authManager.userID else { return }
-        bonusXPAwarded = true
         // 복습 완료 보너스 50 XP
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
@@ -948,7 +971,17 @@ struct GrammarReviewContent: View {
         if activity.xpEarned >= LearningSessionManager.defaultDailyGoalXP {
             activity.dailyGoalMet = true
         }
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+            bonusXPAwarded = true
+        } catch {
+            // 저장 실패 시 XP 롤백 및 로그
+            activity.xpEarned -= LearningSessionManager.reviewCompletionBonusXP
+            if activity.xpEarned < LearningSessionManager.defaultDailyGoalXP {
+                activity.dailyGoalMet = false
+            }
+            AppLogger.session.error("Failed to save grammar review bonus XP: \(error)")
+        }
     }
 
     private func loadWrongGrammars() {

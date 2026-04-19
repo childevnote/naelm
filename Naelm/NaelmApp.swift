@@ -237,6 +237,8 @@ struct RootView: View {
                 authManager.restoreAuthState()
                 isDataLoaded = true
             }
+            // 알림 권한 요청 (최초 1회, 이미 결정된 경우 OS가 무시)
+            await NotificationService.shared.requestPermissionIfNeeded()
         }
         .alert("데이터 로드 오류", isPresented: $showDataLoadError) {
             Button("재시도") {

@@ -382,21 +382,23 @@ struct OnboardingView: View {
         let grammars = fetchAllGrammar()
 
         var qs: [PlacementQuestion] = []
+        // 전역 중복 방지용 영어 단어 집합 (모든 makeVocabQuestions 호출 간 공유)
+        var usedEnglish = Set<String>()
 
         // 600점대 5문제: vocab level 1 (3) + grammar level 1 (2)
-        qs += makeVocabQuestions(from: vocabs, level: 1, count: 3, targetLevel: 1, allVocabs: vocabs)
+        qs += makeVocabQuestions(from: vocabs, level: 1, count: 3, targetLevel: 1, allVocabs: vocabs, usedEnglish: &usedEnglish)
         qs += makeGrammarQuestions(from: grammars, level: 1, count: 2, targetLevel: 1)
 
         // 700점대 5문제: vocab level 2 (3) + grammar level 2 (2)
-        qs += makeVocabQuestions(from: vocabs, level: 2, count: 3, targetLevel: 2, allVocabs: vocabs)
+        qs += makeVocabQuestions(from: vocabs, level: 2, count: 3, targetLevel: 2, allVocabs: vocabs, usedEnglish: &usedEnglish)
         qs += makeGrammarQuestions(from: grammars, level: 2, count: 2, targetLevel: 2)
 
         // 800점대 5문제: vocab level 3 (3) + grammar level 3 (2)
-        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 3, allVocabs: vocabs)
+        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 3, allVocabs: vocabs, usedEnglish: &usedEnglish)
         qs += makeGrammarQuestions(from: grammars, level: 3, count: 2, targetLevel: 3)
 
         // 900점대 5문제: vocab level 3 고급 (3) + grammar level 4 (2)
-        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 4, allVocabs: vocabs)
+        qs += makeVocabQuestions(from: vocabs, level: 3, count: 3, targetLevel: 4, allVocabs: vocabs, usedEnglish: &usedEnglish)
         qs += makeGrammarQuestions(from: grammars, level: 4, count: 2, targetLevel: 4)
 
         // 600→700→800→900 순서대로 배치 (섞지 않고 점점 어려워지게)
@@ -405,16 +407,16 @@ struct OnboardingView: View {
         placementAnswers = []
     }
 
-    private func makeVocabQuestions(from vocabs: [Vocabulary], level: Int, count: Int, targetLevel: Int, allVocabs: [Vocabulary]) -> [PlacementQuestion] {
-        let filtered = vocabs.filter { $0.frequencyLevel == level }.shuffled()
-        let selected = Array(filtered.prefix(count))
-        // 이미 사용된 영어 단어 추적 (중복 방지)
-        var usedEnglish = Set<String>()
+    private func makeVocabQuestions(from vocabs: [Vocabulary], level: Int, count: Int, targetLevel: Int, allVocabs: [Vocabulary], usedEnglish: inout Set<String>) -> [PlacementQuestion] {
+        // 전역 usedEnglish 집합에 없는 항목만 후보로 사용
+        let filtered = vocabs.filter {
+            $0.frequencyLevel == level && !usedEnglish.contains($0.english.lowercased())
+        }.shuffled()
         var result: [PlacementQuestion] = []
-        for v in selected {
-            // 이미 동일한 영어 단어가 사용된 경우 건너뜀
+        for v in filtered {
+            guard result.count < count else { break }
+            // 전역 중복 방지
             guard !usedEnglish.contains(v.english.lowercased()) else { continue }
-            usedEnglish.insert(v.english.lowercased())
 
             // 같은 품사에서 오답을 뽑되, 정답과 동일 korean이 아닌 것만
             let samePOS = allVocabs.filter {
@@ -440,6 +442,7 @@ struct OnboardingView: View {
             options.shuffle()
             // 옵션이 4개 미만이면 건너뜀 (4지선다 보장)
             guard options.count >= 4 else { continue }
+            usedEnglish.insert(v.english.lowercased())
             result.append(PlacementQuestion(
                 type: .vocabulary,
                 question: "'\(v.english)'의 뜻은?",
