@@ -56,6 +56,7 @@ struct BookmarkListView: View {
     var body: some View {
         NavigationStack {
             bookmarkContent
+            .background(Color(.systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("저장한 단어")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { loadBookmarks() }
@@ -318,13 +319,25 @@ struct BookmarkListView: View {
         }
         .padding(.horizontal, 16).padding(.vertical, 14)
         .background(
-            RoundedRectangle(cornerRadius: 20)
-                .fill(Color(.secondarySystemBackground))
-                .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 2)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20)
-                .stroke(BrandTheme.accent.opacity(0.08), lineWidth: 1)
+            ZStack {
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.7), BrandTheme.accent.opacity(0.03)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.8), BrandTheme.accent.opacity(0.12)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
         )
     }
 

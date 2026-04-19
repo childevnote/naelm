@@ -125,11 +125,11 @@ struct GrammarQuizView: View {
             .onDisappear {
                 stopGrammarTimer()
             }
-            .alert("학습을 종료할까요?", isPresented: $showLeaveAlert) {
+            .alert("복습을 종료하시겠습니까?", isPresented: $showLeaveAlert) {
                 Button("계속 학습", role: .cancel) {}
-                Button("나가기", role: .destructive) { dismiss() }
+                Button("종료", role: .destructive) { dismiss() }
             } message: {
-                Text("지금까지 학습한 내용이 저장되지 않습니다.")
+                Text("현재까지의 복습 내용은 저장됩니다.")
             }
             .onChange(of: viewModel.currentIndex) { _, _ in
                 resetGrammarTimer()

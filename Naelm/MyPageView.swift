@@ -356,7 +356,27 @@ struct MyPageView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), .clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.15)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     // MARK: - Target Score Picker Sheet
@@ -524,7 +544,27 @@ struct MyPageView: View {
             }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.mint.opacity(0.08), .clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.15)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     // MARK: - Timer Settings
@@ -615,7 +655,27 @@ struct MyPageView: View {
             Text("버전 1.0.0").font(.caption2).foregroundStyle(.tertiary)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14).fill(Color(.secondarySystemBackground)))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.5), .clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.7), AppPalette.leaf.opacity(0.12)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     // MARK: - Data

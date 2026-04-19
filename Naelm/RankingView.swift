@@ -102,41 +102,46 @@ struct RankingView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // 탭 선택
-                Picker("", selection: $selectedTab) {
-                    ForEach(RankingTab.allCases, id: \.self) { tab in
-                        Text(tab.rawValue).tag(tab)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
+            ZStack {
+                AppGradient.background(scheme: colorScheme)
+                    .ignoresSafeArea()
 
-                // 내 순위 카드
-                myRankCard
-                    .padding(16)
-
-                // 순위 리스트
-                ScrollView {
-                    LazyVStack(spacing: 8) {
-                        let ranking = selectedTab == .global ? globalRanking : friendRanking
-                        ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
-                            rankRow(rank: index + 1, score: score)
-                        }
-
-                        if (selectedTab == .global ? globalRanking : friendRanking).isEmpty {
-                            VStack(spacing: 12) {
-                                Image(systemName: "chart.bar")
-                                    .font(.system(size: 48))
-                                    .foregroundStyle(.secondary)
-                                Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
-                                    .font(.subheadline).foregroundStyle(.secondary)
-                            }
-                            .padding(.top, 60)
+                VStack(spacing: 0) {
+                    // 탭 선택
+                    Picker("", selection: $selectedTab) {
+                        ForEach(RankingTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
                         }
                     }
+                    .pickerStyle(.segmented)
                     .padding(.horizontal, 16)
+                    .padding(.top, 8)
+
+                    // 내 순위 카드
+                    myRankCard
+                        .padding(16)
+
+                    // 순위 리스트
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            let ranking = selectedTab == .global ? globalRanking : friendRanking
+                            ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
+                                rankRow(rank: index + 1, score: score)
+                            }
+
+                            if (selectedTab == .global ? globalRanking : friendRanking).isEmpty {
+                                VStack(spacing: 12) {
+                                    Image(systemName: "chart.bar")
+                                        .font(.system(size: 48))
+                                        .foregroundStyle(.secondary)
+                                    Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
+                                        .font(.subheadline).foregroundStyle(.secondary)
+                                }
+                                .padding(.top, 60)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
                 }
             }
             .navigationTitle("순위")
@@ -183,9 +188,25 @@ struct RankingView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(BrandTheme.accent.opacity(0.08))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(BrandTheme.accent.opacity(0.2), lineWidth: 1))
+            ZStack {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(
+                        LinearGradient(
+                            colors: [BrandTheme.accent.opacity(0.10), .clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.6), BrandTheme.accent.opacity(0.15)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
         )
     }
 
@@ -229,8 +250,24 @@ struct RankingView: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(isMe ? BrandTheme.accent.opacity(0.06) : Color(.secondarySystemBackground))
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: isMe
+                                ? [BrandTheme.accent.opacity(0.10), .clear]
+                                : [Color.white.opacity(0.5), .clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isMe ? BrandTheme.accent.opacity(0.25) : Color.white.opacity(0.4),
+                        lineWidth: 1
+                    )
+            }
         )
     }
 
