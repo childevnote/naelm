@@ -767,8 +767,7 @@ struct GrammarReviewContent: View {
         .onAppear { loadWrongGrammars(); loadCurrentQuestion() }
         .alert("풀지 못한 문제가 있습니다", isPresented: $showUnsolvedAlert) {
             Button("홈으로") {
-                awardReviewBonusXP()
-                isComplete = true
+                dismiss()
             }
             Button("다시 풀기") {
                 // 틀린 문제들로 다시 시작
