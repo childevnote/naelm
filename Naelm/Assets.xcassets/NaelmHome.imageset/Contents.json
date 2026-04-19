@@ -1,0 +1,21 @@
+{
+  "images" : [
+    {
+      "filename" : "DAF63C93-E75D-4F52-A3EA-8A2D6C2FA56C-Photoroom.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

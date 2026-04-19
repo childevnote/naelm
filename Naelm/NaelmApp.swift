@@ -434,28 +434,30 @@ struct MainDashboardView: View {
     @State private var selectedTab: Int = 0
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            DashboardView()
-                .environment(authManager)
-                .tabItem { Label("홈", systemImage: "house.fill") }
-                .tag(0)
+        ZStack {
+            TabView(selection: $selectedTab) {
+                DashboardView()
+                    .environment(authManager)
+                    .tabItem { Label("홈", systemImage: "house.fill") }
+                    .tag(0)
 
-            RankingView()
-                .environment(authManager)
-                .tabItem { Label("순위", systemImage: "chart.bar.fill") }
-                .tag(1)
+                RankingView()
+                    .environment(authManager)
+                    .tabItem { Label("순위", systemImage: "chart.bar.fill") }
+                    .tag(1)
 
-            BookmarkListView()
-                .environment(authManager)
-                .tabItem { Label("저장", systemImage: "star.fill") }
-                .tag(2)
+                BookmarkListView()
+                    .environment(authManager)
+                    .tabItem { Label("저장", systemImage: "star.fill") }
+                    .tag(2)
 
-            MyPageView()
-                .environment(authManager)
-                .tabItem { Label("마이", systemImage: "person.fill") }
-                .tag(3)
+                MyPageView()
+                    .environment(authManager)
+                    .tabItem { Label("마이", systemImage: "person.fill") }
+                    .tag(3)
+            }
+            .tint(AppPalette.forest)
         }
-        .tint(AppPalette.forest)
     }
 }
 

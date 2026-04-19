@@ -27,6 +27,8 @@ struct DashboardView: View {
     @State private var totalWordsStudied: Int = 0
     @State private var totalDaysStudied: Int = 0
     @State private var monthlyActivity: [Date: Int] = [:]
+    @State private var scrollOffset: CGFloat = 0
+    @State private var cardExpanded: Bool = false
 
     @State private var showReviewSession = false
     @State private var showVocabSession = false
@@ -41,23 +43,70 @@ struct DashboardView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    greetingBanner
-                    topSection
-                    todayLearningSection
-                    weeklyChartSection
+            ZStack(alignment: .top) {
+                // 1. 전체 배경: 흰색 → 상단으로 갈수록 초록색 그라디언트
+                LinearGradient(
+                    colors: [AppPalette.forest.opacity(0.25), AppPalette.leaf.opacity(0.12), .white],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // 2. 도마뱀이 튀어나올 상단 여백
+                        Spacer().frame(height: 90)
+
+                        // 3. 메인 카드 컨테이너
+                        VStack(spacing: 20) {
+                            greetingBanner
+                            topSection
+                            todayLearningSection
+                            weeklyChartSection
+                        }
+                        .padding(cardExpanded ? 0 : 16)
+                        .background(
+                            RoundedRectangle(cornerRadius: cardExpanded ? 0 : 24)
+                                .fill(Color(.systemBackground))
+                                .shadow(color: .black.opacity(cardExpanded ? 0 : 0.06), radius: 12, x: 0, y: 4)
+                        )
+                        // 4. 도마뱀 캐릭터 오버레이 배치
+                        .overlay(alignment: .topTrailing) {
+                            Image("NaelmHome")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 180, height: 180)
+                                .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
+                                .offset(x: 10, y: -90)
+                        }
+                        .padding(.horizontal, cardExpanded ? 0 : 16)
+                        .padding(.bottom, 32)
+                        .animation(.easeInOut(duration: 0.3), value: cardExpanded)
+
+                        // 스크롤 오프셋 감지용
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(key: ScrollOffsetPreferenceKey.self,
+                                            value: geo.frame(in: .named("dashScroll")).minY)
+                        }
+                        .frame(height: 0)
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
+                .coordinateSpace(name: "dashScroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                    let shouldExpand = offset < -60
+                    if shouldExpand != cardExpanded {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            cardExpanded = shouldExpand
+                        }
+                    }
+                }
             }
-            .background(Color(.systemBackground).ignoresSafeArea())
             .navigationTitle("학습 홈")
+            .navigationBarTitleDisplayMode(.large)
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
             .onChange(of: showVocabSession) { _, active in
                 if !active {
-                    // ARCH FIX: Use Task.sleep instead of DispatchQueue.main.asyncAfter
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 300_000_000)
                         refreshStats()
@@ -577,11 +626,8 @@ struct VocabReviewContent: View {
     @State private var isComplete = false
     @State private var cardStackID = UUID()
     @State private var showLeaveAlert = false
-    /// 이번 라운드에서 학습할게요(오른쪽)를 선택한 단어들
     @State private var currentRoundStudyWords: [Vocabulary] = []
-    /// 현재 라운드 남은 단어 수 (스와이프마다 감소)
     @State private var remainingCount: Int = 0
-    /// 복습 완료 보너스 XP 지급 여부
     @State private var bonusXPAwarded: Bool = false
 
     var body: some View {
@@ -615,7 +661,6 @@ struct VocabReviewContent: View {
                 }
             } else {
                 VStack(spacing: 0) {
-                    // 남은 단어 수 표시
                     HStack {
                         Spacer()
                         Text("남은 단어: \(remainingCount)개")
@@ -629,7 +674,6 @@ struct VocabReviewContent: View {
                         onSwiped: { vocab, direction in
                             let knewIt = direction == .left
                             sessionManager.recordVocabularySwipe(vocabulary: vocab, knewIt: knewIt, context: modelContext)
-                            // 알고있어요든 학습할게요든 스와이프하면 남은 수 감소
                             remainingCount = max(0, remainingCount - 1)
                             if !knewIt {
                                 currentRoundStudyWords.append(vocab)
@@ -649,7 +693,6 @@ struct VocabReviewContent: View {
             if !isComplete {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button {
-                        // 복습한 단어가 없으면 알림 없이 바로 나가기
                         if sessionManager.stats.wordsStudied == 0 {
                             dismiss()
                         } else {
@@ -705,7 +748,6 @@ struct VocabReviewContent: View {
 
     private func awardVocabReviewBonusXP() {
         guard !bonusXPAwarded, let userID = authManager.userID else { return }
-        // 복습 완료 보너스 50 XP
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
         let predicate = #Predicate<UserActivity> {
@@ -728,7 +770,6 @@ struct VocabReviewContent: View {
             try modelContext.save()
             bonusXPAwarded = true
         } catch {
-            // 저장 실패 시 XP 롤백 및 로그
             activity.xpEarned -= LearningSessionManager.reviewCompletionBonusXP
             if activity.xpEarned < LearningSessionManager.defaultDailyGoalXP {
                 activity.dailyGoalMet = false
@@ -751,11 +792,8 @@ struct GrammarReviewContent: View {
     @State private var isAnswerRevealed: Bool = false
     @State private var isComplete: Bool = false
     @State private var currentQuestion: QuizQuestion? = nil
-    /// 이번 라운드에서 틀린 문법들
     @State private var currentRoundWrong: [(grammar: Grammar, attempts: Int)] = []
-    /// 한 사이클 완료 후 못 푼 문제 알림
     @State private var showUnsolvedAlert: Bool = false
-    /// 복습 완료 XP 보너스 지급 여부
     @State private var bonusXPAwarded: Bool = false
 
     var body: some View {
@@ -795,7 +833,6 @@ struct GrammarReviewContent: View {
                 dismiss()
             }
             Button("다시 풀기") {
-                // 틀린 문제들로 다시 시작
                 wrongGrammars = currentRoundWrong
                 currentRoundWrong = []
                 currentIndex = 0
@@ -811,7 +848,6 @@ struct GrammarReviewContent: View {
     private func reviewQuizView(question: QuizQuestion) -> some View {
         ScrollView {
             VStack(spacing: 20) {
-                // 진행률
                 ProgressView(value: Double(currentIndex), total: Double(wrongGrammars.count))
                     .tint(AppPalette.forest)
                     .padding(.horizontal, 24)
@@ -830,14 +866,12 @@ struct GrammarReviewContent: View {
                     }
                 .padding(.horizontal, 24)
 
-                // 문장
                 VStack(spacing: 8) {
                     Text(question.sentenceWithBlank)
                         .font(.title3).padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemBackground)))
 
-                    // 2회 이상 틀린 문제: 한국어 해석 힌트 표시
                     if currentIndex < wrongGrammars.count && wrongGrammars[currentIndex].attempts >= 2 {
                         let explanation = question.grammar.explanation
                         Text(explanation)
@@ -848,7 +882,6 @@ struct GrammarReviewContent: View {
                 }
                 .padding(.horizontal, 24)
 
-                // 보기
                 VStack(spacing: 10) {
                     ForEach(question.options, id: \.self) { option in
                         Button {
@@ -862,7 +895,6 @@ struct GrammarReviewContent: View {
                             } else {
                                 HapticManager.shared.playIncorrect()
                                 incrementAttempt(grammar: question.grammar)
-                                // 이번 라운드 틀린 문제 기록
                                 if currentIndex < wrongGrammars.count {
                                     currentRoundWrong.append(wrongGrammars[currentIndex])
                                 }
@@ -887,13 +919,11 @@ struct GrammarReviewContent: View {
                         .disabled(isAnswerRevealed)
                     }
 
-                    // 모르겠다 버튼
                     if !isAnswerRevealed {
                         Button {
                             isAnswerRevealed = true
                             HapticManager.shared.playIncorrect()
                             incrementAttempt(grammar: question.grammar)
-                            // 이번 라운드 틀린 문제 기록
                             if currentIndex < wrongGrammars.count {
                                 currentRoundWrong.append(wrongGrammars[currentIndex])
                             }
@@ -936,13 +966,10 @@ struct GrammarReviewContent: View {
         selectedAnswer = nil
         isAnswerRevealed = false
         if currentIndex + 1 >= wrongGrammars.count {
-            // 한 사이클 완료
             if currentRoundWrong.isEmpty {
-                // 모든 문제 정답 → 완료
                 awardReviewBonusXP()
                 isComplete = true
             } else {
-                // 못 푼 문제 있음 → 알림
                 showUnsolvedAlert = true
             }
         } else {
@@ -953,7 +980,6 @@ struct GrammarReviewContent: View {
 
     private func awardReviewBonusXP() {
         guard !bonusXPAwarded, let userID = authManager.userID else { return }
-        // 복습 완료 보너스 50 XP
         let today = Calendar.current.startOfDay(for: Date())
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
         let predicate = #Predicate<UserActivity> {
@@ -976,7 +1002,6 @@ struct GrammarReviewContent: View {
             try modelContext.save()
             bonusXPAwarded = true
         } catch {
-            // 저장 실패 시 XP 롤백 및 로그
             activity.xpEarned -= LearningSessionManager.reviewCompletionBonusXP
             if activity.xpEarned < LearningSessionManager.defaultDailyGoalXP {
                 activity.dailyGoalMet = false
@@ -1000,7 +1025,6 @@ struct GrammarReviewContent: View {
     private func loadCurrentQuestion() {
         guard currentIndex < wrongGrammars.count else { return }
         let grammar = wrongGrammars[currentIndex].grammar
-        // Generate question from grammar
         let sentence = grammar.correctExample
         guard !sentence.isEmpty else { currentQuestion = nil; return }
 
@@ -1009,7 +1033,6 @@ struct GrammarReviewContent: View {
         if !correctAnswer.isEmpty {
             sentenceWithBlank = sentence.replacingOccurrences(of: correctAnswer, with: "___")
         } else {
-            // fallback
             let words = sentence.split(separator: " ").map(String.init)
             let skip = Set(["the","a","an","is","are","was","were","in","on","at","to","of","for","and","or","but","by","it","be"])
             let candidates = words.enumerated().filter { $0.element.lowercased().trimmingCharacters(in: .punctuationCharacters).count >= 3 && !skip.contains($0.element.lowercased().trimmingCharacters(in: .punctuationCharacters)) }
@@ -1059,10 +1082,18 @@ struct GrammarReviewContent: View {
         }
         if let progress = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
             progress.incorrectCount += 1
-            // Update local display
             if currentIndex < wrongGrammars.count {
                 wrongGrammars[currentIndex].attempts = progress.incorrectCount
             }
         }
+    }
+}
+
+// MARK: - ScrollOffset PreferenceKey
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
