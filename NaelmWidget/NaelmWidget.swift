@@ -44,8 +44,8 @@ struct NaelmWidgetProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NaelmWidgetEntry>) -> Void) {
         let entry = currentEntry()
-        // 15분 후 다시 갱신 (앱이 reloadAllTimelines를 호출하면 더 빨리 갱신됨)
-        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: entry.date) ?? entry.date
+        // 30분 후 다시 갱신 (앱이 reloadAllTimelines를 호출하면 더 빨리 갱신됨)
+        let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: entry.date) ?? entry.date
         let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
         completion(timeline)
     }

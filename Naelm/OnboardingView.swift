@@ -415,8 +415,6 @@ struct OnboardingView: View {
         var result: [PlacementQuestion] = []
         for v in filtered {
             guard result.count < count else { break }
-            // 전역 중복 방지
-            guard !usedEnglish.contains(v.english.lowercased()) else { continue }
 
             // 같은 품사에서 오답을 뽑되, 정답과 동일 korean이 아닌 것만
             let samePOS = allVocabs.filter {

@@ -87,7 +87,9 @@ final class NotificationService {
         content.sound = .default
         content.badge = 1
 
-        // 오늘 reminderHour시에 트리거
+        // 오늘 reminderHour시에 트리거.
+        // 이미 해당 시각이 지난 경우 UNCalendarNotificationTrigger는 내일 같은 시각에 자동 예약됩니다.
+        // repeats: false 이므로 매일 refreshStats() 호출 시 재예약됩니다.
         var dateComponents = DateComponents()
         dateComponents.hour = reminderHour
         dateComponents.minute = 0
