@@ -66,6 +66,19 @@ struct DashboardView: View {
 
                     ScrollView {
                         VStack(spacing: 0) {
+                            // Placed at the very top of the scroll content so its minY
+                            // relative to the outer coordinate space starts near 0 and
+                            // becomes negative as the user scrolls down. That negative
+                            // value drives cardExpansionProgress.
+                            GeometryReader { geo in
+                                Color.clear
+                                    .preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geo.frame(in: .named("dashScroll")).minY
+                                    )
+                            }
+                            .frame(height: 0)
+
                             Spacer().frame(height: topInset)
 
                             VStack(spacing: sectionSpacing) {
@@ -99,15 +112,6 @@ struct DashboardView: View {
                             }
                             .padding(.horizontal, cardPadding)
                             .padding(.bottom, 32)
-
-                            GeometryReader { geo in
-                                Color.clear
-                                    .preference(
-                                        key: ScrollOffsetPreferenceKey.self,
-                                        value: geo.frame(in: .named("dashScroll")).minY
-                                    )
-                            }
-                            .frame(height: 0)
                         }
                     }
                     .scrollIndicators(.hidden)

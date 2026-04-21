@@ -64,6 +64,62 @@ struct SM2AlgorithmTests {
     }
 }
 
+// MARK: - DashboardLaunchAction URL Tests
+
+struct DashboardLaunchActionTests {
+
+    @Test func vocabularyURL() {
+        let url = URL(string: "naelm://study/vocabulary")!
+        #expect(DashboardLaunchAction(url: url) == .startVocabulary)
+    }
+
+    @Test func grammarURL() {
+        let url = URL(string: "naelm://study/grammar")!
+        #expect(DashboardLaunchAction(url: url) == .startGrammar)
+    }
+
+    @Test func reviewURL() {
+        let url = URL(string: "naelm://study/review")!
+        #expect(DashboardLaunchAction(url: url) == .startReview)
+    }
+
+    @Test func unknownPathReturnsNil() {
+        let url = URL(string: "naelm://study/unknown")!
+        #expect(DashboardLaunchAction(url: url) == nil)
+    }
+
+    @Test func wrongSchemeReturnsNil() {
+        let url = URL(string: "https://study/vocabulary")!
+        #expect(DashboardLaunchAction(url: url) == nil)
+    }
+
+    @Test func schemeCaseInsensitive() {
+        let url = URL(string: "NAELM://study/vocabulary")!
+        #expect(DashboardLaunchAction(url: url) == .startVocabulary)
+    }
+
+    @Test func pathCaseInsensitive() {
+        let url = URL(string: "naelm://study/VOCABULARY")!
+        #expect(DashboardLaunchAction(url: url) == .startVocabulary)
+    }
+
+    @Test func hostCaseInsensitive() {
+        let url = URL(string: "naelm://STUDY/grammar")!
+        #expect(DashboardLaunchAction(url: url) == .startGrammar)
+    }
+
+    @Test func missingHostReturnsNil() {
+        let url = URL(string: "naelm:///vocabulary")!
+        #expect(DashboardLaunchAction(url: url) == nil)
+    }
+
+    @Test func extraTrailingSlashReturnsNil() {
+        // Path would be "/vocabulary/" which doesn't match "/vocabulary"
+        let url = URL(string: "naelm://study/vocabulary/")!
+        #expect(DashboardLaunchAction(url: url) == nil)
+    }
+}
+
 // MARK: - TOEIC Score Range Tests
 
 struct TOEICScoreRangeTests {
