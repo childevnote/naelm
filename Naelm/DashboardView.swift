@@ -46,6 +46,10 @@ struct DashboardView: View {
     private let lizardBaseYOffset: CGFloat = -90
     private let lizardExpandedYOffsetDelta: CGFloat = 38
 
+    init(launchAction: Binding<DashboardLaunchAction?> = .constant(nil)) {
+        self._launchAction = launchAction
+    }
+
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
