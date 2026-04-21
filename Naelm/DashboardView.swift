@@ -39,6 +39,7 @@ struct DashboardView: View {
     @State private var showGrammarCompleteAlert = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
+    /// Scroll distance needed for the top card container to finish expanding to the screen edges.
     private let cardExpansionDistance: CGFloat = 140
 
     private var cardExpansionProgress: CGFloat {

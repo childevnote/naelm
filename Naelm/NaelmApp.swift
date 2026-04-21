@@ -459,6 +459,8 @@ struct MainDashboardView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTab: Int = 0
 
+    private let deepLinkNavigationDelay: TimeInterval = 0.15
+
     var body: some View {
         ZStack {
             AppGradient.background(scheme: colorScheme)
@@ -492,7 +494,7 @@ struct MainDashboardView: View {
         .onOpenURL { url in
             guard let action = DashboardLaunchAction(url: url) else { return }
             selectedTab = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + deepLinkNavigationDelay) {
                 NotificationCenter.default.post(
                     name: .naelmDashboardLaunchAction,
                     object: nil,

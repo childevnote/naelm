@@ -95,6 +95,8 @@ struct RankingView: View {
     @State private var myScore: MonthlyScore?
     @State private var myRank: Int = 0
 
+    private let rankingToggleAnimation = Animation.spring(response: 0.28, dampingFraction: 0.84)
+
     enum RankingTab: String, CaseIterable {
         case global = "전체"
         case friends = "친구"
@@ -154,7 +156,7 @@ struct RankingView: View {
         HStack(spacing: 8) {
             ForEach(RankingTab.allCases, id: \.self) { tab in
                 Button {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.84)) {
+                    withAnimation(rankingToggleAnimation) {
                         selectedTab = tab
                     }
                 } label: {

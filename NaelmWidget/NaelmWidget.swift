@@ -66,18 +66,22 @@ struct NaelmWidgetProvider: TimelineProvider {
 struct NaelmWidgetEntryView: View {
     var entry: NaelmWidgetEntry
 
+    private var hasIncompleteStudy: Bool {
+        !entry.vocabCompleted || !entry.grammarCompleted
+    }
+
     private var footerMessage: String {
-        (!entry.vocabCompleted || !entry.grammarCompleted) ? "탭해서 오늘 학습 이어가기" : "탭해서 복습 이어가기"
+        hasIncompleteStudy ? "탭해서 오늘 학습 이어가기" : "탭해서 복습 이어가기"
     }
 
     private var destinationURL: URL? {
+        guard hasIncompleteStudy else {
+            return URL(string: "naelm://study/review")
+        }
         if !entry.vocabCompleted {
             return URL(string: "naelm://study/vocabulary")
         }
-        if !entry.grammarCompleted {
-            return URL(string: "naelm://study/grammar")
-        }
-        return URL(string: "naelm://study/review")
+        return URL(string: "naelm://study/grammar")
     }
 
     var body: some View {
