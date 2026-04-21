@@ -351,7 +351,9 @@ struct BookmarkListView: View {
 
         let prefix = String(sentence[..<range.lowerBound])
         let match = String(sentence[range])
-        let suffix = String(sentence[range.upperBound...])
+        let suffix = range.upperBound < sentence.endIndex
+            ? String(sentence[range.upperBound..<sentence.endIndex])
+            : ""
 
         return Text(prefix).foregroundStyle(.secondary)
         + Text(match).foregroundStyle(AppColor.primary).fontWeight(.bold)

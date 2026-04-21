@@ -46,7 +46,7 @@ struct DashboardView: View {
     private let lizardBaseYOffset: CGFloat = -90
     private let lizardExpandedYOffsetDelta: CGFloat = 38
 
-    init(launchAction: Binding<DashboardLaunchAction?> = .constant(nil)) {
+    init(launchAction: Binding<DashboardLaunchAction?>) {
         self._launchAction = launchAction
     }
 
