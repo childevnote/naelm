@@ -350,11 +350,6 @@ struct BookmarkListView: View {
         }
 
         var attributed = AttributedString(sentence)
-        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
-            attributed[attrRange].foregroundColor = UIColor(AppColor.primary)
-            attributed[attrRange].font = .subheadline.bold()
-        }
-
         attributed.foregroundColor = .secondaryLabel
         if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
             attributed[attrRange].foregroundColor = UIColor(AppColor.primary)
