@@ -14,6 +14,7 @@ struct DashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Binding var launchAction: DashboardLaunchAction?
 
     @State private var streak: Int = 0
     @State private var dueVocabCount: Int = 0
@@ -27,7 +28,7 @@ struct DashboardView: View {
     @State private var totalWordsStudied: Int = 0
     @State private var totalDaysStudied: Int = 0
     @State private var monthlyActivity: [Date: Int] = [:]
-    @State private var scrollOffset: CGFloat = 0
+    @State private var cardExpansionProgress: CGFloat = 0
 
     @State private var showReviewSession = false
     @State private var showVocabSession = false
@@ -44,10 +45,6 @@ struct DashboardView: View {
     private let lizardBaseXOffset: CGFloat = 18
     private let lizardBaseYOffset: CGFloat = -90
     private let lizardExpandedYOffsetDelta: CGFloat = 38
-
-    private var cardExpansionProgress: CGFloat {
-        min(max(-scrollOffset / cardExpansionDistance, 0), 1)
-    }
 
     var body: some View {
         NavigationStack {
@@ -113,19 +110,17 @@ struct DashboardView: View {
                 }
                 .coordinateSpace(name: "dashScroll")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                    scrollOffset = offset
+                    cardExpansionProgress = min(max(-offset / cardExpansionDistance, 0), 1)
                 }
             }
             .navigationTitle("학습 홈")
             .navigationBarTitleDisplayMode(.large)
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
-            .onReceive(NotificationCenter.default.publisher(for: .naelmDashboardLaunchAction)) { notification in
-                guard
-                    let rawValue = notification.userInfo?["action"] as? String,
-                    let action = DashboardLaunchAction(rawValue: rawValue)
-                else { return }
+            .onChange(of: launchAction) { _, action in
+                guard let action else { return }
                 handleLaunchAction(action)
+                launchAction = nil
             }
             .onChange(of: showVocabSession) { _, active in
                 if !active {

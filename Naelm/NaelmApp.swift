@@ -450,16 +450,11 @@ enum DashboardLaunchAction: String {
     }
 }
 
-extension Notification.Name {
-    static let naelmDashboardLaunchAction = Notification.Name("naelm.dashboardLaunchAction")
-}
-
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTab: Int = 0
-
-    private let deepLinkNavigationDelay: TimeInterval = 0.15
+    @State private var pendingDashboardAction: DashboardLaunchAction?
 
     var body: some View {
         ZStack {
@@ -467,7 +462,7 @@ struct MainDashboardView: View {
                 .ignoresSafeArea()
 
             TabView(selection: $selectedTab) {
-                DashboardView()
+                DashboardView(launchAction: $pendingDashboardAction)
                     .environment(authManager)
                     .tabItem { Label("홈", systemImage: "house.fill") }
                     .tag(0)
@@ -494,13 +489,7 @@ struct MainDashboardView: View {
         .onOpenURL { url in
             guard let action = DashboardLaunchAction(url: url) else { return }
             selectedTab = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + deepLinkNavigationDelay) {
-                NotificationCenter.default.post(
-                    name: .naelmDashboardLaunchAction,
-                    object: nil,
-                    userInfo: ["action": action.rawValue]
-                )
-            }
+            pendingDashboardAction = action
         }
     }
 }
