@@ -39,8 +39,11 @@ struct DashboardView: View {
     @State private var showGrammarCompleteAlert = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
-    /// Scroll distance needed for the top card container to finish expanding to the screen edges.
+    /// Scroll distance used to finish the home-card animation that removes outer padding and corner radius.
     private let cardExpansionDistance: CGFloat = 140
+    private let lizardBaseXOffset: CGFloat = 18
+    private let lizardBaseYOffset: CGFloat = -90
+    private let lizardExpandedYOffsetDelta: CGFloat = 38
 
     private var cardExpansionProgress: CGFloat {
         min(max(-scrollOffset / cardExpansionDistance, 0), 1)
@@ -88,7 +91,10 @@ struct DashboardView: View {
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 180, height: 180)
                                     .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
-                                    .offset(x: 18, y: -90 + (38 * expansionProgress))
+                                    .offset(
+                                        x: lizardBaseXOffset,
+                                        y: lizardBaseYOffset + (lizardExpandedYOffsetDelta * expansionProgress)
+                                    )
                             }
                             .padding(.horizontal, cardPadding)
                             .padding(.bottom, 32)
