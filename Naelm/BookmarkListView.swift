@@ -349,13 +349,13 @@ struct BookmarkListView: View {
             return Text(sentence).foregroundStyle(.secondary)
         }
 
-        var attributed = AttributedString(sentence)
-        attributed.foregroundColor = .secondaryLabel
-        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
-            attributed[attrRange].foregroundColor = UIColor(AppColor.primary)
-            attributed[attrRange].font = .subheadline.bold()
-        }
-        return Text(attributed)
+        let prefix = String(sentence[..<range.lowerBound])
+        let match = String(sentence[range])
+        let suffix = String(sentence[range.upperBound...])
+
+        return Text(prefix).foregroundStyle(.secondary)
+        + Text(match).foregroundStyle(AppColor.primary).fontWeight(.bold)
+        + Text(suffix).foregroundStyle(.secondary)
     }
 
     // MARK: - Data
