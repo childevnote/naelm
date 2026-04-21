@@ -14,6 +14,7 @@ struct DashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Binding var launchAction: DashboardLaunchAction?
 
     @State private var streak: Int = 0
     @State private var dueVocabCount: Int = 0
@@ -27,8 +28,7 @@ struct DashboardView: View {
     @State private var totalWordsStudied: Int = 0
     @State private var totalDaysStudied: Int = 0
     @State private var monthlyActivity: [Date: Int] = [:]
-    @State private var scrollOffset: CGFloat = 0
-    @State private var cardExpanded: Bool = false
+    @State private var cardExpansionProgress: CGFloat = 0
 
     @State private var showReviewSession = false
     @State private var showVocabSession = false
@@ -40,71 +40,96 @@ struct DashboardView: View {
     @State private var showGrammarCompleteAlert = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
+    /// Scroll distance used to finish the home-card animation that removes outer padding and corner radius.
+    private let cardExpansionDistance: CGFloat = 140
+    private let lizardBaseXOffset: CGFloat = 18
+    private let lizardBaseYOffset: CGFloat = -90
+    private let lizardExpandedYOffsetDelta: CGFloat = 38
+
+    init(launchAction: Binding<DashboardLaunchAction?>) {
+        self._launchAction = launchAction
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
-                // 1. 전체 배경: 흰색 → 상단으로 갈수록 초록색 그라디언트
-                LinearGradient(
-                    colors: [AppPalette.forest.opacity(0.25), AppPalette.leaf.opacity(0.12), .white],
-                    startPoint: .top, endPoint: .bottom
-                )
-                .ignoresSafeArea()
+            GeometryReader { proxy in
+                let expansionProgress = cardExpansionProgress
+                let topInset = max(0, 90 * (1 - expansionProgress))
+                let cardPadding = 16 * (1 - expansionProgress)
+                let cardCornerRadius = 24 * (1 - expansionProgress)
+                let cardShadowOpacity = 0.06 * (1 - expansionProgress)
+                let sectionSpacing = max(12, 20 - (8 * expansionProgress))
 
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // 2. 도마뱀이 튀어나올 상단 여백
-                        Spacer().frame(height: 90)
+                ZStack(alignment: .top) {
+                    AppGradient.background(scheme: colorScheme)
+                        .ignoresSafeArea()
 
-                        // 3. 메인 카드 컨테이너
-                        VStack(spacing: 20) {
-                            greetingBanner
-                            topSection
-                            todayLearningSection
-                            weeklyChartSection
-                        }
-                        .padding(cardExpanded ? 0 : 16)
-                        .background(
-                            RoundedRectangle(cornerRadius: cardExpanded ? 0 : 24)
-                                .fill(Color(.systemBackground))
-                                .shadow(color: .black.opacity(cardExpanded ? 0 : 0.06), radius: 12, x: 0, y: 4)
-                        )
-                        // 4. 도마뱀 캐릭터 오버레이 배치
-                        .overlay(alignment: .topTrailing) {
-                            Image("NaelmHome")
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
-                                .frame(width: 180, height: 180)
-                                .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
-                                .offset(x: 10, y: -90)
-                        }
-                        .padding(.horizontal, cardExpanded ? 0 : 16)
-                        .padding(.bottom, 32)
-                        .animation(.easeInOut(duration: 0.3), value: cardExpanded)
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Placed at the very top of the scroll content so its minY
+                            // relative to the outer coordinate space starts near 0 and
+                            // becomes negative as the user scrolls down. That negative
+                            // value drives cardExpansionProgress.
+                            GeometryReader { geo in
+                                Color.clear
+                                    .preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: geo.frame(in: .named("dashScroll")).minY
+                                    )
+                            }
+                            .frame(height: 0)
 
-                        // 스크롤 오프셋 감지용
-                        GeometryReader { geo in
-                            Color.clear
-                                .preference(key: ScrollOffsetPreferenceKey.self,
-                                            value: geo.frame(in: .named("dashScroll")).minY)
+                            Spacer().frame(height: topInset)
+
+                            VStack(spacing: sectionSpacing) {
+                                greetingBanner
+                                    .opacity(1 - (0.15 * expansionProgress))
+                                topSection
+                                todayLearningSection
+                                weeklyChartSection
+                            }
+                            .frame(
+                                maxWidth: .infinity,
+                                minHeight: max(proxy.size.height - topInset - 32, 0),
+                                alignment: .top
+                            )
+                            .padding(cardPadding)
+                            .background(
+                                RoundedRectangle(cornerRadius: cardCornerRadius)
+                                    .fill(Color(.systemBackground))
+                                    .shadow(color: .black.opacity(cardShadowOpacity), radius: 12, x: 0, y: 4)
+                            )
+                            .overlay(alignment: .topTrailing) {
+                                Image("NaelmHome")
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 180, height: 180)
+                                    .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
+                                    .offset(
+                                        x: lizardBaseXOffset,
+                                        y: lizardBaseYOffset + (lizardExpandedYOffsetDelta * expansionProgress)
+                                    )
+                            }
+                            .padding(.horizontal, cardPadding)
+                            .padding(.bottom, 32)
                         }
-                        .frame(height: 0)
                     }
+                    .scrollIndicators(.hidden)
                 }
                 .coordinateSpace(name: "dashScroll")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                    let shouldExpand = offset < -60
-                    if shouldExpand != cardExpanded {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            cardExpanded = shouldExpand
-                        }
-                    }
+                    cardExpansionProgress = min(max(-offset / cardExpansionDistance, 0), 1)
                 }
             }
             .navigationTitle("학습 홈")
             .navigationBarTitleDisplayMode(.large)
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
+            .onChange(of: launchAction) { _, action in
+                guard let action else { return }
+                handleLaunchAction(action)
+                launchAction = nil
+            }
             .onChange(of: showVocabSession) { _, active in
                 if !active {
                     Task { @MainActor in
@@ -163,6 +188,17 @@ struct DashboardView: View {
         }
     }
 
+    private func handleLaunchAction(_ action: DashboardLaunchAction) {
+        switch action {
+        case .startVocabulary:
+            showVocabSession = true
+        case .startGrammar:
+            showGrammarSession = true
+        case .startReview:
+            showReviewSession = true
+        }
+    }
+
     // MARK: - Greeting Banner
 
     private var greetingBanner: some View {
@@ -206,7 +242,7 @@ struct DashboardView: View {
                     .font(.dashboardNumber)
                     .foregroundStyle(AppPalette.forest)
                 Text("연속 학습")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption).foregroundStyle(AppPalette.leaf)
             }
             .frame(width: 72)
 
@@ -258,7 +294,11 @@ struct DashboardView: View {
     }
 
     private func grassColorProportional(xp: Int, maxXP: Int) -> Color {
-        guard xp > 0 else { return Color.gray.opacity(0.12) }
+        guard xp > 0 else {
+            return colorScheme == .dark
+            ? AppPalette.leaf.opacity(0.16)
+            : AppPalette.forest.opacity(0.10)
+        }
         let ratio = Double(xp) / Double(maxXP)
         let opacity = 0.20 + ratio * 0.80
         return AppPalette.leaf.opacity(opacity)

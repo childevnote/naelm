@@ -11,7 +11,7 @@ import SwiftData
 struct BookmarkListView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var bookmarks: [BookmarkedWord] = []
     @State private var showMeaning: Bool = true
@@ -56,7 +56,7 @@ struct BookmarkListView: View {
     var body: some View {
         NavigationStack {
             bookmarkContent
-            .background(Color(.systemGroupedBackground).ignoresSafeArea())
+            .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("저장한 단어")
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { loadBookmarks() }
@@ -68,13 +68,16 @@ struct BookmarkListView: View {
             // 뜻 보기 토글 + 카운트
             HStack {
                 Text("저장한 단어 \(filteredBookmarks.count)개")
-                    .font(.pretendardMedium(14)).foregroundStyle(.secondary)
+                    .font(.pretendardMedium(14))
+                    .foregroundStyle(AppColor.primary)
                 Spacer()
                 Toggle("뜻 보기", isOn: $showMeaning)
                     .font(.subheadline)
                     .labelsHidden()
+                    .tint(AppPalette.leaf)
                 Text("뜻 보기")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.caption)
+                    .foregroundStyle(AppPalette.leaf)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -87,12 +90,14 @@ struct BookmarkListView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "star")
                         .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(AppPalette.leaf)
                     Text(bookmarks.isEmpty ? "저장한 단어가 없어요" : "조건에 맞는 단어가 없어요")
                         .font(.title3).fontWeight(.semibold)
+                        .foregroundStyle(AppColor.primary)
                     if bookmarks.isEmpty {
                         Text("단어 학습 중 저장하기 버튼을 눌러\n단어를 저장해보세요.")
-                            .font(.subheadline).foregroundStyle(.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(AppPalette.leaf)
                             .multilineTextAlignment(.center)
                     }
                 }
@@ -228,7 +233,11 @@ struct BookmarkListView: View {
         .foregroundStyle(isActive ? .white : .primary)
         .padding(.horizontal, 12).padding(.vertical, 6)
         .background(
-            Capsule().fill(isActive ? BrandTheme.accent : Color(.secondarySystemBackground))
+            Capsule().fill(isActive ? AppPalette.forest : AppPalette.cream.opacity(colorScheme == .dark ? 0.18 : 0.78))
+        )
+        .overlay(
+            Capsule()
+                .stroke(isActive ? AppPalette.forest.opacity(0.2) : AppPalette.leaf.opacity(0.22), lineWidth: 1)
         )
     }
 
@@ -249,10 +258,10 @@ struct BookmarkListView: View {
                 ForEach(parts, id: \.self) { pos in
                     Text(pos)
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(BrandTheme.accent)
+                        .foregroundStyle(AppColor.primary)
                         .padding(.horizontal, 7).padding(.vertical, 3)
                         .background(
-                            Capsule().fill(BrandTheme.accent.opacity(0.12))
+                            Capsule().fill(AppPalette.leaf.opacity(0.14))
                         )
                 }
 
@@ -261,7 +270,7 @@ struct BookmarkListView: View {
                 if !vocab.pronunciation.isEmpty {
                     Text(vocab.pronunciation)
                         .font(.caption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(AppPalette.leaf)
                 }
             }
 
@@ -280,7 +289,7 @@ struct BookmarkListView: View {
                                     .font(.system(size: 10, weight: .bold))
                                     .foregroundStyle(.white)
                                     .frame(width: 16, height: 16)
-                                    .background(Circle().fill(BrandTheme.accent.opacity(0.7)))
+                                    .background(Circle().fill(AppColor.primary.opacity(0.82)))
                                 Text(meaning)
                                     .font(.pretendardSemiBold(14))
                                     .foregroundStyle(.primary)
@@ -290,7 +299,7 @@ struct BookmarkListView: View {
                 } else {
                     Text(vocab.korean)
                         .font(.pretendardSemiBold(15))
-                        .foregroundStyle(BrandTheme.accent)
+                        .foregroundStyle(AppColor.primary)
                 }
 
                 // 예문
@@ -303,7 +312,7 @@ struct BookmarkListView: View {
                     .padding(.horizontal, 10).padding(.vertical, 7)
                     .background(
                         RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.tertiarySystemBackground))
+                            .fill(AppPalette.leaf.opacity(colorScheme == .dark ? 0.12 : 0.10))
                     )
                 }
             } else {
@@ -322,20 +331,10 @@ struct BookmarkListView: View {
         .background(
             ZStack {
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.7), BrandTheme.accent.opacity(0.03)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(colorScheme == .dark ? Color(hex: "#162019") : Color.white.opacity(0.94))
                 RoundedRectangle(cornerRadius: 20)
                     .stroke(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.8), BrandTheme.accent.opacity(0.12)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
+                        AppPalette.leaf.opacity(colorScheme == .dark ? 0.28 : 0.22),
                         lineWidth: 1
                     )
             }
@@ -350,18 +349,15 @@ struct BookmarkListView: View {
             return Text(sentence).foregroundStyle(.secondary)
         }
 
-        var attributed = AttributedString(sentence)
-        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
-            attributed[attrRange].foregroundColor = UIColor(BrandTheme.accent)
-            attributed[attrRange].font = .subheadline.bold()
-        }
+        let prefix = String(sentence[..<range.lowerBound])
+        let match = String(sentence[range])
+        let suffix = range.upperBound < sentence.endIndex
+            ? String(sentence[range.upperBound..<sentence.endIndex])
+            : ""
 
-        attributed.foregroundColor = .secondaryLabel
-        if let attrRange = attributed.range(of: keyword, options: .caseInsensitive) {
-            attributed[attrRange].foregroundColor = UIColor(BrandTheme.accent)
-            attributed[attrRange].font = .subheadline.bold()
-        }
-        return Text(attributed)
+        return Text(prefix).foregroundStyle(.secondary)
+        + Text(match).foregroundStyle(AppColor.primary).fontWeight(.bold)
+        + Text(suffix).foregroundStyle(.secondary)
     }
 
     // MARK: - Data

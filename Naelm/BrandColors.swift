@@ -138,10 +138,11 @@ struct AppGradient {
         scheme == .dark
         ? LinearGradient(
             colors: [
-                Color(hex: "#0E1612"),
-                Color(hex: "#0A0A0A")
+                Color(hex: "#142119"),
+                Color(hex: "#090909"),
+                Color.black
             ],
-            startPoint: .topLeading, endPoint: .bottomTrailing
+            startPoint: .top, endPoint: .bottom
         )
         : LinearGradient(
             colors: [
