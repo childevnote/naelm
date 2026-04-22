@@ -143,4 +143,5 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "$TITLE" \
             --label "copilot,daily-content" \
+            --assignee "childevnote,copilot" \
             --body-file /tmp/issue_body.md
