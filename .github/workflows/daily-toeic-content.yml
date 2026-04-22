@@ -1,0 +1,140 @@
+name: Daily TOEIC Content Generation
+
+on:
+  schedule:
+    # 매일 한국시간 오전 9시 (UTC 00:00) 실행
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '이슈만 생성하고 실제 작업은 건너뜁니다 (테스트용)'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  create-content-task:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: Get current date (KST)
+        id: date
+        run: |
+          DATE=$(TZ='Asia/Seoul' date '+%Y%m%d')
+          DATE_DISPLAY=$(TZ='Asia/Seoul' date '+%Y년 %m월 %d일')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "date_display=$DATE_DISPLAY" >> $GITHUB_OUTPUT
+
+      - name: Check for existing issue today
+        id: check_issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TODAY="${{ steps.date.outputs.date }}"
+          TITLE="[Daily] TOEIC 콘텐츠 자동 생성 - ${TODAY}"
+          EXISTING=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "copilot,daily-content" \
+            --state open \
+            --search "$TITLE" \
+            --json number \
+            --jq 'length')
+          echo "existing=$EXISTING" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+
+      - name: Ensure required labels exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "copilot" --color "0075ca" --description "GitHub Copilot agent task" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+          gh label create "daily-content" --color "e4e669" --description "Daily automated content generation" \
+            --repo "${{ github.repository }}" 2>/dev/null || true
+
+      - name: Create Copilot task issue
+        if: steps.check_issue.outputs.existing == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="${{ steps.check_issue.outputs.title }}"
+          DATE_DISPLAY="${{ steps.date.outputs.date_display }}"
+          DATE="${{ steps.date.outputs.date }}"
+
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "$TITLE" \
+            --label "copilot,daily-content" \
+            --body "## 🎯 Daily TOEIC Content Generation — ${DATE_DISPLAY}
+
+> 이 이슈는 GitHub Actions에 의해 매일 자동 생성됩니다.
+> Copilot 에이전트가 아래 작업 지시서를 수행하여 \`Vocabulary.json\`과 \`Grammar.json\`을 업데이트합니다.
+
+---
+
+### 📋 작업 지시서
+
+**Role**
+
+당신은 'Naelm' 토익 학습 앱의 데이터 무결성을 책임지는 '수석 데이터 엔지니어'이자, 최신 토익 기출 트렌드를 완벽하게 꿰뚫고 있는 '토익 출제 위원급 원어민 콘텐츠 크리에이터'입니다. 당신은 웹 검색을 통해 최신 정보를 수집하고, 작업 공간의 파일을 직접 읽고, 수정하고, 생성할 수 있는 권한을 가지고 있습니다.
+
+---
+
+### Workflow (반드시 아래 순서대로 수행)
+
+#### Step 1: [Pre-Audit] 기존 데이터 분석 및 정제
+
+현재 파일(\`Naelm/Vocabulary.json\`, \`Naelm/Grammar.json\`)을 읽고 다음 사항을 수정합니다.
+
+- **데이터 무결성:** JSON 문법, 누락된 키, 잘못된 데이터 타입, ID 중복 및 누락 수정.
+- **논리적 결함:** 문법 문제 중 복수 정답 가능성이 있거나 해설이 부실한 항목을 1타 강사 수준으로 보강.
+
+#### Step 2: [Search & Generation] 최신 빈출 트렌드 기반 신규 생성
+
+데이터 생성 전, 반드시 웹 검색을 수행하여 최근 5년 내 토익 시험에 가장 자주 출제되는 핵심 어휘와 문법 출제 포인트(기출 트렌드)를 파악하십시오. 이후 기존 데이터와 중복되지 않는(title 기준) 고품질 데이터를 생성합니다.
+
+**Vocabulary (20개):**
+- 웹 검색으로 확인된 '실제 토익 빈출 1순위 비즈니스/일상 실용 영단어'로만 구성.
+- \`frequencyLevel\` 1~4단계별로 각 5개씩 생성.
+- 예문은 최근 Part 5, 7 기출 문장 스타일을 모방하여 작성 필수.
+- **스키마 필드:** \`wordID\`, \`english\`, \`korean\`, \`pronunciation\`, \`partOfSpeech\`, \`frequencyLevel\`, \`exampleSentence\`, \`exampleTranslation\`, \`category\`, \`synonyms\`, \`dataVersion\`
+
+**Grammar (20개):**
+- 웹 검색으로 확인된 '수험생들이 가장 많이 틀리는 핵심 문법 포인트'를 타겟팅.
+- \`difficultyLevel\` 1~4단계별로 각 5개씩 생성.
+- Part 5 형식의 완벽한 논리 구조 (정답 1개, 매력적이지만 명백한 오답 3개).
+- **스키마 필드:** \`grammarID\`, \`title\`, \`explanation\`, \`toeicPart\`, \`difficultyLevel\`, \`correctExample\`, \`incorrectExample\`, \`tip\`, \`category\`, \`blankTarget\`, \`distractors\`, \`quizType\`, \`dataVersion\`
+
+**ID 관리:** Step 1에서 정렬된 마지막 ID 넘버링을 계승하여 3자리 숫자로 채워 생성. (예: 마지막이 \`vocab_400\`이면 \`vocab_401\`부터 시작)
+
+#### Step 3: [Post-Audit] 실전 적합성 및 정밀 검수 (Critical)
+
+Step 2에서 생성한 데이터를 파일에 쓰기 전, 다음 체크리스트를 바탕으로 '최종 자가 감사'를 실시합니다.
+
+- **기출 적합성:** 생성된 단어와 문법 포인트가 실제 토익 빈출 범위를 벗어난 지나치게 지엽적이거나 학술적인 내용이 아닌지 최종 점검.
+- **복수 정답 원천 차단:** 문법 문제의 오답(distractors) 3개가 어형, 수일치, 품사 등의 측면에서 100% 오답인지 재확인.
+- **스키마 일치:** \`explanation\`, \`tip\`, \`incorrectExample\` 등 모든 필드가 누락 없이 전문적인 1타 강사의 어투로 작성되었는지 확인.
+- **중복 체크:** 기존 데이터 및 생성 데이터 간 개념 중복이 없는지 확인.
+
+감사 결과 결함이 발견되거나 실제 토익 트렌드와 맞지 않는다면, 즉시 해당 항목을 파기하고 재검색하여 새로 생성하십시오.
+
+#### Step 4: [Finalize] 파일 업데이트 및 보고서 작성
+
+1. **File Update:** 검증이 완료된 데이터를 포함하여 \`Naelm/Vocabulary.json\`과 \`Naelm/Grammar.json\`을 덮어씁니다. (순수한 JSON 배열 형식 유지).
+
+2. **Create Report:** \`Docs/${DATE}_차수_Integrated_Work_Report.md\` 파일을 생성합니다.
+
+   보고서 필수 포함 섹션:
+   1. **Pre-Audit Report:** 기존 데이터 수정 내역
+   2. **Trend Search Summary:** 웹 검색을 통해 파악하고 이번 생성에 반영한 '최신 토익 빈출 단어/문법 트렌드' 간략 요약
+   3. **Generation & Post-Audit Summary:** 새로 추가된 항목 요약 (ID, 난이도, Title) + 자가 감사(Step 3) 과정에서 반려/수정된 사항 기록
+   4. **Final Verification:** JSON 구조 및 ID 연속성 검증 완료 확인
+
+3. **PR 생성:** 변경 사항을 새 브랜치에 커밋하고 Pull Request를 생성합니다.
+
+---
+
+> ✅ 작업 완료 후 이 이슈를 닫아주세요.
+"
