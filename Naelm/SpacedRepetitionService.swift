@@ -147,7 +147,8 @@ final class SpacedRepetitionService {
             context: context
         )
 
-        // SM-2 계산
+        // 장기 미복습 망각 패널티 적용 후 SM-2 계산
+        applyForgettingPenaltyIfNeeded(to: progress)
         let result = calculate(
             quality: quality,
             currentInterval: progress.interval,
@@ -177,6 +178,8 @@ final class SpacedRepetitionService {
             context: context
         )
 
+        // 장기 미복습 망각 패널티 적용 후 SM-2 계산
+        applyForgettingPenaltyIfNeeded(to: progress)
         let result = calculate(
             quality: quality,
             currentInterval: progress.interval,
@@ -359,6 +362,43 @@ final class SpacedRepetitionService {
         // 숙달 판정: 연속 5회 이상 정답 + easeFactor 2.5 이상
         if progress.streak >= 5 && progress.easeFactor >= 2.5 {
             progress.isMastered = true
+            progress.markedForReview = false
+        }
+    }
+
+    // MARK: - 망각 곡선 패널티
+
+    /// 장기 미복습 항목에 에빙하우스 망각 곡선 기반 easeFactor 패널티를 적용합니다.
+    ///
+    /// | 미복습 기간     | 패널티           |
+    /// |---------------|-----------------|
+    /// | ≤ 30일         | 없음             |
+    /// | 31 – 60일      | EF × 0.85       |
+    /// | 61 – 90일      | EF × 0.70       |
+    /// | > 90일         | EF = 1.3 (리셋)  |
+    ///
+    /// 리셋 시 repetitions도 0으로 초기화하여 1→6일 간격부터 재시작합니다.
+    private static func applyForgettingPenaltyIfNeeded(to progress: LearningProgress) {
+        // 한 번도 복습하지 않은 신규 항목은 패널티 제외
+        guard progress.repetitions > 0 else { return }
+        let lastReviewed = progress.lastReviewedAt
+        let daysSince = Calendar.current.dateComponents([.day], from: lastReviewed, to: Date()).day ?? 0
+        guard daysSince > 30 else { return }
+
+        AppLogger.srs.info("Forgetting penalty: \(daysSince) days since last review — applying EF penalty")
+
+        if daysSince > 90 {
+            progress.easeFactor = 1.3
+            progress.repetitions = 0
+            progress.streak = 0
+            progress.isMastered = false
+        } else if daysSince > 60 {
+            progress.easeFactor = max(1.3, progress.easeFactor * 0.70)
+            progress.repetitions = max(0, progress.repetitions - 2)
+        } else {
+            // 31 – 60일
+            progress.easeFactor = max(1.3, progress.easeFactor * 0.85)
+            progress.repetitions = max(0, progress.repetitions - 1)
         }
     }
 }

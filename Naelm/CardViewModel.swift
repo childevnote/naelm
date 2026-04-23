@@ -68,46 +68,63 @@ func loadDeck(userID: String, context: ModelContext) {
     let masteredPred = #Predicate<LearningProgress> {
         $0.userID == userID && $0.itemType == "vocabulary" && $0.isMastered == true
     }
-    let masteredDescriptor = FetchDescriptor<LearningProgress>(predicate: masteredPred)
-    let masteredIDs = Set((try? context.fetch(masteredDescriptor))?.compactMap { $0.vocabulary?.wordID } ?? [])
+    let masteredIDs = Set((try? context.fetch(FetchDescriptor<LearningProgress>(predicate: masteredPred)))?.compactMap { $0.vocabulary?.wordID } ?? [])
 
     // 3) 전체 비숙달 단어 가져오기
     var allDescriptor = FetchDescriptor<Vocabulary>(sortBy: [SortDescriptor(\.frequencyLevel)])
     allDescriptor.fetchLimit = dailyGoal * 10
     let allVocab = (try? context.fetch(allDescriptor))?.filter { !masteredIDs.contains($0.wordID) } ?? []
 
-    // 4) 수준 40% + 목표 60% 구성
-    let currentLevelFreq = max(1, estimatedLevel)  // estimatedLevel → frequencyLevel
+    let currentLevelFreq = max(1, estimatedLevel)
     let targetLevels = TOEICScoreRange.frequencyLevels(forTarget: targetScore)
 
-    let currentLevelWords = allVocab.filter { $0.frequencyLevel == currentLevelFreq }.shuffled()
+    // ── 4) SRS 복습 대상 우선 편입 (최대 50%) ──
+    let srsReview = SpacedRepetitionService.fetchDueVocabulary(userID: userID, context: context)
+        .filter { !masteredIDs.contains($0.wordID) }
+    let srsSlot = min(srsReview.count, dailyGoal / 2)
+    let srsItems = Array(srsReview.prefix(srsSlot))
+    let srsIDs = Set(srsItems.map(\.wordID))
+
+    // ── 5) 워밍업 구간 (첫 2~3문제: 현재 수준보다 낮거나 streak≥3 항목) ──
+    // streak 정보를 조회하여 쉬운 항목 선별
+    let warmupLevelFreq = max(1, currentLevelFreq - 1)
+    let warmupCandidates = allVocab.filter {
+        !srsIDs.contains($0.wordID) && $0.frequencyLevel <= warmupLevelFreq
+    }.shuffled()
+    let warmupCount = min(2, warmupCandidates.count)
+    let warmupItems = Array(warmupCandidates.prefix(warmupCount))
+    let warmupIDs = Set(warmupItems.map(\.wordID))
+
+    // ── 6) 메인 덱 (40%/60%) ──
+    let remainSlot = dailyGoal - srsSlot - warmupCount
+    let currentLevelWords = allVocab.filter {
+        $0.frequencyLevel == currentLevelFreq && !srsIDs.contains($0.wordID) && !warmupIDs.contains($0.wordID)
+    }.shuffled()
     let targetLevelWords = allVocab.filter {
         targetLevels.contains($0.frequencyLevel) && $0.frequencyLevel != currentLevelFreq
+        && !srsIDs.contains($0.wordID) && !warmupIDs.contains($0.wordID)
     }.shuffled()
 
-    let currentCount = max(1, Int(Double(dailyGoal) * 0.4))
-    let targetCount = dailyGoal - currentCount
+    let currentCount = max(1, Int(Double(remainSlot) * 0.4))
+    let targetCount = remainSlot - currentCount
 
-    var deck: [Vocabulary] = []
-    deck += Array(currentLevelWords.prefix(currentCount))
-    deck += Array(targetLevelWords.prefix(targetCount))
+    var mainDeck: [Vocabulary] = []
+    mainDeck += Array(currentLevelWords.prefix(currentCount))
+    mainDeck += Array(targetLevelWords.prefix(targetCount))
 
-    // 부족하면 전체에서 채움
-    if deck.count < dailyGoal {
-        let existing = Set(deck.map(\.wordID))
+    // 부족분 보충
+    if mainDeck.count < remainSlot {
+        let existing = Set(mainDeck.map(\.wordID)).union(srsIDs).union(warmupIDs)
         let more = allVocab.filter { !existing.contains($0.wordID) }.shuffled()
-        deck += Array(more.prefix(dailyGoal - deck.count))
+        mainDeck += Array(more.prefix(remainSlot - mainDeck.count))
     }
 
-    // Fallback: 아직 빈 덱
-    if deck.isEmpty {
-        deck = Array(allVocab.prefix(dailyGoal))
-    }
+    // ── 최종 조립: 워밍업 → SRS 복습 → 메인 ──
+    var deck: [Vocabulary] = warmupItems + srsItems + mainDeck
 
-    // 중복 제거 + 셔플
+    // 중복 제거
     var seen = Set<String>()
     deck = deck.filter { seen.insert($0.wordID).inserted }
-    deck.shuffle()
     cardDeck = Array(deck.prefix(dailyGoal))
 
     // 오늘 학습 카운트 로드
@@ -123,9 +140,12 @@ func loadDeck(userID: String, context: ModelContext) {
 
 func handleSwipe(vocabulary: Vocabulary, direction: SwipeDirection, context: ModelContext) {
     let knewIt = direction == .left  // 왼쪽 = "알고있어요"
+    // 타이머에서 경과 시간 계산 (응답시간 = 전체 타이머 - 남은 시간)
+    let elapsed = timerEnabled ? (timerDuration - max(0, timerRemaining)) : nil
     sessionManager.recordVocabularySwipe(
         vocabulary: vocabulary,
         knewIt: knewIt,
+        responseTime: elapsed,
         context: context
     )
 
@@ -134,10 +154,10 @@ func handleSwipe(vocabulary: Vocabulary, direction: SwipeDirection, context: Mod
     // sessionManager 통계를 동기화
     sessionStats = sessionManager.stats
 
-    // 마지막 카드가 아닐 때만 타이머 리셋 (마지막이면 handleAllCardsSwiped에서 정지)
+    // 마지막 카드가 아닐 때: 타이머를 새로 시작 (pauseTimer 상태에서 스와이프한 경우도 포함)
     let swipedCount = sessionStats.wordsStudied
     if swipedCount < cardDeck.count {
-        resetTimer()
+        startTimer()
     }
 }
 

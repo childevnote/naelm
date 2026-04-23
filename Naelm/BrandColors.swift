@@ -267,6 +267,16 @@ struct GlassCardBackground: View {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .fill(AppGradient.cardShimmer(scheme: scheme))
 
+            // 수평 forest tint (leading → trailing)
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .fill(
+                    LinearGradient(
+                        colors: [AppPalette.forest.opacity(scheme == .dark ? 0.12 : 0.08), .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+
             // 테두리
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(

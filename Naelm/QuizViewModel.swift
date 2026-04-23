@@ -46,6 +46,9 @@ final class QuizViewModel {
     var showExplanation: Bool = false
     var isLoading: Bool = false
 
+    /// 현재 문제 시작 시각 (응답 시간 측정용)
+    private var questionStartTime: Date = Date()
+
     var currentQuestion: QuizQuestion? {
         guard currentIndex < questions.count else { return nil }
         return questions[currentIndex]
@@ -78,6 +81,7 @@ final class QuizViewModel {
         answers = []
         selectedAnswer = nil
         isAnswerRevealed = false
+        questionStartTime = Date()
 
         // 사용자 프로필에서 수준 로드
         let profilePred = #Predicate<UserProfile> { $0.userID == userID }
@@ -100,29 +104,55 @@ final class QuizViewModel {
         // 비숙달 문법만
         let nonMastered = allGrammar.filter { !masteredIDs.contains($0.grammarID) }
 
-        // 40% 현재수준 + 60% 목표수준
+        let totalQuiz = 10
+
+        // ── SRS 복습 우선 편입 (최대 30%) ──
+        let srsReview = SpacedRepetitionService.fetchDueGrammar(userID: userID, context: context)
+            .filter { !masteredIDs.contains($0.grammarID) }
+        let srsSlot = min(srsReview.count, totalQuiz * 3 / 10)
+        let srsItems = Array(srsReview.prefix(srsSlot))
+        let srsIDs = Set(srsItems.map(\.grammarID))
+
+        // ── 워밍업 (첫 1~2문제: difficultyLevel=1) ──
+        let warmupCandidates = nonMastered.filter {
+            $0.difficultyLevel == 1 && !srsIDs.contains($0.grammarID)
+        }.shuffled()
+        let warmupCount = min(1, warmupCandidates.count)
+        let warmupItems = Array(warmupCandidates.prefix(warmupCount))
+        let warmupIDs = Set(warmupItems.map(\.grammarID))
+
+        // ── 메인 덱 (40%/60%) ──
+        let remainSlot = totalQuiz - srsSlot - warmupCount
         let currentLevelFreq = max(1, estimatedLevel)
-        let currentLevel = nonMastered.filter { $0.difficultyLevel == currentLevelFreq }.shuffled()
+        let currentLevel = nonMastered.filter {
+            $0.difficultyLevel == currentLevelFreq && !srsIDs.contains($0.grammarID) && !warmupIDs.contains($0.grammarID)
+        }.shuffled()
         let targetLevel = nonMastered.filter {
             targetLevels.contains($0.difficultyLevel) && $0.difficultyLevel != currentLevelFreq
+            && !srsIDs.contains($0.grammarID) && !warmupIDs.contains($0.grammarID)
         }.shuffled()
 
-        let totalQuiz = 10
-        let currentCount = max(1, Int(Double(totalQuiz) * 0.4))
-        let targetCount = totalQuiz - currentCount
+        let currentCount = max(1, Int(Double(remainSlot) * 0.4))
+        let targetCount = remainSlot - currentCount
 
-        var quizItems: [Grammar] = []
-        quizItems += Array(currentLevel.prefix(currentCount))
-        quizItems += Array(targetLevel.prefix(targetCount))
+        var mainItems: [Grammar] = []
+        mainItems += Array(currentLevel.prefix(currentCount))
+        mainItems += Array(targetLevel.prefix(targetCount))
 
-        // 부족하면 전체에서 채움
-        if quizItems.count < totalQuiz {
-            let existingIDs = Set(quizItems.map(\.grammarID))
-            let more = nonMastered.filter { !existingIDs.contains($0.grammarID) }.shuffled()
-            quizItems += Array(more.prefix(totalQuiz - quizItems.count))
+        // 부족분 보충
+        if mainItems.count < remainSlot {
+            let existing = Set(mainItems.map(\.grammarID)).union(srsIDs).union(warmupIDs)
+            let more = nonMastered.filter { !existing.contains($0.grammarID) }.shuffled()
+            mainItems += Array(more.prefix(remainSlot - mainItems.count))
         }
 
-        quizItems.shuffle()
+        // 최종 조립: 워밍업 → SRS → 메인 (메인만 셔플)
+        mainItems.shuffle()
+        var quizItems: [Grammar] = warmupItems + srsItems + mainItems
+
+        // 중복 제거
+        var seenIDs = Set<String>()
+        quizItems = quizItems.filter { seenIDs.insert($0.grammarID).inserted }
 
         questions = quizItems.compactMap { grammar in
             generateQuestion(from: grammar, allGrammar: allGrammar)
@@ -137,8 +167,15 @@ final class QuizViewModel {
         selectedAnswer = answer
         isAnswerRevealed = true
         let isCorrect = answer == question.correctAnswer
+        let responseTime = Date().timeIntervalSince(questionStartTime)
         answers.append(QuizAnswer(question: question, selectedAnswer: answer, isCorrect: isCorrect))
-        sessionManager.recordGrammarQuiz(grammar: question.grammar, isCorrect: isCorrect, context: context)
+        sessionManager.recordGrammarQuiz(
+            grammar: question.grammar,
+            isCorrect: isCorrect,
+            isTimeout: false,
+            responseTime: responseTime,
+            context: context
+        )
         if isCorrect { HapticManager.shared.playCorrect() }
         else { HapticManager.shared.playIncorrect() }
     }
@@ -153,6 +190,7 @@ final class QuizViewModel {
             HapticManager.shared.playCelebration()
         } else {
             currentIndex += 1
+            questionStartTime = Date()
         }
     }
 
@@ -169,8 +207,16 @@ final class QuizViewModel {
     /// 문제를 건너뛰는 공통 로직 (시간 초과 / 모르겠다)
     private func skipQuestion(reason: String, context: ModelContext) {
         guard let question = currentQuestion else { return }
+        let responseTime = Date().timeIntervalSince(questionStartTime)
+        let isTimeout = reason == "(시간 초과)"
         answers.append(QuizAnswer(question: question, selectedAnswer: reason, isCorrect: false))
-        sessionManager.recordGrammarQuiz(grammar: question.grammar, isCorrect: false, context: context)
+        sessionManager.recordGrammarQuiz(
+            grammar: question.grammar,
+            isCorrect: false,
+            isTimeout: isTimeout,
+            responseTime: responseTime,
+            context: context
+        )
         HapticManager.shared.playIncorrect()
 
         if currentIndex + 1 >= questions.count {
@@ -182,6 +228,7 @@ final class QuizViewModel {
             selectedAnswer = nil
             isAnswerRevealed = false
             showExplanation = false
+            questionStartTime = Date()
         }
     }
 

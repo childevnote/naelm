@@ -74,12 +74,18 @@ final class LearningSessionManager {
     struct PendingVocabRecord {
         let vocabulary: Vocabulary
         let knewIt: Bool
+        /// 응답 시간 (초). nil이면 타이머 미사용.
+        let responseTime: Double?
     }
 
     /// 세션 중 기록된 문법 퀴즈 결과 (DB 미반영 상태)
     struct PendingGrammarRecord {
         let grammar: Grammar
         let isCorrect: Bool
+        /// 응답 시간 (초). nil이면 타이머 미사용.
+        let responseTime: Double?
+        /// 타임아웃/모르겠다 여부
+        let isTimeout: Bool
     }
 
     // MARK: - 상태
@@ -118,25 +124,16 @@ final class LearningSessionManager {
 
         // 대기 중인 단어 기록을 DB에 반영
         for record in pendingVocab {
-            let quality = record.knewIt ? 4 : 1
+            // 응답시간 기반 0-5 품질 점수 계산
+            let quality = Self.vocabQuality(knewIt: record.knewIt, responseTime: record.responseTime)
             SpacedRepetitionService.recordVocabularyReview(
                 vocabulary: record.vocabulary,
                 quality: quality,
                 userID: userID,
                 context: context
             )
-            if record.knewIt {
-                let wordID = record.vocabulary.wordID
-                let predicate = #Predicate<LearningProgress> {
-                    $0.userID == userID &&
-                    $0.itemType == "vocabulary" &&
-                    $0.vocabulary?.wordID == wordID
-                }
-                if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
-                    progress.isMastered = true
-                    progress.markedForReview = false
-                }
-            } else {
+            // 모르는 단어만 복습 플래그 설정 (mastery는 applyResult의 streak 조건에 위임)
+            if !record.knewIt {
                 let wordID = record.vocabulary.wordID
                 let predicate = #Predicate<LearningProgress> {
                     $0.userID == userID &&
@@ -151,24 +148,23 @@ final class LearningSessionManager {
 
         // 대기 중인 문법 기록을 DB에 반영
         for record in pendingGrammar {
-            let quality = record.isCorrect ? 4 : 1
+            // 응답시간 + 타임아웃 기반 0-5 품질 점수 계산
+            let quality = Self.grammarQuality(isCorrect: record.isCorrect, isTimeout: record.isTimeout, responseTime: record.responseTime)
             SpacedRepetitionService.recordGrammarReview(
                 grammar: record.grammar,
                 quality: quality,
                 userID: userID,
                 context: context
             )
-            let grammarID = record.grammar.grammarID
-            let predicate = #Predicate<LearningProgress> {
-                $0.userID == userID &&
-                $0.itemType == "grammar" &&
-                $0.grammar?.grammarID == grammarID
-            }
-            if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
-                if record.isCorrect {
-                    progress.isMastered = true
-                    progress.markedForReview = false
-                } else {
+            // 오답만 복습 플래그 설정 (mastery는 applyResult의 streak 조건에 위임)
+            if !record.isCorrect {
+                let grammarID = record.grammar.grammarID
+                let predicate = #Predicate<LearningProgress> {
+                    $0.userID == userID &&
+                    $0.itemType == "grammar" &&
+                    $0.grammar?.grammarID == grammarID
+                }
+                if let progress = try? context.fetch(FetchDescriptor<LearningProgress>(predicate: predicate)).first {
                     progress.markedForReview = true
                 }
             }
@@ -190,10 +186,11 @@ final class LearningSessionManager {
     func recordVocabularySwipe(
         vocabulary: Vocabulary,
         knewIt: Bool,
+        responseTime: Double? = nil,
         context: ModelContext
     ) {
         // 대기 목록에 추가 (DB 미반영)
-        pendingVocab.append(PendingVocabRecord(vocabulary: vocabulary, knewIt: knewIt))
+        pendingVocab.append(PendingVocabRecord(vocabulary: vocabulary, knewIt: knewIt, responseTime: responseTime))
 
         // 통계 업데이트
         stats.wordsStudied += 1
@@ -215,10 +212,12 @@ final class LearningSessionManager {
     func recordGrammarQuiz(
         grammar: Grammar,
         isCorrect: Bool,
+        isTimeout: Bool = false,
+        responseTime: Double? = nil,
         context: ModelContext
     ) {
         // 대기 목록에 추가 (DB 미반영)
-        pendingGrammar.append(PendingGrammarRecord(grammar: grammar, isCorrect: isCorrect))
+        pendingGrammar.append(PendingGrammarRecord(grammar: grammar, isCorrect: isCorrect, responseTime: responseTime, isTimeout: isTimeout))
 
         // 통계 업데이트
         stats.grammarStudied += 1
@@ -232,6 +231,37 @@ final class LearningSessionManager {
     }
 
     // MARK: - Private Helpers
+
+    // MARK: Quality Scoring
+
+    /// 단어 카드 응답 품질 (0–5) 계산
+    /// - knewIt=true + 빠름(≤5s)  → 5 (완벽히 기억)
+    /// - knewIt=true + 보통(≤10s) → 4 (약간 망설임)
+    /// - knewIt=true + 느림       → 3 (상당한 노력)
+    /// - knewIt=false             → 1 (틀림)
+    static func vocabQuality(knewIt: Bool, responseTime: Double?) -> Int {
+        guard knewIt else { return 1 }
+        guard let t = responseTime else { return 4 }  // 타이머 없으면 기본 4
+        if t <= 5 { return 5 }
+        if t <= 10 { return 4 }
+        return 3
+    }
+
+    /// 문법 퀴즈 응답 품질 (0–5) 계산
+    /// - timeout/모르겠다          → 0 (완전 모름)
+    /// - 오답                     → 1 (틀림)
+    /// - 정답 + 느림(>타이머50%)   → 3 (상당한 노력)
+    /// - 정답 + 보통               → 4 (약간 망설임)
+    /// - 정답 + 빠름(≤타이머50%)   → 5 (완벽히 기억)
+    static func grammarQuality(isCorrect: Bool, isTimeout: Bool, responseTime: Double?, timerDuration: Double = 15) -> Int {
+        if isTimeout { return 0 }
+        guard isCorrect else { return 1 }
+        guard let t = responseTime else { return 4 }
+        let half = timerDuration * 0.5
+        if t <= half { return 5 }
+        if t <= timerDuration * 0.8 { return 4 }
+        return 3
+    }
 
     /// 오늘의 UserActivity를 가져오거나 생성하여 세션 결과를 누적합니다.
     private func saveUserActivity(context: ModelContext) {

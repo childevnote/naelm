@@ -86,6 +86,8 @@ struct MyPageView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // ── 최상단 인사 헤더 ──────────────────────────────
+                    userGreetingHeader
                     profileCard
                     goalSection
                     quizCategoryChart
@@ -126,6 +128,27 @@ struct MyPageView: View {
                 HelpPageView()
             }
         }
+    }
+
+    // MARK: - User Greeting Header (최상단)
+
+    /// 프로필 카드 바로 위에 표시되는 인사 헤더
+    /// "@@@님, {격려멘트}" 형태로 좌측 정렬 굵은 타이틀
+    private var userGreetingHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let uid = authManager.userID {
+                // 유저 ID를 간결하게 표시 (앞 8자 이하)
+                let shortID = uid.count > 8 ? String(uid.prefix(8)) : uid
+                Text("\(shortID)님,")
+                    .font(.pretendardBold(24))
+                    .foregroundStyle(.primary)
+            }
+            Text(Self.encouragements[dailyEncouragementIndex])
+                .font(.pretendardMedium(15))
+                .foregroundStyle(AppPalette.forest.opacity(0.80))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 4)
     }
 
     // MARK: - Encouragement Banner (전광판 마키 애니메이션)
@@ -221,29 +244,22 @@ struct MyPageView: View {
                 let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
                 let targetLabel = TOEICScoreRange.rangesUpTo(target: p.targetScore).last?.plusLabel ?? "\(p.targetScore)++"
 
-                // 수준 뱃지
-                VStack(spacing: 6) {
-                    Text("현재 수준")
-                        .font(.pretendardMedium(12))
-                        .foregroundStyle(.secondary)
+                    // 수준 뱃지
+                    VStack(spacing: 6) {
+                        Text("현재 수준")
+                            .font(.pretendardMedium(12))
+                            .foregroundStyle(.secondary)
 
-                    Text(level.plusLabel)
-                        .font(.pretendardBold(26))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: [AppPalette.forest, AppPalette.leaf],
-                                startPoint: .leading,
-                                endPoint: .trailing
+                        Text(level.plusLabel)
+                            .font(.pretendardBold(26))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [AppPalette.forest, AppPalette.leaf],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
                             )
-                        )
-
-                    // 격려 멘트
-                    Text(Self.encouragements[dailyEncouragementIndex])
-                        .font(.pretendardMedium(12))
-                        .foregroundStyle(AppPalette.forest.opacity(0.70))
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 2)
-                }
+                    }
 
                 // 스탯 카드들
                 HStack(spacing: 12) {
@@ -643,10 +659,6 @@ struct MyPageView: View {
             Divider()
 
             Button("로그아웃", role: .destructive) { authManager.signOut() }.font(.subheadline)
-
-            if let uid = authManager.userID {
-                Text("User ID: \(uid)").font(.caption2).foregroundStyle(.tertiary)
-            }
 
             Divider()
 

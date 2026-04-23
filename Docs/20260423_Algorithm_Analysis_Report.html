@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Naelm — 학습 알고리즘 분석 & 개선 보고서</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #222636;
+    --border: #2e3347;
+    --accent: #5b7fff;
+    --accent2: #ff6b6b;
+    --accent3: #43d9a0;
+    --accent4: #ffc75f;
+    --text: #e8eaf0;
+    --text2: #9ca3b8;
+    --text3: #6b7190;
+    --radius: 12px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+
+  /* ── Layout ── */
+  .wrapper { max-width: 900px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  /* ── Hero ── */
+  .hero {
+    background: linear-gradient(135deg, #1e2340 0%, #12172b 100%);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 240px; height: 240px;
+    background: radial-gradient(circle, rgba(91,127,255,.2) 0%, transparent 70%);
+  }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(91,127,255,.15);
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(91,127,255,.3);
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 12px;
+  }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--text2); font-size: 15px; }
+  .hero-meta { display: flex; gap: 24px; margin-top: 24px; }
+  .hero-meta-item { display: flex; flex-direction: column; gap: 2px; }
+  .hero-meta-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+  .hero-meta-value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  /* ── Section ── */
+  .section { margin-bottom: 48px; }
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-title .icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .icon-blue { background: rgba(91,127,255,.15); }
+  .icon-red { background: rgba(255,107,107,.15); }
+  .icon-green { background: rgba(67,217,160,.15); }
+  .icon-yellow { background: rgba(255,199,95,.15); }
+  .icon-purple { background: rgba(180,91,255,.15); }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+  .badge-red { background: rgba(255,107,107,.15); color: var(--accent2); border: 1px solid rgba(255,107,107,.25); }
+  .badge-green { background: rgba(67,217,160,.15); color: var(--accent3); border: 1px solid rgba(67,217,160,.25); }
+  .badge-yellow { background: rgba(255,199,95,.15); color: var(--accent4); border: 1px solid rgba(255,199,95,.25); }
+  .badge-blue { background: rgba(91,127,255,.15); color: var(--accent); border: 1px solid rgba(91,127,255,.25); }
+
+  /* ── Algorithm Flow ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .flow-step {
+    display: flex;
+    gap: 16px;
+    position: relative;
+  }
+  .flow-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 40px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--border);
+  }
+  .flow-dot {
+    width: 40px; height: 40px;
+    min-width: 40px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    z-index: 1;
+    margin-top: 2px;
+  }
+  .flow-content {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    flex: 1;
+  }
+  .flow-content h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .flow-content p { font-size: 13px; color: var(--text2); }
+  .flow-content code {
+    background: rgba(91,127,255,.1);
+    color: var(--accent);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 12px;
+  }
+
+  /* ── Issue / Fix table ── */
+  .issues { width: 100%; border-collapse: collapse; }
+  .issues th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .issues td {
+    padding: 12px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(46,51,71,.6);
+    vertical-align: top;
+  }
+  .issues tr:last-child td { border-bottom: none; }
+  .issues td:first-child { width: 32px; text-align: center; font-size: 16px; }
+  .issues td:nth-child(2) { font-weight: 600; color: var(--text); }
+  .issues td:nth-child(3) { color: var(--text2); }
+  .issues td:last-child { color: var(--accent3); }
+
+  /* ── Score Formula ── */
+  .formula-box {
+    background: var(--surface2);
+    border: 1px solid rgba(91,127,255,.3);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 14px;
+  }
+  .formula-box .formula-title { font-family: inherit; font-size: 12px; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+  .formula-line { color: var(--accent); margin: 4px 0; }
+  .formula-comment { color: var(--text3); font-size: 12px; }
+
+  /* ── Comparison Grid ── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .compare-grid { grid-template-columns: 1fr; } }
+  .compare-card {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .compare-card.before { border: 1px solid rgba(255,107,107,.3); }
+  .compare-card.after { border: 1px solid rgba(67,217,160,.3); }
+  .compare-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 12px;
+  }
+  .compare-label.before { color: var(--accent2); }
+  .compare-label.after { color: var(--accent3); }
+  .compare-item { font-size: 13px; color: var(--text2); margin: 6px 0; display: flex; gap: 8px; }
+  .compare-item::before { content: '•'; flex-shrink: 0; }
+  .compare-card.before .compare-item::before { color: var(--accent2); }
+  .compare-card.after .compare-item::before { color: var(--accent3); }
+
+  /* ── Apple Intelligence Section ── */
+  .ai-section {
+    background: linear-gradient(135deg, rgba(0,212,255,.05) 0%, rgba(91,127,255,.05) 100%);
+    border: 1px solid rgba(91,127,255,.25);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 16px;
+  }
+  .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .ai-logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, #007AFF, #34AADC);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .ai-title { font-size: 18px; font-weight: 700; }
+  .ai-subtitle { font-size: 13px; color: var(--text2); }
+
+  .ai-feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .ai-feature {
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .ai-feature-icon { font-size: 24px; margin-bottom: 8px; }
+  .ai-feature-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .ai-feature-desc { font-size: 12px; color: var(--text2); line-height: 1.5; }
+
+  .feasibility-bar { margin-top: 6px; height: 4px; background: var(--border); border-radius: 2px; }
+  .feasibility-fill { height: 100%; border-radius: 2px; }
+
+  /* ── Roadmap ── */
+  .roadmap { display: flex; flex-direction: column; gap: 12px; }
+  .roadmap-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .roadmap-phase {
+    min-width: 64px;
+    padding: 4px 0;
+    text-align: center;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .phase-1 { background: rgba(91,127,255,.15); color: var(--accent); }
+  .phase-2 { background: rgba(67,217,160,.15); color: var(--accent3); }
+  .phase-3 { background: rgba(180,91,255,.15); color: #b45bff; }
+  .roadmap-content h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .roadmap-content p { font-size: 13px; color: var(--text2); }
+
+  /* ── Summary Tags ── */
+  .tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .tag {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  p { margin-bottom: 8px; }
+  ul { padding-left: 20px; color: var(--text2); font-size: 14px; }
+  li { margin-bottom: 6px; }
+  strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-tag">Algorithm Analysis · v1.1</div>
+    <h1>Naelm <span>학습 알고리즘</span><br>분석 & 개선 보고서</h1>
+    <p>난이도 선정 알고리즘(Deck Selection)과 난이도 조정 알고리즘(SM-2 SRS)의<br>현재 상태를 진단하고, 정교한 개선 방향을 제시합니다.</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">작성일</span>
+        <span class="hero-meta-value">2026.04.23</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">분석 파일</span>
+        <span class="hero-meta-value">6개 Swift 파일</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">발견된 버그</span>
+        <span class="hero-meta-value">4개</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">개선 항목</span>
+        <span class="hero-meta-value">6개</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 1. 현재 알고리즘 개요 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-blue">📊</div>
+      1. 현재 알고리즘 구조 개요
+    </div>
+
+    <p style="color:var(--text2); margin-bottom:20px;">
+      Naelm은 두 개의 독립적인 알고리즘이 직렬 파이프라인을 이루고 있습니다.
+      <strong>알고리즘 ①</strong>이 오늘 풀 문항을 선정하고,
+      <strong>알고리즘 ②</strong>가 결과에 따라 개인별 복습 간격을 조정합니다.
+    </p>
+
+    <div class="flow">
+      <div class="flow-step">
+        <div class="flow-dot">①</div>
+        <div class="flow-content">
+          <h4>덱 선정 (Deck Selection)</h4>
+          <p><code>CardViewModel.loadDeck()</code> / <code>QuizViewModel.loadQuiz()</code><br>
+          사용자의 estimatedLevel(현재수준) 40% + targetScore(목표수준) 60%로 비율 구성.
+          비숙달(isMastered=false) 항목 중 frequencyLevel로 필터링.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">⟳</div>
+        <div class="flow-content">
+          <h4>세션 실행 중</h4>
+          <p>단어 스와이프 결과 → <code>pendingVocab</code>, 문법 퀴즈 결과 → <code>pendingGrammar</code>
+          에 메모리 적재. DB는 세션 종료까지 미반영.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-dot">②</div>
+        <div class="flow-content">
+          <h4>SM-2 계산 (Difficulty Adjustment)</h4>
+          <p><code>SpacedRepetitionService.calculate()</code><br>
+          quality 0–5 입력 → easeFactor / interval / nextReviewDate 갱신.
+          세션 종료(<code>endSession</code>) 시 일괄 DB 반영.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. 알고리즘 ① 현황 분석 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-yellow">🃏</div>
+      2. 알고리즘 ①: 난이도 선정 — 현황 & 문제점
+    </div>
+
+    <div class="card">
+      <div class="card-title">현재 선정 로직</div>
+      <div class="flow" style="margin-top:8px;">
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px;">1</div>
+          <div class="flow-content">
+            <h4>숙달 항목 제외</h4>
+            <p><code>isMastered == true</code>인 항목은 덱에서 완전 제외</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px;">2</div>
+          <div class="flow-content">
+            <h4>비율 분배</h4>
+            <p>현재 수준 <strong>40%</strong> + 목표 수준 <strong>60%</strong> (각 레벨 랜덤 셔플)</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px;">3</div>
+          <div class="flow-content">
+            <h4>부족분 채우기 + 중복 제거</h4>
+            <p>일일 목표 수(dailyGoal)까지 전체 풀에서 랜덤 보충</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:rgba(255,107,107,.3);">
+      <div class="card-title">🐛 발견된 문제점 <span class="badge badge-red">Critical</span></div>
+      <table class="issues">
+        <thead>
+          <tr>
+            <th></th>
+            <th>문제</th>
+            <th>현재 코드</th>
+            <th>영향</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>🔴</td>
+            <td>SRS 복습 대상 무시</td>
+            <td><code>fetchDueVocabulary()</code> / <code>fetchDueGrammar()</code>가 덱 구성에 <strong>전혀 사용되지 않음</strong></td>
+            <td>복습 예정일이 지난 항목이 우선 노출되지 않아 SM-2 효과가 무력화됨</td>
+          </tr>
+          <tr>
+            <td>🟡</td>
+            <td>세션 워밍업 없음</td>
+            <td>카드가 완전 랜덤 셔플됨</td>
+            <td>세션 초반부터 고난이도 문제 노출 → 동기 저하, 오답 편향</td>
+          </tr>
+          <tr>
+            <td>🟡</td>
+            <td>최근 오답 항목 미반영</td>
+            <td>직전 세션 오답이 다음 세션 덱 비율에 영향 없음</td>
+            <td>동일 약점이 반복 노출되지 않음</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 3. 알고리즘 ② 현황 분석 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-red">⚙️</div>
+      3. 알고리즘 ②: SM-2 난이도 조정 — 현황 & 문제점
+    </div>
+
+    <div class="card">
+      <div class="card-title">SM-2 핵심 공식</div>
+      <div class="formula-box">
+        <div class="formula-title">EaseFactor 업데이트</div>
+        <div class="formula-line">EF' = EF + (0.1 − (5−q) × (0.08 + (5−q) × 0.02))</div>
+        <div class="formula-comment">// EF 최솟값: 1.3 | q: 0–5 품질 점수</div>
+        <br>
+        <div class="formula-title">Interval 계산</div>
+        <div class="formula-line">repetitions=1 → interval=1일</div>
+        <div class="formula-line">repetitions=2 → interval=6일</div>
+        <div class="formula-line">repetitions≥3 → interval=round(prevInterval × EF)</div>
+        <br>
+        <div class="formula-title">숙달(Mastery) 판정</div>
+        <div class="formula-line">streak ≥ 5 AND easeFactor ≥ 2.5</div>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:rgba(255,107,107,.3);">
+      <div class="card-title">🐛 발견된 버그 & 논리적 결함 <span class="badge badge-red">4개</span></div>
+      <table class="issues">
+        <thead>
+          <tr>
+            <th></th>
+            <th>버그/결함</th>
+            <th>현재 코드</th>
+            <th>개선 방향</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>🔴</td>
+            <td>Mastery 우회 버그</td>
+            <td><code>endSession()</code>에서 <code>knewIt=true</code>이면 즉시 <code>isMastered=true</code> 설정 → streak≥5 조건 우회됨</td>
+            <td><code>endSession</code>에서 직접 isMastered 설정 코드 제거, <code>applyResult()</code>에만 위임</td>
+          </tr>
+          <tr>
+            <td>🔴</td>
+            <td>Quality 이진화</td>
+            <td>단어: <code>knewIt ? 4 : 1</code>, 문법: <code>isCorrect ? 4 : 1</code>로만 매핑 — SM-2의 0–5 범위 미활용</td>
+            <td>응답 시간, 힌트 사용 여부를 반영한 0–5 세분화 품질 계산</td>
+          </tr>
+          <tr>
+            <td>🟡</td>
+            <td>망각 곡선 미적용</td>
+            <td>장기 미복습 항목(lastReviewedAt이 매우 오래됨)도 기존 easeFactor 그대로 사용</td>
+            <td>30일 이상 미복습이면 easeFactor 패널티 적용 후 재복습 유도</td>
+          </tr>
+          <tr>
+            <td>🟡</td>
+            <td>interval=0 실패 재복습 미활용</td>
+            <td>실패 시 <code>nextReviewDate = 10분 후</code>이지만, 덱 선정 로직이 이를 조회하지 않음</td>
+            <td>덱에 SRS 복습 대상을 우선 포함</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 4. 개선된 알고리즘 설계 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-green">🚀</div>
+      4. 개선된 알고리즘 설계
+    </div>
+
+    <!-- 4-1. Quality 세분화 -->
+    <div class="card">
+      <div class="card-title">4-1. Quality 세분화 (이진 → 0–5) <span class="badge badge-green">구현 완료</span></div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+        응답 시간과 힌트 사용 여부를 결합하여 SM-2가 설계된 대로 0–5 품질 점수를 산출합니다.
+      </p>
+      <div class="formula-box">
+        <div class="formula-title">단어 카드 — Quality 매핑</div>
+        <div class="formula-line">알고 있음 + 빠른 응답(≤5초)     → quality = 5</div>
+        <div class="formula-line">알고 있음 + 보통 응답(5~10초)   → quality = 4</div>
+        <div class="formula-line">알고 있음 + 느린 응답(>10초)    → quality = 3</div>
+        <div class="formula-line">모름 + 느린 응답               → quality = 1</div>
+        <div class="formula-line">모름 + 빠른 응답(찍기 의심)     → quality = 0</div>
+        <br>
+        <div class="formula-title">문법 퀴즈 — Quality 매핑</div>
+        <div class="formula-line">정답 + 빠른 응답(≤타이머50%)   → quality = 5</div>
+        <div class="formula-line">정답 + 보통 응답               → quality = 4</div>
+        <div class="formula-line">정답 + 느린 응답(타이머 거의 소진) → quality = 3</div>
+        <div class="formula-line">오답 (응답함)                  → quality = 1</div>
+        <div class="formula-line">타임아웃 / 모르겠다             → quality = 0</div>
+      </div>
+    </div>
+
+    <!-- 4-2. 덱 구성 개선 -->
+    <div class="card">
+      <div class="card-title">4-2. 덱 구성 개선 — SRS 복습 우선순위 <span class="badge badge-green">구현 완료</span></div>
+      <div class="flow" style="margin-top:12px;">
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px; background:rgba(255,107,107,.15); border-color:rgba(255,107,107,.4); color:var(--accent2);">!</div>
+          <div class="flow-content">
+            <h4>① SRS 복습 대상 우선 편입 (최대 50%)</h4>
+            <p><code>fetchDueVocabulary()</code>로 오늘 복습 예정 항목을 가져와 덱 앞쪽에 배치.
+            복습 항목이 50%를 초과하면 잉여분은 다음 세션으로 이월.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px;">2</div>
+          <div class="flow-content">
+            <h4>② 워밍업 구간 (첫 2~3문제)</h4>
+            <p>현재 수준(estimatedLevel)보다 1단계 낮은 항목 또는 streak≥3 이상인 항목으로 구성.
+            세션 초반 자신감 유지.</p>
+          </div>
+        </div>
+        <div class="flow-step">
+          <div class="flow-dot" style="font-size:11px;">3</div>
+          <div class="flow-content">
+            <h4>③ 메인 덱 (기존 40%/60% 로직 유지)</h4>
+            <p>현재 수준 40% + 목표 수준 60%. SRS 복습 + 워밍업 이후 잔여 슬롯에 배치.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4-3. 망각 곡선 리셋 -->
+    <div class="card">
+      <div class="card-title">4-3. 망각 곡선 리셋 로직 <span class="badge badge-green">구현 완료</span></div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+        에빙하우스 망각 곡선에 따르면 30일 이상 미복습이면 기억 보유율이 급감합니다.
+        장기 미복습 항목에는 easeFactor 패널티를 적용합니다.
+      </p>
+      <div class="formula-box">
+        <div class="formula-title">망각 패널티</div>
+        <div class="formula-line">daysSinceReview ≤ 30일  → 패널티 없음</div>
+        <div class="formula-line">31 ~ 60일              → EF × 0.85 (15% 감소)</div>
+        <div class="formula-line">61 ~ 90일              → EF × 0.70 (30% 감소)</div>
+        <div class="formula-line">&gt; 90일              → EF = 1.3 (최솟값으로 리셋)</div>
+        <div class="formula-comment">// 리셋 후 repetitions도 0으로 초기화하여 1일→6일→N일 재시작</div>
+      </div>
+    </div>
+
+    <!-- 4-4. Mastery 버그 수정 -->
+    <div class="card">
+      <div class="card-title">4-4. Mastery 버그 수정 <span class="badge badge-green">구현 완료</span></div>
+      <div class="compare-grid">
+        <div class="compare-card before">
+          <div class="compare-label before">Before (버그)</div>
+          <div class="compare-item">endSession에서 knewIt=true이면 즉시 isMastered=true</div>
+          <div class="compare-item">streak 조건(≥5) 우회됨</div>
+          <div class="compare-item">단 1번 알았다고 해도 숙달 처리</div>
+          <div class="compare-item">SRS 복습 대상에서 영구 제외</div>
+        </div>
+        <div class="compare-card after">
+          <div class="compare-label after">After (수정)</div>
+          <div class="compare-item">endSession에서 직접 isMastered 설정 코드 제거</div>
+          <div class="compare-item">applyResult()의 streak≥5 && EF≥2.5 조건만 사용</div>
+          <div class="compare-item">단어도 반복 학습 후 단계적 숙달</div>
+          <div class="compare-item">markedForReview 로직은 그대로 유지</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5. Apple Intelligence 도입 검토 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-purple">🤖</div>
+      5. Apple Intelligence 도입 가능성 검토
+    </div>
+
+    <div class="ai-section">
+      <div class="ai-header">
+        <div class="ai-logo">✦</div>
+        <div>
+          <div class="ai-title">Apple Intelligence Integration</div>
+          <div class="ai-subtitle">iOS 18.1+ · On-Device NLP · Privacy-First</div>
+        </div>
+      </div>
+
+      <p style="color:var(--text2);font-size:14px;line-height:1.7;">
+        Apple Intelligence는 iPhone에서 <strong>온디바이스</strong>로 동작하는 AI 시스템으로,
+        민감한 학습 데이터를 서버에 전송하지 않고도 개인화된 경험을 제공할 수 있습니다.
+        아래는 Naelm에 적용 가능한 기능별 실현 가능성을 분석한 결과입니다.
+      </p>
+
+      <div class="ai-feature-grid">
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">📝</div>
+          <div class="ai-feature-title">Writing Tools — 예문 생성</div>
+          <div class="ai-feature-desc">사용자의 약점 단어로 맥락 예문을 즉석 생성. NSWritingToolsCoordinator API.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:80%;background:var(--accent3);"></div></div>
+          <div style="font-size:11px;color:var(--accent3);margin-top:4px;">실현 가능성 80%</div>
+        </div>
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">🧠</div>
+          <div class="ai-feature-title">Foundation Models — 적응형 힌트</div>
+          <div class="ai-feature-desc">오답 패턴 분석 후 개인화 힌트 텍스트 생성. iOS 26 Foundation Models framework.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:65%;background:var(--accent4);"></div></div>
+          <div style="font-size:11px;color:var(--accent4);margin-top:4px;">실현 가능성 65% (iOS 26 필요)</div>
+        </div>
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">🗣️</div>
+          <div class="ai-feature-title">Speech NLP — 발음 평가</div>
+          <div class="ai-feature-desc">SFSpeechRecognizer + NaturalLanguage로 단어 발음 정확도 측정, quality 점수 반영.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:70%;background:var(--accent4);"></div></div>
+          <div style="font-size:11px;color:var(--accent4);margin-top:4px;">실현 가능성 70%</div>
+        </div>
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">⏱️</div>
+          <div class="ai-feature-title">CoreML — 응답 패턴 예측</div>
+          <div class="ai-feature-desc">사용자 응답 시간 패턴을 학습해 최적 복습 간격을 SM-2에 보정값으로 추가 제공.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:55%;background:var(--accent2);"></div></div>
+          <div style="font-size:11px;color:var(--accent2);margin-top:4px;">실현 가능성 55% (데이터 축적 필요)</div>
+        </div>
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">📊</div>
+          <div class="ai-feature-title">Smart Summaries — 학습 리포트</div>
+          <div class="ai-feature-desc">세션 종료 후 약점 패턴을 한국어 요약 생성. Writing Tools Summarize 기능 활용.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:85%;background:var(--accent3);"></div></div>
+          <div style="font-size:11px;color:var(--accent3);margin-top:4px;">실현 가능성 85%</div>
+        </div>
+
+        <div class="ai-feature">
+          <div class="ai-feature-icon">🎯</div>
+          <div class="ai-feature-title">Siri Intent — 학습 시작 자동화</div>
+          <div class="ai-feature-desc">AppIntents로 "나엘름에서 오늘 단어 복습해줘" 단축어 제공. 알림 연동.</div>
+          <div class="feasibility-bar"><div class="feasibility-fill" style="width:90%;background:var(--accent3);"></div></div>
+          <div style="font-size:11px;color:var(--accent3);margin-top:4px;">실현 가능성 90%</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚠️ 도입 시 주의 사항</div>
+      <ul>
+        <li><strong>기기 호환성:</strong> Apple Intelligence는 iPhone 15 Pro / iPhone 16 이상, iOS 18.1+ 필요. 미지원 기기 fallback 로직 필수.</li>
+        <li><strong>Foundation Models API:</strong> 현재 iOS 26 개발자 베타에서 공개 예정. 안정적 GA 릴리스 전 프로덕션 사용 지양.</li>
+        <li><strong>Writing Tools:</strong> UITextView / NSTextView 기반 뷰에서만 네이티브 동작. SwiftUI TextEditor로 연동 가능.</li>
+        <li><strong>온디바이스 처리:</strong> 클라우드 AI 대비 모델 규모 제한. 복잡한 추론보다 텍스트 요약/생성에 적합.</li>
+        <li><strong>개인정보 우위:</strong> 학습 데이터(오답/취약 단어 등)가 디바이스 외부로 유출되지 않는 것이 최대 장점.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="border-color:rgba(91,127,255,.3);">
+      <div class="card-title">✅ 단기 권장 도입 항목</div>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:12px;">
+        현재 iOS 18.x에서 즉시 구현 가능하며 학습 경험 향상 효과가 높은 항목:
+      </p>
+      <ol style="padding-left:20px;color:var(--text2);font-size:13px;line-height:2;">
+        <li><strong>AppIntents (Siri 단축어)</strong> — 복습 알림 자동화, "오늘 복습 단어 몇 개?" 인텐트</li>
+        <li><strong>Smart Summaries (Writing Tools)</strong> — 세션 종료 리포트 자동 요약</li>
+        <li><strong>SFSpeechRecognizer</strong> — 단어 발음 체크 모드 (선택 기능)</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- ── 6. Before/After 요약 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-green">✅</div>
+      6. 개선 전/후 비교 요약
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-card before">
+        <div class="compare-label before">Before</div>
+        <div class="compare-item">SRS 복습 대상이 덱에 미반영</div>
+        <div class="compare-item">Quality 이진화 (4 or 1)</div>
+        <div class="compare-item">단 1회 정답으로 즉시 숙달 처리</div>
+        <div class="compare-item">장기 미복습 항목 망각 미처리</div>
+        <div class="compare-item">세션 워밍업 없음</div>
+        <div class="compare-item">Apple Intelligence 미활용</div>
+      </div>
+      <div class="compare-card after">
+        <div class="compare-label after">After</div>
+        <div class="compare-item">SRS 복습 대상 최대 50% 우선 편입</div>
+        <div class="compare-item">응답시간 기반 Quality 0–5 세분화</div>
+        <div class="compare-item">streak≥5 && EF≥2.5 조건 엄격 적용</div>
+        <div class="compare-item">30/60/90일 망각 패널티 적용</div>
+        <div class="compare-item">첫 2–3문제 워밍업 구간 삽입</div>
+        <div class="compare-item">AppIntents + Writing Tools 단기 도입</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 7. 구현 로드맵 ── -->
+  <div class="section">
+    <div class="section-title">
+      <div class="icon icon-blue">🗺️</div>
+      7. 구현 로드맵
+    </div>
+
+    <div class="roadmap">
+      <div class="roadmap-item">
+        <div class="roadmap-phase phase-1">Phase 1<br>즉시</div>
+        <div class="roadmap-content">
+          <h4>버그 수정 + SM-2 튜닝</h4>
+          <p>endSession mastery 버그 제거 · Quality 세분화 · 망각 곡선 리셋 · SRS 우선순위 덱 구성 · 워밍업 로직</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-phase phase-2">Phase 2<br>단기</div>
+        <div class="roadmap-content">
+          <h4>Apple Intelligence 1차 통합</h4>
+          <p>AppIntents 복습 알림 · Writing Tools 세션 요약 · SFSpeechRecognizer 발음 평가 (선택)</p>
+        </div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-phase phase-3">Phase 3<br>중기</div>
+        <div class="roadmap-content">
+          <h4>CoreML + Foundation Models</h4>
+          <p>응답 패턴 CoreML 모델 훈련 · iOS 26 Foundation Models API 힌트 생성 · SM-2 보정값 피드백 루프</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+  <p style="color:var(--text3);font-size:12px;text-align:center;">
+    Naelm Algorithm Analysis Report · Generated 2026-04-23 · Phase 1 changes applied to codebase
+  </p>
+
+</div>
+</body>
+</html>

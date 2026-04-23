@@ -52,7 +52,6 @@ struct RankingService {
         let startOfMonth = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: Date()))!
         let nextMonth = Calendar.current.date(byAdding: .month, value: 1, to: startOfMonth)!
 
-        // 이번 달 활동 합산
         let predicate = #Predicate<UserActivity> {
             $0.userID == userID &&
             $0.activityDate >= startOfMonth &&
@@ -61,7 +60,6 @@ struct RankingService {
         let descriptor = FetchDescriptor<UserActivity>(predicate: predicate)
         let activities = (try? context.fetch(descriptor)) ?? []
 
-        // XP 총합을 점수로 사용
         let totalXP = activities.reduce(0) { $0 + $1.xpEarned }
 
         let monthlyScore = fetchOrCreateMonthlyScore(userID: userID, context: context)
@@ -95,8 +93,6 @@ struct RankingView: View {
     @State private var myScore: MonthlyScore?
     @State private var myRank: Int = 0
 
-    private let rankingToggleAnimation = Animation.spring(response: 0.28, dampingFraction: 0.84)
-
     enum RankingTab: String, CaseIterable {
         case global = "전체"
         case friends = "친구"
@@ -104,92 +100,53 @@ struct RankingView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppGradient.background(scheme: colorScheme)
-                    .ignoresSafeArea()
-
-                VStack(spacing: 18) {
-                    rankingToggle
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-
+            ScrollView {
+                VStack(spacing: 16) {
+                    // 내 순위 카드
                     myRankCard
-                        .padding(.horizontal, 16)
 
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            let ranking = selectedTab == .global ? globalRanking : friendRanking
+                    // 탭 선택
+                    Picker("", selection: $selectedTab) {
+                        ForEach(RankingTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    // 순위 리스트
+                    let ranking = selectedTab == .global ? globalRanking : friendRanking
+                    if ranking.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "chart.bar")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        .padding(.top, 60)
+                    } else {
+                        LazyVStack(spacing: 8) {
                             ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
                                 rankRow(rank: index + 1, score: score)
                             }
-
-                            if (selectedTab == .global ? globalRanking : friendRanking).isEmpty {
-                                VStack(spacing: 12) {
-                                    Image(systemName: "chart.bar")
-                                        .font(.system(size: 48))
-                                        .foregroundStyle(AppPalette.leaf)
-                                    Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
-                                        .font(.subheadline)
-                                        .foregroundStyle(AppColor.primary)
-                                }
-                                .padding(.top, 60)
-                            }
                         }
-                        .padding(.horizontal, 16)
                     }
                 }
+                .padding(16)
             }
+            .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("순위")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Text(RankingService.currentMonth)
-                        .font(.caption).foregroundStyle(AppPalette.leaf)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .onAppear { refreshRanking() }
             .refreshable { refreshRanking() }
         }
-    }
-
-    private var rankingToggle: some View {
-        HStack(spacing: 8) {
-            ForEach(RankingTab.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(rankingToggleAnimation) {
-                        selectedTab = tab
-                    }
-                } label: {
-                    Text(tab.rawValue)
-                        .font(.pretendardSemiBold(15))
-                        .foregroundStyle(selectedTab == tab ? .white : AppColor.primary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            Capsule()
-                                .fill(
-                                    selectedTab == tab
-                                    ? AppGradient.primaryButton(scheme: colorScheme)
-                                    : LinearGradient(
-                                        colors: [AppPalette.cream.opacity(0.92), AppPalette.mint.opacity(0.45)],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(8)
-        .background(
-            Capsule()
-                .fill(colorScheme == .dark ? AppPalette.forest.opacity(0.24) : AppPalette.leaf.opacity(0.18))
-        )
-        .overlay(
-            Capsule()
-                .stroke(AppPalette.leaf.opacity(0.24), lineWidth: 1)
-        )
     }
 
     // MARK: - My Rank Card
@@ -198,8 +155,15 @@ struct RankingView: View {
         HStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(AppGradient.primaryButton(scheme: colorScheme))
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest, AppPalette.leaf],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
                     .frame(width: 56, height: 56)
+                    .shadow(color: AppPalette.forest.opacity(0.30), radius: 8, y: 3)
                 Text("#\(myRank)")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
@@ -207,111 +171,73 @@ struct RankingView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("내 순위")
-                    .font(.caption).foregroundStyle(AppPalette.leaf)
+                    .font(.caption).foregroundStyle(.secondary)
                 Text("\(myScore?.score ?? 0) XP")
                     .font(.title2).fontWeight(.bold)
-                    .foregroundStyle(AppColor.primary)
             }
 
             Spacer()
 
             VStack(alignment: .trailing, spacing: 2) {
                 Text("이번 달")
-                    .font(.caption2).foregroundStyle(AppPalette.leaf)
+                    .font(.caption2).foregroundStyle(.secondary)
                 Text(RankingService.currentMonth)
                     .font(.caption).fontWeight(.medium)
-                    .foregroundStyle(AppColor.primary)
+                    .foregroundStyle(AppPalette.forest)
             }
         }
         .padding(16)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 22)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 22)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                AppPalette.cream.opacity(colorScheme == .dark ? 0.08 : 0.72),
-                                AppPalette.mint.opacity(0.18),
-                                .clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 22)
-                    .stroke(AppPalette.leaf.opacity(0.28), lineWidth: 1)
-            }
-        )
+        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
     }
 
     // MARK: - Rank Row
 
     private func rankRow(rank: Int, score: MonthlyScore) -> some View {
         let isMe = score.userID == authManager.userID
-        let accent = rankAccent(rank: rank, isMe: isMe)
-
         return HStack(spacing: 12) {
+            // 순위
             ZStack {
-                Circle()
-                    .fill(accent.opacity(0.16))
-                    .frame(width: 38, height: 38)
-
-                Text(rankSymbol(rank: rank))
-                    .font(rank <= 3 ? .system(size: 16, weight: .bold) : .system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(accent)
+                if rank <= 3 {
+                    Image(systemName: rank == 1 ? "crown.fill" : "medal.fill")
+                        .foregroundStyle(rank == 1 ? AppPalette.gold : rank == 2 ? .gray : Color(hex: "#A0522D"))
+                        .font(.title3)
+                }
+                Text("\(rank)")
+                    .font(.caption2).fontWeight(.bold)
+                    .foregroundStyle(rank <= 3 ? .clear : .secondary)
             }
-            .frame(width: 38)
+            .frame(width: 32)
 
+            // 유저 아이콘
             Circle()
-                .fill(accent.opacity(isMe ? 1 : 0.88))
+                .fill(
+                    isMe
+                    ? LinearGradient(colors: [AppPalette.forest, AppPalette.leaf], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    : LinearGradient(colors: [Color(.tertiarySystemFill), Color(.tertiarySystemFill)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                )
                 .frame(width: 36, height: 36)
                 .overlay(
                     Text(isMe ? "나" : "U")
                         .font(.caption).fontWeight(.bold)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(isMe ? .white : .secondary)
                 )
 
+            // 유저 ID (축약)
             Text(isMe ? "나" : String(score.userID.prefix(8)))
                 .font(.subheadline).fontWeight(isMe ? .bold : .regular)
-                .foregroundStyle(AppColor.primary)
 
             Spacer()
 
             Text("\(score.score) XP")
                 .font(.subheadline).fontWeight(.semibold)
-                .foregroundStyle(accent)
+                .foregroundStyle(isMe ? AppPalette.forest : .primary)
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(accent.opacity(isMe ? 0.16 : 0.08))
-        )
+        .padding(12)
+        .background(GlassCardBackground(cornerRadius: 12, scheme: colorScheme))
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(accent.opacity(isMe ? 0.36 : 0.18), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isMe ? AppPalette.forest.opacity(0.40) : Color.clear, lineWidth: 1.5)
         )
-    }
-
-    private func rankSymbol(rank: Int) -> String {
-        switch rank {
-        case 1: return "👑"
-        case 2: return "2"
-        case 3: return "3"
-        default: return "\(rank)"
-        }
-    }
-
-    private func rankAccent(rank: Int, isMe: Bool) -> Color {
-        if isMe { return AppColor.primary }
-
-        switch rank {
-        case 1: return AppPalette.gold
-        case 2: return AppPalette.leaf
-        case 3: return AppPalette.mint
-        default: return colorScheme == .dark ? AppPalette.mint : AppPalette.leaf
-        }
     }
 
     // MARK: - Refresh
@@ -319,17 +245,12 @@ struct RankingView: View {
     private func refreshRanking() {
         guard let userID = authManager.userID else { return }
 
-        // 내 점수 업데이트
         RankingService.updateMonthlyScore(userID: userID, context: modelContext)
-
-        // 전체 순위
         globalRanking = RankingService.fetchGlobalRanking(context: modelContext)
 
-        // 내 순위 찾기
         myScore = globalRanking.first { $0.userID == userID }
         myRank = (globalRanking.firstIndex { $0.userID == userID } ?? -1) + 1
 
-        // 친구 순위
         let friendPredicate = #Predicate<Friendship> {
             $0.userID == userID && $0.isFriend == true
         }

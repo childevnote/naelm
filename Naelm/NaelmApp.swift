@@ -429,40 +429,14 @@ struct SignInView: View {
 
 // MARK: - 📊 Main Dashboard View (메인 대시보드)
 
-enum DashboardLaunchAction: String {
-    case startVocabulary
-    case startGrammar
-    case startReview
-
-    init?(url: URL) {
-        guard url.scheme?.lowercased() == "naelm" else { return nil }
-
-        switch (url.host?.lowercased(), url.path.lowercased()) {
-        case ("study", "/vocabulary"):
-            self = .startVocabulary
-        case ("study", "/grammar"):
-            self = .startGrammar
-        case ("study", "/review"):
-            self = .startReview
-        default:
-            return nil
-        }
-    }
-}
-
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
-    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedTab: Int = 0
-    @State private var pendingDashboardAction: DashboardLaunchAction?
 
     var body: some View {
         ZStack {
-            AppGradient.background(scheme: colorScheme)
-                .ignoresSafeArea()
-
             TabView(selection: $selectedTab) {
-                DashboardView(launchAction: $pendingDashboardAction)
+                DashboardView()
                     .environment(authManager)
                     .tabItem { Label("홈", systemImage: "house.fill") }
                     .tag(0)
@@ -482,14 +456,7 @@ struct MainDashboardView: View {
                     .tabItem { Label("마이", systemImage: "person.fill") }
                     .tag(3)
             }
-            .tint(colorScheme == .dark ? AppPalette.mint : AppPalette.forest)
-            .toolbarBackground(AppColor.background, for: .tabBar)
-            .toolbarBackground(.visible, for: .tabBar)
-        }
-        .onOpenURL { url in
-            guard let action = DashboardLaunchAction(url: url) else { return }
-            selectedTab = 0
-            pendingDashboardAction = action
+            .tint(AppPalette.forest)
         }
     }
 }
@@ -497,5 +464,6 @@ struct MainDashboardView: View {
 // MARK: - Previews
 
 #Preview("Sign In") {
-    SignInView().environment(AuthenticationManager())
+    @State var auth = AuthenticationManager()
+    return SignInView().environment(auth)
 }
