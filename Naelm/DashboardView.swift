@@ -140,17 +140,11 @@ struct DashboardView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if totalDaysStudied > 0 {
-                        Text("학습 \(totalDaysStudied)일 만에")
-                            .font(.pretendardSemiBold(14))
-                            .foregroundStyle(AppPalette.forest)
-                        Text("\(totalWordsStudied)개의 단어를 학습했어요!")
+                        Text("학습 \(totalDaysStudied)일 만에 \(totalWordsStudied)개의 단어를 학습했어요!")
                             .font(.pretendardSemiBold(14))
                             .foregroundStyle(AppPalette.forest)
                     } else {
-                        Text("오늘부터 토익 학습을")
-                            .font(.pretendardSemiBold(14))
-                            .foregroundStyle(AppPalette.forest)
-                        Text("시작해보세요!")
+                        Text("오늘부터 토익 학습을 시작해보세요!")
                             .font(.pretendardSemiBold(14))
                             .foregroundStyle(AppPalette.forest)
                     }
@@ -161,7 +155,7 @@ struct DashboardView: View {
                 Color.clear.frame(width: 90)
             }
         }
-        .frame(height: 80)
+        .frame(height: 40)
     }
 
     // MARK: - Top Section (연속학습 + 잔디밭 한 줄)
@@ -181,19 +175,26 @@ struct DashboardView: View {
             // 오른쪽: 잔디밭 (28일)
             grassChart
         }
-        .padding(14)
+        .padding(16)
         .background(
             ZStack {
-                RoundedRectangle(cornerRadius: 16).fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24)
                     .fill(
                         LinearGradient(
-                            colors: [AppPalette.forest.opacity(0.08), .clear],
-                            startPoint: .leading, endPoint: .trailing
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
                         )
                     )
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(Color.white.opacity(colorScheme == .dark ? 0.10 : 0.70), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
             }
         )
     }
@@ -306,7 +307,27 @@ struct DashboardView: View {
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     private func todayTaskRow(icon: String, label: String, progress: String, color: Color, subtitle: String, isCompleted: Bool) -> some View {
@@ -407,7 +428,27 @@ struct DashboardView: View {
             .frame(height: 130)
         }
         .padding(16)
-        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     private func barHeight(xp: Int) -> CGFloat {

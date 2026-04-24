@@ -322,7 +322,7 @@ struct SignInView: View {
                             )
                     }
 
-                    Text("NLLM")
+                    Text("Naelm")
                         .font(.system(size: 46, weight: .bold, design: .rounded))
                         .foregroundStyle(
                             LinearGradient(

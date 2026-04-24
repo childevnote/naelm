@@ -323,7 +323,6 @@ struct MyPageView: View {
             // 레벨 뱃지
             Text("Lv.\(lv)")
                 .font(.pretendardBold(14))
-                .foregroundStyle(.black)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
 
@@ -352,9 +351,9 @@ struct MyPageView: View {
                     // 총 XP 텍스트 (반투명 오버레이)
                     HStack {
                         Spacer()
-                        Text("\(totalXP) XP · 다음 레벨까지 \(xpToNext) XP")
+                        Text("다음 레벨까지 \(xpToNext) XP")
                             .font(.pretendardMedium(10))
-                            .foregroundStyle(.white.opacity(0.75))
+                            .foregroundStyle(.opacity(0.75))
                         Spacer()
                     }
                 }

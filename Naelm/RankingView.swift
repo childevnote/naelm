@@ -187,7 +187,27 @@ struct RankingView: View {
             }
         }
         .padding(16)
-        .background(GlassCardBackground(cornerRadius: 16, scheme: colorScheme))
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 
     // MARK: - Rank Row
@@ -232,11 +252,27 @@ struct RankingView: View {
                 .font(.subheadline).fontWeight(.semibold)
                 .foregroundStyle(isMe ? AppPalette.forest : .primary)
         }
-        .padding(12)
-        .background(GlassCardBackground(cornerRadius: 12, scheme: colorScheme))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(isMe ? AppPalette.forest.opacity(0.40) : Color.clear, lineWidth: 1.5)
+        .padding(16)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 24)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
         )
     }
 
