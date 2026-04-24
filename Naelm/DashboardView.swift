@@ -156,6 +156,15 @@ struct DashboardView: View {
             }
         }
         .frame(height: 40)
+        .overlay(alignment: .topTrailing) {
+            Image("NaelmHome")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 120)
+                .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
+                // 배너 위쪽에 걸터앉은 형태를 위해 오프셋 추가 (에셋 여백에 따라 조정 필요)
+                .offset(x: 10, y: -70)
+        }
     }
 
     // MARK: - Top Section (연속학습 + 잔디밭 한 줄)
