@@ -17,6 +17,7 @@
 import SwiftUI
 import SwiftData
 import AuthenticationServices
+import UserNotifications
 import os
 
 // MARK: - App Entry Point
@@ -101,6 +102,15 @@ final class AuthenticationManager {
 
         // Keychain에 userIdentifier 저장
         KeychainHelper.save(key: KeychainHelper.userIDKey, value: credential.user)
+
+        // authorizationCode를 저장 — 향후 계정 삭제 시 Apple 토큰 취소(revoke)에 사용
+        // 이 코드는 최초 Sign In 시에만 발급됩니다
+        if let authCodeData = credential.authorizationCode,
+           let authCode = String(data: authCodeData, encoding: .utf8) {
+            KeychainHelper.save(key: KeychainHelper.authCodeKey, value: authCode)
+            AppLogger.auth.info("Authorization code saved for future token revocation")
+        }
+
         AppLogger.auth.info("Signed in successfully")
     }
 
@@ -136,11 +146,20 @@ final class AuthenticationManager {
         }
 
         // 게스트 ID는 Apple 서버 체크 없이 바로 복원
-        if savedUserID.hasPrefix("guest_") || savedUserID.hasPrefix("dev_user_") {
+        if savedUserID.hasPrefix("guest_") {
             self.userID = savedUserID
             AppLogger.auth.info("Restored guest session")
             return
         }
+
+        // DEBUG 전용: dev_user_ 접두사 ID는 프로덕션 빌드에서 허용하지 않음
+        #if DEBUG
+        if savedUserID.hasPrefix("dev_user_") {
+            self.userID = savedUserID
+            AppLogger.auth.info("Restored dev session (DEBUG only)")
+            return
+        }
+        #endif
 
         // Apple 서버에 credential 상태 확인
         let provider = ASAuthorizationAppleIDProvider()
@@ -239,6 +258,8 @@ struct RootView: View {
             }
             // 알림 권한 요청 (최초 1회, 이미 결정된 경우 OS가 무시)
             await NotificationService.shared.requestPermissionIfNeeded()
+            // 앱 실행 시 앱 배지 초기화
+            try? await UNUserNotificationCenter.current().setBadgeCount(0)
         }
         .alert("데이터 로드 오류", isPresented: $showDataLoadError) {
             Button("재시도") {

@@ -26,6 +26,9 @@ final class KeychainHelper {
     /// userIdentifier 저장 키
     static let userIDKey = "apple_user_identifier"
 
+    /// Sign in with Apple authorizationCode 저장 키 (토큰 취소 용도)
+    static let authCodeKey = "apple_authorization_code"
+
     // MARK: - Save
 
     /// Keychain에 문자열 값을 저장합니다.

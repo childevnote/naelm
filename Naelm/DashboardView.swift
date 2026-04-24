@@ -37,6 +37,8 @@ struct DashboardView: View {
     @State private var showVocabCompleteAlert = false
     @State private var showGrammarCompleteAlert = false
     @State private var showNoReviewAlert = false
+    @State private var showHelp = false
+    @State private var showSettings = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
 
@@ -56,14 +58,42 @@ struct DashboardView: View {
                     weeklyChartSection
                 }
                 .padding(16)
-                .padding(.top, 100)
+                .padding(.top, 70)
                 .padding(.bottom, 16)
             }
             .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("학습 홈")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        showHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                    }
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showHelp) {
+                HelpPageView()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView().environment(authManager)
+            }
             .onAppear { refreshStats() }
             .refreshable { refreshStats() }
+            .onOpenURL { url in
+                guard let action = DashboardLaunchAction(url: url) else { return }
+                switch action {
+                case .startVocabulary: showVocabSession = true
+                case .startGrammar:   showGrammarSession = true
+                case .startReview:    showReviewSession = true
+                }
+            }
             .onChange(of: showVocabSession) { _, active in
                 if !active {
                     Task { @MainActor in

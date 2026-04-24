@@ -117,11 +117,16 @@ struct RankingView: View {
                     let ranking = selectedTab == .global ? globalRanking : friendRanking
                     if ranking.isEmpty {
                         VStack(spacing: 12) {
-                            Image(systemName: "chart.bar")
+                            Image(systemName: selectedTab == .friends ? "person.2" : "chart.bar")
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
-                            Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
+                            Text(selectedTab == .friends ? "친구 기능은 곧 출시될 예정이에요 🚧" : "이번 달 데이터가 없어요")
                                 .font(.subheadline).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            if selectedTab == .friends {
+                                Text("업데이트를 기대해 주세요!")
+                                    .font(.caption).foregroundStyle(.tertiary)
+                            }
                         }
                         .padding(.top, 60)
                     } else {

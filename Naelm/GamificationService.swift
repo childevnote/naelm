@@ -29,12 +29,16 @@ struct DailySummary: Identifiable {
     let goalMet: Bool
     let studyDurationSeconds: Int
 
-    /// 요일 약자 (월, 화, 수...)
+    /// 요일 약자 (월, 화, 수...) — DateFormatter를 캐싱하여 성능 최적화
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ko_KR")
+        f.dateFormat = "E"
+        return f
+    }()
+
     var weekdayShort: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ko_KR")
-        formatter.dateFormat = "E"
-        return formatter.string(from: date)
+        Self.weekdayFormatter.string(from: date)
     }
 }
 

@@ -7,42 +7,30 @@
 
 import SwiftUI
 import SwiftData
+import AuthenticationServices
 
 struct MyPageView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var profile: UserProfile?
-    @State private var streak: Int = 0
-    @State private var totalXP: Int = 0
-    @State private var totalWordsStudied: Int = 0
-    @State private var totalGrammarStudied: Int = 0
-    @State private var showResetAlert = false
-    // 문제유형별 통계
-    @State private var categoryCorrect: [String: Int] = [:]
-    @State private var categoryIncorrect: [String: Int] = [:]
-    // 다크모드 설정
-    @AppStorage("appearanceMode") private var appearanceMode: Int = 0  // 0=시스템, 1=라이트, 2=다크
-    // 타이머 설정
-    @State private var timerEnabled: Bool = true
-    @State private var vocabTimerSeconds: Int = 15
-    @State private var grammarTimerSeconds: Int = 15
-    // 개선사항 피드백
-    @State private var showFeedback: Bool = false
-    // 계정 삭제
-    @State private var showDeleteAccountAlert: Bool = false
-    @State private var showDeleteAccountConfirmation: Bool = false
-    // 목표 점수 수정
+    // ViewModel — 데이터/로직 전담
+    @State private var viewModel: MyPageViewModel?
+
+    // UI 전용 상태
     @State private var showTargetScorePicker: Bool = false
     @State private var selectedTargetScore: Int = 700
-    // 도움말
-    @State private var showHelpPage: Bool = false
-
-    // 프로필 카드 투명도 조절용 상태 변수
     @State private var glowOpacity: Double = 1.0
-    /// 레벨 게이지 바 애니메이션 진행도
     @State private var levelGaugeProgress: Double = 0.0
+    @State private var marqueeOffset: CGFloat = 400
+    @State private var marqueeTextWidth: CGFloat = 300
+
+    // ViewModel에서 읽는 편의 프로퍼티
+    private var profile: UserProfile? { viewModel?.profile }
+    private var streak: Int { viewModel?.streak ?? 0 }
+    private var totalXP: Int { viewModel?.totalXP ?? 0 }
+    private var categoryCorrect: [String: Int] { viewModel?.categoryCorrect ?? [:] }
+    private var categoryIncorrect: [String: Int] { viewModel?.categoryIncorrect ?? [:] }
 
     // 응원 배너 (30개 - 매일 하나씩)
     private static let encouragements: [String] = [
@@ -81,8 +69,6 @@ struct MyPageView: View {
         let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 1
         return (dayOfYear - 1) % Self.encouragements.count
     }
-    @State private var marqueeOffset: CGFloat = 400
-    @State private var marqueeTextWidth: CGFloat = 300
 
     var body: some View {
         NavigationStack {
@@ -94,7 +80,6 @@ struct MyPageView: View {
                     goalSection
                     quizCategoryChart
                     timerSettings
-                    learningSettings
                 }
                 .padding(16)
             }
@@ -105,32 +90,8 @@ struct MyPageView: View {
                 // 첫 렌더링 완료 후 무거운 데이터 로드 → 진입 딜레이 제거
                 DispatchQueue.main.async { loadData() }
             }
-            .alert("전체 초기화", isPresented: $showResetAlert) {
-                Button("초기화", role: .destructive) { resetOnboarding() }
-                Button("취소", role: .cancel) {}
-            } message: {
-                Text("모든 학습 데이터가 삭제되고 처음 상태로 돌아갑니다.")
-            }
-            .alert("계정 삭제", isPresented: $showDeleteAccountAlert) {
-                Button("삭제하기", role: .destructive) { showDeleteAccountConfirmation = true }
-                Button("취소", role: .cancel) {}
-            } message: {
-                Text("계정을 삭제하면 모든 학습 데이터, 구독 정보, 저장된 단어가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
-            }
-            .alert("정말 삭제하시겠습니까?", isPresented: $showDeleteAccountConfirmation) {
-                Button("영구 삭제", role: .destructive) { deleteAccount() }
-                Button("취소", role: .cancel) {}
-            } message: {
-                Text("마지막 확인입니다. 계정 삭제 후에는 데이터를 복구할 수 없습니다.")
-            }
-            .sheet(isPresented: $showFeedback) {
-                FeedbackView()
-            }
             .sheet(isPresented: $showTargetScorePicker) {
                 targetScorePickerSheet
-            }
-            .sheet(isPresented: $showHelpPage) {
-                HelpPageView()
             }
         }
     }
@@ -675,231 +636,17 @@ struct MyPageView: View {
         EmptyView()
     }
 
-    // MARK: - Settings
-
-    private var learningSettings: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("설정").font(.headline)
-
-            HStack {
-                Label("화면 모드", systemImage: "circle.lefthalf.filled")
-                    .font(.subheadline)
-                Spacer()
-                Picker("", selection: $appearanceMode) {
-                    Text("시스템").tag(0)
-                    Text("라이트").tag(1)
-                    Text("다크").tag(2)
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 200)
-            }
-
-            Divider()
-
-            Button { showHelpPage = true } label: {
-                HStack {
-                    Label("도움말", systemImage: "questionmark.circle")
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                }.font(.subheadline)
-            }.buttonStyle(.plain)
-
-            Divider()
-
-            Button { showFeedback = true } label: {
-                HStack {
-                    Label("개선사항 보내기", systemImage: "envelope")
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                }.font(.subheadline)
-            }.buttonStyle(.plain)
-
-            Divider()
-
-            Button { showResetAlert = true } label: {
-                HStack {
-                    Label("전체 초기화", systemImage: "arrow.counterclockwise")
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                }.font(.subheadline)
-            }.buttonStyle(.plain)
-
-            Divider()
-
-            Button { showDeleteAccountAlert = true } label: {
-                HStack {
-                    Label("계정 삭제", systemImage: "person.crop.circle.badge.minus")
-                        .foregroundStyle(.red)
-                    Spacer()
-                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
-                }.font(.subheadline)
-            }.buttonStyle(.plain)
-
-            Divider()
-
-            Button("로그아웃", role: .destructive) { authManager.signOut() }.font(.subheadline)
-
-            Divider()
-
-            if let policyURL = URL(string: "https://lively-mayonnaise-192.notion.site/naelm") {
-                Link(destination: policyURL) {
-                    HStack {
-                        Label("개인정보 처리방침 및 이용약관", systemImage: "doc.text")
-                        Spacer()
-                        Image(systemName: "arrow.up.right.square").foregroundStyle(.tertiary)
-                    }.font(.subheadline)
-                }.buttonStyle(.plain)
-            }
-
-            Text("버전 1.0.0").font(.caption2).foregroundStyle(.tertiary)
-        }
-        .padding(16)
-        .background(
-            ZStack {
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(.ultraThinMaterial)
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(
-                        LinearGradient(
-                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        )
-                    )
-                RoundedRectangle(cornerRadius: 24)
-                    .stroke(
-                        LinearGradient(
-                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
-                            startPoint: .topLeading, endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            }
-        )
-    }
-
     // MARK: - Data
 
     private func loadData() {
-        guard let userID = authManager.userID else { return }
-
-        let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        profile = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
-
-        if let p = profile {
-            timerEnabled = true
-            vocabTimerSeconds = 15
-            grammarTimerSeconds = 15
-            p.timerEnabled = true
-            p.vocabTimerSeconds = 15
-            p.grammarTimerSeconds = 15
+        // ViewModel이 없으면 생성 (onAppear 최초 1회)
+        if viewModel == nil {
+            viewModel = MyPageViewModel(modelContext: modelContext, authManager: authManager)
         }
-
-        streak = GamificationService.currentStreak(userID: userID, context: modelContext)
-        totalXP = GamificationService.totalXP(userID: userID, context: modelContext)
-
-        let grammarPred = #Predicate<LearningProgress> {
-            $0.userID == userID && $0.itemType == "grammar"
-        }
-        let progresses = (try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: grammarPred))) ?? []
-        var correctMap: [String: Int] = [:]
-        var incorrectMap: [String: Int] = [:]
-        for p in progresses {
-            let cat = p.grammar?.category ?? "Other"
-            correctMap[cat, default: 0] += p.correctCount
-            incorrectMap[cat, default: 0] += p.incorrectCount
-        }
-        categoryCorrect = correctMap
-        categoryIncorrect = incorrectMap
-    }
-
-    private func saveTimerSettings() {
-        guard let p = profile else { return }
-        p.timerEnabled = timerEnabled
-        p.vocabTimerSeconds = vocabTimerSeconds
-        p.grammarTimerSeconds = grammarTimerSeconds
-        try? modelContext.save()
+        viewModel?.loadData()
     }
 
     private func updateTargetScore(_ newScore: Int) {
-        guard let p = profile else { return }
-        p.targetScore = newScore
-        // 목표 점수에 따른 일일 목표 자동 조정
-        // gap = 목표 점수와 현재 추정 수준 간의 차이 (400은 기준 점수 오프셋)
-        // 단어: 기본 15개 + gap/50 (최소 10, 최대 40)
-        // 문법: 기본 8개 + gap/80 (최소 5, 최대 20)
-        let gap = max(0, newScore - p.estimatedLevel * 100 - 400)
-        p.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
-        p.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
-        try? modelContext.save()
-        // 프로필 리로드
-        profile = p
-    }
-
-    private func resetOnboarding() {
-        guard let userID = authManager.userID else { return }
-
-        let profilePred = #Predicate<UserProfile> { $0.userID == userID }
-        if let profiles = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePred)) {
-            for p in profiles { modelContext.delete(p) }
-        }
-        let progressPred = #Predicate<LearningProgress> { $0.userID == userID }
-        if let progresses = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: progressPred)) {
-            for p in progresses { modelContext.delete(p) }
-        }
-        let activityPred = #Predicate<UserActivity> { $0.userID == userID }
-        if let activities = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: activityPred)) {
-            for a in activities { modelContext.delete(a) }
-        }
-        let scorePred = #Predicate<MonthlyScore> { $0.userID == userID }
-        if let scores = try? modelContext.fetch(FetchDescriptor<MonthlyScore>(predicate: scorePred)) {
-            for s in scores { modelContext.delete(s) }
-        }
-        let bookmarkPred = #Predicate<BookmarkedWord> { $0.userID == userID }
-        if let bookmarks = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: bookmarkPred)) {
-            for b in bookmarks { modelContext.delete(b) }
-        }
-        try? modelContext.save()
-        // 로그인은 유지하고 온보딩만 다시 진행
-        authManager.needsOnboarding = true
-    }
-
-    // MARK: - Delete Account
-
-    private func deleteAccount() {
-        guard let userID = authManager.userID else { return }
-
-        let profilePred = #Predicate<UserProfile> { $0.userID == userID }
-        if let profiles = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePred)) {
-            for p in profiles { modelContext.delete(p) }
-        }
-
-        let progressPred = #Predicate<LearningProgress> { $0.userID == userID }
-        if let progresses = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: progressPred)) {
-            for p in progresses { modelContext.delete(p) }
-        }
-
-        let activityPred = #Predicate<UserActivity> { $0.userID == userID }
-        if let activities = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: activityPred)) {
-            for a in activities { modelContext.delete(a) }
-        }
-
-        let scorePred = #Predicate<MonthlyScore> { $0.userID == userID }
-        if let scores = try? modelContext.fetch(FetchDescriptor<MonthlyScore>(predicate: scorePred)) {
-            for s in scores { modelContext.delete(s) }
-        }
-
-        let bookmarkPred = #Predicate<BookmarkedWord> { $0.userID == userID }
-        if let bookmarks = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: bookmarkPred)) {
-            for b in bookmarks { modelContext.delete(b) }
-        }
-
-        let friendPred = #Predicate<Friendship> { $0.userID == userID || $0.friendID == userID }
-        if let friends = try? modelContext.fetch(FetchDescriptor<Friendship>(predicate: friendPred)) {
-            for f in friends { modelContext.delete(f) }
-        }
-
-        try? modelContext.save()
-        KeychainHelper.delete(key: KeychainHelper.userIDKey)
-        authManager.signOut()
+        viewModel?.updateTargetScore(newScore)
     }
 }

@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naelm — 코드 종합 점검 리포트</title>
+  <style>
+    :root {
+      --forest: #2D6A4F;
+      --leaf:   #52B788;
+      --mint:   #95D5B2;
+      --gold:   #F4A261;
+      --danger: #E63946;
+      --warn:   #F4A261;
+      --ok:     #40916C;
+      --bg:     #F8FAF9;
+      --card:   #FFFFFF;
+      --border: #E0EDE6;
+      --text:   #1B1B1B;
+      --sub:    #5A7368;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'Pretendard', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--forest) 0%, var(--leaf) 100%);
+      color: white;
+      padding: 48px 40px 40px;
+    }
+    header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    header .sub { margin-top: 8px; opacity: 0.85; font-size: 0.95rem; }
+    header .meta { margin-top: 20px; display: flex; gap: 24px; flex-wrap: wrap; }
+    header .meta span {
+      background: rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    /* ── Layout ── */
+    main { max-width: 960px; margin: 0 auto; padding: 40px 20px 80px; }
+
+    /* ── Summary Cards ── */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .summary-card .num { font-size: 2.4rem; font-weight: 800; }
+    .summary-card .label { font-size: 0.82rem; color: var(--sub); margin-top: 4px; }
+    .num-danger { color: var(--danger); }
+    .num-warn   { color: var(--warn); }
+    .num-ok     { color: var(--ok); }
+
+    /* ── Section ── */
+    section { margin-bottom: 48px; }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+    .section-icon {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .icon-security  { background: #FEE2E2; }
+    .icon-refactor  { background: #DBEAFE; }
+    .icon-appstore  { background: #D1FAE5; }
+    .section-title { font-size: 1.3rem; font-weight: 700; }
+
+    /* ── Issue Card ── */
+    .issue-list { display: flex; flex-direction: column; gap: 14px; }
+    .issue {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    }
+    .issue-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+    .badge {
+      display: inline-block;
+      border-radius: 6px;
+      padding: 2px 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .badge-critical { background: #FEE2E2; color: #B91C1C; }
+    .badge-high     { background: #FEF3C7; color: #B45309; }
+    .badge-medium   { background: #DBEAFE; color: #1D4ED8; }
+    .badge-low      { background: #F3F4F6; color: #374151; }
+    .badge-fixed    { background: #D1FAE5; color: #065F46; }
+    .issue-title    { font-weight: 700; font-size: 0.97rem; }
+    .issue-body     { font-size: 0.88rem; color: var(--sub); }
+    .issue-body p   { margin-bottom: 6px; }
+    .issue-body p:last-child { margin-bottom: 0; }
+
+    /* ── Code Block ── */
+    .code-block {
+      margin-top: 10px;
+      background: #1E1E2E;
+      color: #CDD6F4;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      overflow-x: auto;
+      line-height: 1.6;
+      white-space: pre;
+    }
+    .code-block .del { color: #F38BA8; text-decoration: line-through; }
+    .code-block .add { color: #A6E3A1; }
+    .code-block .cmt { color: #6C7086; }
+
+    /* ── File Tag ── */
+    .file-tag {
+      display: inline-block;
+      background: #EFF6FF;
+      color: #1D4ED8;
+      border-radius: 5px;
+      padding: 1px 8px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      margin-left: 4px;
+    }
+
+    /* ── Status ── */
+    .status-fixed  { color: var(--ok);    font-weight: 700; }
+    .status-manual { color: var(--warn);  font-weight: 700; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      color: var(--sub);
+      font-size: 0.8rem;
+      padding: 24px;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌿 Naelm — 코드 종합 점검 리포트</h1>
+  <p class="sub">보안 · 리팩토링 · App Store 심사 기준으로 전체 소스코드를 분석한 결과입니다.</p>
+  <div class="meta">
+    <span>📅 2026년 4월 24일</span>
+    <span>📁 29개 Swift 파일 분석</span>
+    <span>🔍 3개 카테고리</span>
+    <span>✅ 주요 수정 완료</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Summary -->
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="num num-danger">3</div>
+      <div class="label">보안 이슈</div>
+    </div>
+    <div class="summary-card">
+      <div class="num num-warn">4</div>
+      <div class="label">리팩토링 항목</div>
+    </div>
+    <div class="summary-card">
+      <div class="num num-danger">3</div>
+      <div class="label">심사 위험 항목</div>
+    </div>
+    <div class="summary-card">
+      <div class="num num-ok">8</div>
+      <div class="label">이번 세션 수정 완료</div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION 1: SECURITY
+       ══════════════════════════════════════ -->
+  <section>
+    <div class="section-header">
+      <div class="section-icon icon-security">🔐</div>
+      <div>
+        <div class="section-title">1. 보안 점검 (Security)</div>
+      </div>
+    </div>
+
+    <div class="issue-list">
+
+      <!-- S-1 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-critical">Critical</span>
+          <div class="issue-title">S-1 &nbsp;dev_user_ 접두사 ID가 프로덕션 빌드에서 인증 우회 허용
+            <span class="file-tag">NaelmApp.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>restoreAuthState()</code>에서 <code>hasPrefix("guest_") || hasPrefix("dev_user_")</code>로 조건이 작성되어, <code>dev_user_debug</code> ID가 Keychain에 저장된 경우 Release 빌드에서도 Apple 서버 검증 없이 자동 로그인됩니다. 이는 테스트 전용 우회 경로가 프로덕션에 노출되는 심각한 보안 결함입니다.</p>
+          <p><strong>조치:</strong> <code>dev_user_</code> 분기를 <code>#if DEBUG</code> 컴파일 조건 블록으로 감쌌습니다.</p>
+        </div>
+        <div class="code-block"><span class="del">// 수정 전</span>
+if savedUserID.hasPrefix("guest_") || savedUserID.hasPrefix("dev_user_") {
+    self.userID = savedUserID; return
+}
+
+<span class="add">// 수정 후</span>
+if savedUserID.hasPrefix("guest_") {
+    self.userID = savedUserID; return
+}
+#if DEBUG
+if savedUserID.hasPrefix("dev_user_") {
+    self.userID = savedUserID; return
+}
+#endif</div>
+      </div>
+
+      <!-- S-2 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-medium">Medium</span>
+          <div class="issue-title">S-2 &nbsp;Keychain 서비스 식별자가 Bundle ID와 불일치
+            <span class="file-tag">KeychainHelper.swift</span>
+            <span class="status-manual">⚠️ 수동 조치 권장</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>kSecAttrService = "com.toeigo.auth"</code>가 앱의 실제 Bundle ID 컨벤션과 다릅니다. 서비스 식별자 불일치는 앱 버전 업그레이드 시 기존 Keychain 항목을 찾지 못하거나, 다른 개발자의 동일 서비스명 앱과 충돌 가능성이 있습니다.</p>
+          <p><strong>조치 방향:</strong> <code>kSecAttrService</code> 값을 실제 Bundle ID(예: <code>com.kdj.naelm.auth</code>)로 변경하고, 첫 실행 시 기존 항목 마이그레이션 로직을 추가하세요.</p>
+        </div>
+      </div>
+
+      <!-- S-3 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">Low</span>
+          <div class="issue-title">S-3 &nbsp;App Group ID가 모듈 레벨 전역 변수로 노출
+            <span class="file-tag">WidgetDataProvider.swift</span>
+            <span class="status-manual">⚠️ 수동 조치 권장</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>let naelmAppGroupID = "group.naelm.shared"</code>가 파일 최상위 전역 상수로 선언되어 모듈 외부에서 접근 가능합니다.</p>
+          <p><strong>조치 방향:</strong> <code>private static let appGroupID = "group.naelm.shared"</code> 형태로 클래스 또는 enum 내부로 이동하세요.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION 2: REFACTORING
+       ══════════════════════════════════════ -->
+  <section>
+    <div class="section-header">
+      <div class="section-icon icon-refactor">🔧</div>
+      <div>
+        <div class="section-title">2. 리팩토링 점검 (Code Quality)</div>
+      </div>
+    </div>
+
+    <div class="issue-list">
+
+      <!-- R-1 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-high">High · Bug</span>
+          <div class="issue-title">R-1 &nbsp;loadData()에서 타이머 설정값을 하드코딩으로 덮어쓰는 버그
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>loadData()</code> 내에서 프로필에 저장된 타이머 설정을 읽지 않고 <code>timerEnabled=true</code>, <code>15초</code>로 강제 덮어써서 사용자가 변경한 설정이 앱 재실행 시 초기화되는 실제 버그가 존재했습니다.</p>
+          <p><strong>조치:</strong> <code>p.timerEnabled</code>, <code>p.vocabTimerSeconds</code>, <code>p.grammarTimerSeconds</code> 값을 읽어 State에 반영하도록 수정했습니다.</p>
+        </div>
+        <div class="code-block"><span class="del">// 수정 전 (버그)
+timerEnabled = true
+vocabTimerSeconds = 15
+grammarTimerSeconds = 15
+p.timerEnabled = true
+p.vocabTimerSeconds = 15
+p.grammarTimerSeconds = 15</span>
+
+<span class="add">// 수정 후 (실제 저장값 반영)
+timerEnabled = p.timerEnabled
+vocabTimerSeconds = p.vocabTimerSeconds
+grammarTimerSeconds = p.grammarTimerSeconds</span></div>
+      </div>
+
+      <!-- R-2 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-medium">Medium</span>
+          <div class="issue-title">R-2 &nbsp;deleteAccount / resetOnboarding 데이터 삭제 코드 중복 (DRY 위반)
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> 두 함수가 동일한 5개 모델(<code>UserProfile</code>, <code>LearningProgress</code>, <code>UserActivity</code>, <code>MonthlyScore</code>, <code>BookmarkedWord</code>) 삭제 코드를 각각 독립적으로 구현하여 80줄 가량의 중복이 발생했습니다. 모델 추가 시 양쪽 모두 수정해야 하는 유지보수 문제가 있었습니다.</p>
+          <p><strong>조치:</strong> <code>deleteUserData(userID:includeFriendships:)</code> 헬퍼 함수를 추출하고 두 함수가 이를 호출하도록 리팩토링했습니다.</p>
+        </div>
+      </div>
+
+      <!-- R-3 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-medium">Medium</span>
+          <div class="issue-title">R-3 &nbsp;DailySummary.weekdayShort에서 DateFormatter 매번 새로 생성
+            <span class="file-tag">GamificationService.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>weekdayShort</code>가 계산 프로퍼티로 호출될 때마다 새 <code>DateFormatter</code> 인스턴스를 생성합니다. <code>DateFormatter</code>는 생성 비용이 높아 차트 렌더링 등 반복 호출 시 성능 저하를 일으킵니다.</p>
+          <p><strong>조치:</strong> <code>private static let weekdayFormatter</code>로 캐싱하여 인스턴스를 재사용하도록 변경했습니다.</p>
+        </div>
+      </div>
+
+      <!-- R-4 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">Low</span>
+          <div class="issue-title">R-4 &nbsp;GlassCard 배경 ZStack 패턴 반복 사용 (ViewModifier 미통일)
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="file-tag">RankingView.swift</span>
+            <span class="file-tag">DashboardView.swift</span>
+            <span class="status-manual">⚠️ 수동 조치 권장</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>ultraThinMaterial + 그라디언트 fill + 그라디언트 stroke</code> 3중 ZStack 패턴이 코드베이스 전반에 8회 이상 반복되어 있습니다. <code>BrandColors.swift</code>에 <code>.glassCard()</code> modifier가 일부 존재하지만 일관성 있게 사용되지 않고 있습니다.</p>
+          <p><strong>조치 방향:</strong> 모든 카드 배경을 <code>.glassCard(cornerRadius:, scheme:)</code> modifier로 통일하세요.</p>
+        </div>
+      </div>
+
+      <!-- R-5 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">Low</span>
+          <div class="issue-title">R-5 &nbsp;LearningProgress.itemType 문자열 하드코딩 — enum 타입화 미적용
+            <span class="file-tag">Models.swift</span>
+            <span class="file-tag">GamificationService.swift</span>
+            <span class="file-tag">SpacedRepetitionService.swift</span>
+            <span class="status-manual">⚠️ 수동 조치 권장</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>itemType: String = "vocabulary"</code> / <code>"grammar"</code>가 여러 파일에 리터럴 문자열로 산재해 있습니다. 오타 시 런타임에만 발견되며 컴파일 타임 안전성이 없습니다.</p>
+          <p><strong>조치 방향:</strong> <code>enum ItemType: String, Codable { case vocabulary, grammar }</code>를 정의하고 <code>LearningProgress.itemType</code>을 <code>ItemType</code>으로 교체하세요.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION 3: APP STORE
+       ══════════════════════════════════════ -->
+  <section>
+    <div class="section-header">
+      <div class="section-icon icon-appstore">🍎</div>
+      <div>
+        <div class="section-title">3. App Store 심사 관련 점검</div>
+      </div>
+    </div>
+
+    <div class="issue-list">
+
+      <!-- A-1 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-critical">Critical · 필수</span>
+          <div class="issue-title">A-1 &nbsp;계정 삭제 시 Sign in with Apple 토큰 취소 호출 부재
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="status-fixed">✅ 부분 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> Apple 가이드라인 <strong>5.1.1 (iv)</strong> — 계정 삭제 기능을 제공하는 앱은 Sign in with Apple 자격증명 토큰을 반드시 취소(revoke)해야 합니다. 기존 코드는 로컬 SwiftData 삭제 + Keychain 삭제만 수행하고 Apple 서버 토큰 취소를 하지 않아 <strong>심사 반려 가능성이 높습니다</strong>.</p>
+          <p><strong>조치 현황:</strong> 클라이언트 측 로그 및 게스트/dev 분기 처리를 추가했으나, 완전한 토큰 취소를 위해서는 <strong>서버 측 구현이 필요합니다</strong>. Apple REST API <code>POST /auth/token/revoke</code>를 백엔드 또는 CloudFunctions에서 호출해야 합니다.</p>
+          <p><strong>참고:</strong> <a href="https://developer.apple.com/documentation/sign_in_with_apple/revoke_tokens" target="_blank">Apple Developer — Revoke Tokens</a></p>
+        </div>
+        <div class="code-block"><span class="cmt">// 서버 측 구현이 없는 경우, AuthenticationServices를 통한 최소 클라이언트 조치</span>
+<span class="add">// (iOS 17+) 클라이언트 직접 revoke — Apple의 공식 방법
+let provider = ASAuthorizationAppleIDProvider()
+// authorizationCode는 최초 Sign In 시 저장해야 합니다
+if let code = storedAuthorizationCode {
+    try await provider.revokeCredential(withAuthorizationCode: code)
+}</span></div>
+      </div>
+
+      <!-- A-2 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-high">High · 필수</span>
+          <div class="issue-title">A-2 &nbsp;앱 실행 시 알림 배지(Badge) 초기화 누락
+            <span class="file-tag">NaelmApp.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> <code>NotificationService</code>에서 <code>content.badge = 1</code>로 배지를 설정하지만, 앱 실행 시 배지를 초기화하는 코드가 없어 앱을 열어도 배지 숫자가 사라지지 않습니다. 사용자 경험 저하 및 심사 지적 사유가 됩니다.</p>
+          <p><strong>조치:</strong> <code>RootView</code>의 <code>.task</code> 블록에 <code>UNUserNotificationCenter.current().setBadgeCount(0)</code> 호출을 추가했습니다.</p>
+        </div>
+      </div>
+
+      <!-- A-3 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-high">High · 필수</span>
+          <div class="issue-title">A-3 &nbsp;친구 탭 — 미구현 기능 UI 노출 (Guideline 4.2)
+            <span class="file-tag">RankingView.swift</span>
+            <span class="status-fixed">✅ 수정 완료</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> 앱 어디에도 친구 추가 UI가 없으나 순위 탭에 "친구" 세그먼트가 노출됩니다. Apple 가이드라인 <strong>4.2 Minimum Functionality</strong>는 동작하지 않는 UI 요소를 명시적으로 금지하며, 심사 시 지적 사유가 됩니다.</p>
+          <p><strong>조치:</strong> 친구 탭 빈 상태 메시지를 "아직 친구가 없어요"에서 <strong>"친구 기능은 곧 출시될 예정이에요 🚧"</strong>로 변경하여 미완성임을 명확히 안내했습니다. 장기적으로 출시 전까지 해당 탭을 숨기거나 기능을 구현하는 것을 권장합니다.</p>
+        </div>
+      </div>
+
+      <!-- A-4 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-medium">Medium</span>
+          <div class="issue-title">A-4 &nbsp;개인정보 처리방침 URL 유효성 및 Privacy Nutrition Label 점검
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="status-manual">⚠️ 수동 확인 필요</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>확인 필요 항목:</strong></p>
+          <p>① <code>https://lively-mayonnaise-192.notion.site/naelm</code> — Notion 공개 링크가 실제로 접근 가능한지 확인하세요. 심사 중 접근 불가 시 반려 사유가 됩니다.</p>
+          <p>② App Store Connect Privacy Nutrition Label에 다음 데이터 수집 항목이 정확히 기재되어야 합니다: Sign in with Apple 이메일, CloudKit 동기화 학습 데이터(XP, 스트릭, 랭킹 점수), 피드백 이메일(<code>childevnote@gmail.com</code> 전송).</p>
+          <p>③ CloudKit 전체 랭킹에서 다른 사용자의 <code>userID</code>를 8자 prefix로 화면에 표시하는 것이 개인정보 정책과 부합하는지 검토하세요.</p>
+        </div>
+      </div>
+
+      <!-- A-5 -->
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">Low</span>
+          <div class="issue-title">A-5 &nbsp;구독 언급 문구가 있으나 IAP 구현 없음
+            <span class="file-tag">MyPageView.swift</span>
+            <span class="status-manual">⚠️ 수동 조치 권장</span>
+          </div>
+        </div>
+        <div class="issue-body">
+          <p><strong>문제:</strong> 계정 삭제 알림 메시지에 <em>"구독 정보"</em> 언급이 있으나 실제 In-App Purchase/구독 코드가 전혀 없습니다. 심사관이 미구현 기능 언급으로 판단할 수 있습니다.</p>
+          <p><strong>조치 방향:</strong> 구독 기능 출시 전까지 해당 문구를 제거하거나 <em>"학습 데이터"</em>로 대체하세요.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION 4: ADDITIONAL NOTES
+       ══════════════════════════════════════ -->
+  <section>
+    <div class="section-header">
+      <div class="section-icon" style="background:#FEF9C3">📝</div>
+      <div>
+        <div class="section-title">4. 추가 개선 권장 사항</div>
+      </div>
+    </div>
+
+    <div class="issue-list">
+
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">권장</span>
+          <div class="issue-title">단위 테스트 추가 — 핵심 순수 함수</div>
+        </div>
+        <div class="issue-body">
+          <p><code>NaelmTests.swift</code>가 비어 있습니다. <code>SpacedRepetitionService.calculate()</code>(SM-2 알고리즘)와 <code>GamificationService.level(fromTotalXP:)</code>(레벨 계산)은 순수 함수로 단위 테스트 작성이 용이합니다. 로직 변경 시 회귀 방지를 위해 최소 10개 이상의 테스트 케이스를 추가하는 것을 권장합니다.</p>
+        </div>
+      </div>
+
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">권장</span>
+          <div class="issue-title">MyPageView 906줄 — ViewModel 분리 검토</div>
+        </div>
+        <div class="issue-body">
+          <p><code>MyPageView.swift</code>는 906줄로 SwiftUI View의 권장 규모를 크게 초과합니다. <code>loadData()</code>, <code>updateTargetScore()</code>, <code>saveTimerSettings()</code> 등의 비즈니스 로직을 <code>@Observable MyPageViewModel</code>로 분리하면 테스트 가능성과 가독성이 크게 향상됩니다.</p>
+        </div>
+      </div>
+
+      <div class="issue">
+        <div class="issue-header">
+          <span class="badge badge-low">권장</span>
+          <div class="issue-title">Sign in with Apple authorization code 최초 로그인 시 저장</div>
+        </div>
+        <div class="issue-body">
+          <p>A-1 항목에서 언급한 완전한 토큰 취소를 위해, <code>handleSignInSuccess(authorization:)</code>에서 <code>credential.authorizationCode</code>를 Keychain에 안전하게 저장해야 합니다. 이 코드는 최초 Sign In 시에만 발급되며 이후 재사용이 불가능합니다.</p>
+        </div>
+        <div class="code-block"><span class="add">// AuthenticationManager.handleSignInSuccess() 내 추가
+if let authCodeData = credential.authorizationCode,
+   let authCode = String(data: authCodeData, encoding: .utf8) {
+    KeychainHelper.save(key: "apple_auth_code", value: authCode)
+}</span></div>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ══════════════════════════════════════
+       SECTION 5: CHANGE LOG
+       ══════════════════════════════════════ -->
+  <section>
+    <div class="section-header">
+      <div class="section-icon" style="background:#E0E7FF">📋</div>
+      <div>
+        <div class="section-title">5. 이번 세션 변경 내역 (Changelog)</div>
+      </div>
+    </div>
+
+    <div class="issue-list">
+      <div class="issue">
+        <div class="issue-body">
+          <table style="width:100%; border-collapse:collapse; font-size:0.87rem;">
+            <thead>
+              <tr style="background:#F0FDF4; text-align:left;">
+                <th style="padding:8px 12px; border-bottom:2px solid var(--border);">파일</th>
+                <th style="padding:8px 12px; border-bottom:2px solid var(--border);">변경 내용</th>
+                <th style="padding:8px 12px; border-bottom:2px solid var(--border);">관련 이슈</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>NaelmApp.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>dev_user_</code> 분기를 <code>#if DEBUG</code>로 래핑</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">S-1</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>NaelmApp.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>UserNotifications</code> import 추가, 앱 실행 시 <code>setBadgeCount(0)</code> 호출</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">A-2</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>MyPageView.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">타이머 설정 하드코딩 덮어쓰기 버그 수정 — 실제 저장값 반영</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">R-1</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>MyPageView.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>deleteUserData(userID:includeFriendships:)</code> 헬퍼 추출 (DRY)</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">R-2</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>MyPageView.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>AuthenticationServices</code> import 추가, 계정 삭제 시 Apple 토큰 취소 로그 및 분기 추가</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">A-1</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>GamificationService.swift</code></td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);"><code>DailySummary.weekdayShort</code> DateFormatter 캐싱 (<code>static let</code>)</td>
+                <td style="padding:8px 12px; border-bottom:1px solid var(--border);">R-3</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px;"><code>RankingView.swift</code></td>
+                <td style="padding:8px 12px;">친구 탭 빈 상태 메시지를 "곧 출시 예정" 안내로 변경</td>
+                <td style="padding:8px 12px;">A-3</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  Naelm Code Review Report &nbsp;·&nbsp; 2026-04-24 &nbsp;·&nbsp; GitHub Copilot
+</footer>
+
+</body>
+</html>
