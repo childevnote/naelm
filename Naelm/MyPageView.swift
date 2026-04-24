@@ -41,6 +41,8 @@ struct MyPageView: View {
 
     // 프로필 카드 투명도 조절용 상태 변수
     @State private var glowOpacity: Double = 1.0
+    /// 레벨 게이지 바 애니메이션 진행도
+    @State private var levelGaugeProgress: Double = 0.0
 
     // 응원 배너 (30개 - 매일 하나씩)
     private static let encouragements: [String] = [
@@ -261,6 +263,9 @@ struct MyPageView: View {
                             )
                     }
 
+                    // ── 레벨 & 경험치 게이지 ──────────────────────────
+                    levelGaugeRow
+
                 // 스탯 카드들
                 HStack(spacing: 12) {
                     statCard(icon: "target", label: "목표", value: targetLabel, color: AppPalette.forest)
@@ -305,6 +310,75 @@ struct MyPageView: View {
                     )
             }
         )
+    }
+
+    // MARK: - Level Gauge Row
+
+    private var levelGaugeRow: some View {
+        let lv = GamificationService.level(fromTotalXP: totalXP)
+        let progress = GamificationService.levelProgress(fromTotalXP: totalXP)
+        let xpToNext = GamificationService.xpToNextLevel(fromTotalXP: totalXP)
+
+        return HStack(spacing: 10) {
+            // 레벨 뱃지
+            Text("Lv.\(lv)")
+                .font(.pretendardBold(14))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+
+
+            // 게이지 바
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    // 배경
+                    Capsule()
+                        .fill(AppPalette.forest.opacity(0.12))
+                        .frame(height: 18)
+                        .colorMultiply(AppPalette.forest.opacity(0.12))
+
+                    // 채워진 바
+                    Capsule()
+                        .fill(
+                            LinearGradient(
+                                colors: [AppPalette.forest.opacity(0.75), AppPalette.leaf],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: geo.size.width * levelGaugeProgress, height: 18)
+                        .animation(.easeOut(duration: 1.0), value: levelGaugeProgress)
+
+                    // 총 XP 텍스트 (반투명 오버레이)
+                    HStack {
+                        Spacer()
+                        Text("\(totalXP) XP · 다음 레벨까지 \(xpToNext) XP")
+                            .font(.pretendardMedium(10))
+                            .foregroundStyle(.white.opacity(0.75))
+                        Spacer()
+                    }
+                }
+                .frame(height: 18)
+                .clipShape(Capsule())
+            }
+            .frame(height: 18)
+        }
+        .padding(.horizontal, 4)
+        .onAppear {
+            // 첫 로딩 시 게이지 차오르는 애니메이션
+            levelGaugeProgress = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                withAnimation(.easeOut(duration: 1.0)) {
+                    levelGaugeProgress = progress
+                }
+            }
+        }
+        .onChange(of: totalXP) { _, _ in
+            let newProgress = GamificationService.levelProgress(fromTotalXP: totalXP)
+            withAnimation(.easeOut(duration: 0.8)) {
+                levelGaugeProgress = newProgress
+            }
+        }
     }
 
     private func statCard(icon: String, label: String, value: String, color: Color) -> some View {

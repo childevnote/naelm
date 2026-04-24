@@ -150,10 +150,17 @@ struct VocabularyStudyView: View {
                 viewModel.stopTimer()
             }
             .alert("학습을 종료할까요?", isPresented: $showLeaveAlert) {
-                Button("계속 학습", role: .cancel) {}
+                Button("계속 학습", role: .cancel) {
+                    if isSessionActive { viewModel.resumeTimer() }
+                }
                 Button("나가기", role: .destructive) { dismiss() }
             } message: {
                 Text("지금까지 학습한 내용은 저장되지 않습니다.\n저장한 단어(★)는 그대로 유지됩니다.")
+            }
+            .onChange(of: showLeaveAlert) { _, isShowing in
+                if isShowing {
+                    viewModel.pauseTimer()
+                }
             }
         }
     }

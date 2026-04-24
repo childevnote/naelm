@@ -602,6 +602,8 @@ struct VocabReviewContent: View {
     @State private var currentRoundStudyWords: [Vocabulary] = []
     @State private var remainingCount: Int = 0
     @State private var bonusXPAwarded: Bool = false
+    /// 이번 세션에서 "알고있어요"로 스와이프된 단어 ID 집합
+    @State private var knownWordIDs: Set<String> = []
 
     var body: some View {
         ZStack {
@@ -648,7 +650,9 @@ struct VocabReviewContent: View {
                             let knewIt = direction == .left
                             sessionManager.recordVocabularySwipe(vocabulary: vocab, knewIt: knewIt, context: modelContext)
                             remainingCount = max(0, remainingCount - 1)
-                            if !knewIt {
+                            if knewIt {
+                                knownWordIDs.insert(vocab.wordID)
+                            } else {
                                 currentRoundStudyWords.append(vocab)
                             }
                         },
@@ -708,6 +712,8 @@ struct VocabReviewContent: View {
     private func handleRoundComplete() {
         if currentRoundStudyWords.isEmpty {
             sessionManager.endSession(context: modelContext)
+            // 이번 세션에서 "알고있어요"로 처리한 단어의 markedForReview 플래그 초기화
+            clearReviewFlagForKnownWords()
             awardVocabReviewBonusXP()
             isComplete = true
             HapticManager.shared.playCelebration()
@@ -717,6 +723,21 @@ struct VocabReviewContent: View {
             remainingCount = reviewWords.count
             cardStackID = UUID()
         }
+    }
+
+    /// "알고있어요" 처리된 단어의 markedForReview를 false로 초기화합니다.
+    private func clearReviewFlagForKnownWords() {
+        guard let userID = authManager.userID, !knownWordIDs.isEmpty else { return }
+        let predicate = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.itemType == "vocabulary" && $0.markedForReview == true
+        }
+        let progresses = (try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: predicate))) ?? []
+        for progress in progresses {
+            if let wordID = progress.vocabulary?.wordID, knownWordIDs.contains(wordID) {
+                progress.markedForReview = false
+            }
+        }
+        try? modelContext.save()
     }
 
     private func awardVocabReviewBonusXP() {
