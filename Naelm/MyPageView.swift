@@ -101,7 +101,10 @@ struct MyPageView: View {
             .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("마이페이지")
             .navigationBarTitleDisplayMode(.inline)
-            .onAppear { loadData() }
+            .onAppear {
+                // 첫 렌더링 완료 후 무거운 데이터 로드 → 진입 딜레이 제거
+                DispatchQueue.main.async { loadData() }
+            }
             .alert("전체 초기화", isPresented: $showResetAlert) {
                 Button("초기화", role: .destructive) { resetOnboarding() }
                 Button("취소", role: .cancel) {}
@@ -223,7 +226,10 @@ struct MyPageView: View {
                     .opacity(glowOpacity) // 여기서 도형 전체의 밝기를 조절
                     .animation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true), value: glowOpacity)
                     .onAppear {
-                        glowOpacity = 0.15
+                        // 글로우 애니메이션도 첫 렌더 후 시작하여 진입 시 버벅임 방지
+                        DispatchQueue.main.async {
+                            glowOpacity = 0.15
+                        }
                     }
 
                 Circle()
@@ -364,9 +370,9 @@ struct MyPageView: View {
         }
         .padding(.horizontal, 4)
         .onAppear {
-            // 첫 로딩 시 게이지 차오르는 애니메이션
+            // 게이지 애니메이션: 첫 렌더 후 차오르는 효과
             levelGaugeProgress = 0
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            DispatchQueue.main.async {
                 withAnimation(.easeOut(duration: 1.0)) {
                     levelGaugeProgress = progress
                 }

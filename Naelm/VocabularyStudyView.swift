@@ -325,18 +325,22 @@ struct VocabularyStudyView: View {
         guard let userID = authManager.userID else { return }
         let wordID = vocab.wordID
         if bookmarkedIDs.contains(wordID) {
-            // 제거
-            let predicate = #Predicate<BookmarkedWord> { $0.userID == userID && $0.wordID == wordID }
-            if let bm = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: predicate)).first {
-                modelContext.delete(bm)
-            }
+            // UI 즉시 반영 → DB 작업은 다음 런루프에서 비동기 처리
             bookmarkedIDs.remove(wordID)
+            Task { @MainActor in
+                let predicate = #Predicate<BookmarkedWord> { $0.userID == userID && $0.wordID == wordID }
+                if let bm = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: predicate)).first {
+                    modelContext.delete(bm)
+                }
+            }
         } else {
-            // 추가
-            let bm = BookmarkedWord(userID: userID, wordID: wordID, vocabulary: vocab)
-            modelContext.insert(bm)
+            // UI 즉시 반영 → DB 작업은 다음 런루프에서 비동기 처리
             bookmarkedIDs.insert(wordID)
             HapticManager.shared.playBookmark()
+            Task { @MainActor in
+                let bm = BookmarkedWord(userID: userID, wordID: wordID, vocabulary: vocab)
+                modelContext.insert(bm)
+            }
         }
     }
 }

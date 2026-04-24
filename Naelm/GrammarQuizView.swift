@@ -37,6 +37,8 @@ struct GrammarQuizView: View {
     @State private var grammarTimerDurationOverride: Double = 15.0
     @State private var lessonResult: LessonResult? = nil
     @State private var showLessonComplete = false
+    // 문법 퀴즈 완주 날짜 저장 (DashboardView의 grammarCompleted 연동)
+    @AppStorage("lastGrammarQuizCompletedDate") private var lastGrammarQuizCompletedDateRaw: Double = 0
     // 정답/오답 애니메이션
     @State private var answerBounceScale: CGFloat = 1.0
     @State private var answerShakeOffset: CGFloat = 0
@@ -524,6 +526,8 @@ struct GrammarQuizView: View {
 
     private func buildAndShowResult() {
         guard let userID = authManager.userID else { dismiss(); return }
+        // 퀴즈 완주 날짜 저장 → DashboardView.grammarCompleted를 true로 만듦
+        lastGrammarQuizCompletedDateRaw = Date().timeIntervalSince1970
         let xp = sessionManager.stats.xpEarned
         let streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         let activity = GamificationService.todayActivity(userID: userID, context: modelContext)

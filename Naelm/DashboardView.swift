@@ -36,8 +36,12 @@ struct DashboardView: View {
     @State private var selectedWeekDay: DailySummary? = nil
     @State private var showVocabCompleteAlert = false
     @State private var showGrammarCompleteAlert = false
+    @State private var showNoReviewAlert = false
 
     private let dailyGoal = LearningSessionManager.defaultDailyGoalXP
+
+    // 문법 퀴즈 완주 날짜 (AppStorage — userID별로 저장)
+    @AppStorage("lastGrammarQuizCompletedDate") private var lastGrammarQuizCompletedDateRaw: Double = 0
 
     var body: some View {
         NavigationStack {
@@ -52,6 +56,7 @@ struct DashboardView: View {
                     weeklyChartSection
                 }
                 .padding(16)
+                .padding(.top, 100)
                 .padding(.bottom, 16)
             }
             .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
@@ -114,6 +119,11 @@ struct DashboardView: View {
             } message: {
                 Text("오늘의 학습이 완료되었습니다.")
             }
+            .alert("복습할 항목 없음", isPresented: $showNoReviewAlert) {
+                Button("확인", role: .cancel) {}
+            } message: {
+                Text("현재 복습할 단어나 문법이 없습니다. 학습을 먼저 진행해 보세요!")
+            }
         }
     }
 
@@ -160,10 +170,10 @@ struct DashboardView: View {
             Image("NaelmHome")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 120)
+                .frame(width: 120, height: 120)
                 .shadow(color: .black.opacity(0.18), radius: 10, x: 2, y: 5)
                 // 배너 위쪽에 걸터앉은 형태를 위해 오프셋 추가 (에셋 여백에 따라 조정 필요)
-                .offset(x: 10, y: -70)
+                .offset(x: 10, y: -65)
         }
     }
 
@@ -250,7 +260,12 @@ struct DashboardView: View {
     // MARK: - Today Learning Section
 
     private var vocabCompleted: Bool { todayWordsStudied >= dailyVocabGoal }
-    private var grammarCompleted: Bool { todayGrammarStudied >= dailyGrammarGoal }
+    /// 문법 퀴즈를 오늘 완주했으면 완료
+    private var grammarCompleted: Bool {
+        guard lastGrammarQuizCompletedDateRaw > 0 else { return false }
+        let lastDate = Date(timeIntervalSince1970: lastGrammarQuizCompletedDateRaw)
+        return Calendar.current.isDateInToday(lastDate)
+    }
 
     private var todayLearningSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -266,8 +281,12 @@ struct DashboardView: View {
 
             let totalDue = dueVocabCount + dueGrammarCount
             Button {
-                showReviewSession = true
-                HapticManager.shared.playTap()
+                if totalDue == 0 {
+                    showNoReviewAlert = true
+                } else {
+                    showReviewSession = true
+                    HapticManager.shared.playTap()
+                }
             } label: {
                 todayTaskRow(
                     icon: "arrow.clockwise", label: "복습 대기",
@@ -545,6 +564,8 @@ struct ReviewSessionView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     @State private var selectedMode: ReviewMode? = nil
+    @State private var dueVocabCount: Int = 0
+    @State private var dueGrammarCount: Int = 0
 
     enum ReviewMode { case vocabulary, grammar }
 
@@ -566,6 +587,7 @@ struct ReviewSessionView: View {
         .navigationTitle("복습")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .onAppear { loadDueCounts() }
     }
 
     private var reviewChoiceView: some View {
@@ -578,61 +600,105 @@ struct ReviewSessionView: View {
                 .font(.title3).fontWeight(.bold)
 
             VStack(spacing: 12) {
+                // 단어 복습 버튼
                 Button { selectedMode = .vocabulary } label: {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(AppPalette.forest.opacity(0.18))
+                                .fill(AppPalette.forest.opacity(dueVocabCount > 0 ? 0.18 : 0.08))
                                 .frame(width: 40, height: 40)
                             Image(systemName: "character.book.closed")
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(AppPalette.forest)
+                                .foregroundStyle(dueVocabCount > 0 ? AppPalette.forest : Color.secondary)
                         }
-                        Text("단어 복습")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("단어 복습")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(dueVocabCount > 0 ? .primary : .secondary)
+                            if dueVocabCount == 0 {
+                                Text("복습할 단어 없음")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(dueVocabCount)개 대기 중")
+                                    .font(.caption)
+                                    .foregroundStyle(AppPalette.forest)
+                            }
+                        }
                         Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.tertiary)
+                        if dueVocabCount > 0 {
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(AppPalette.forest.opacity(0.05))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.forest.opacity(0.12), lineWidth: 1))
+                            .fill(AppPalette.forest.opacity(dueVocabCount > 0 ? 0.05 : 0.02))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.forest.opacity(dueVocabCount > 0 ? 0.12 : 0.06), lineWidth: 1))
                     )
+                    .opacity(dueVocabCount > 0 ? 1.0 : 0.5)
                 }
                 .buttonStyle(.plain)
+                .disabled(dueVocabCount == 0)
 
+                // 문법 오답 복습 버튼
                 Button { selectedMode = .grammar } label: {
                     HStack(spacing: 12) {
                         ZStack {
                             Circle()
-                                .fill(AppPalette.grammarBrown.opacity(0.18))
+                                .fill(AppPalette.grammarBrown.opacity(dueGrammarCount > 0 ? 0.18 : 0.08))
                                 .frame(width: 40, height: 40)
                             Image(systemName: "text.book.closed")
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundStyle(AppPalette.grammarBrown)
+                                .foregroundStyle(dueGrammarCount > 0 ? AppPalette.grammarBrown : Color.secondary)
                         }
-                        Text("문법 오답 복습")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.primary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("문법 오답 복습")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(dueGrammarCount > 0 ? .primary : .secondary)
+                            if dueGrammarCount == 0 {
+                                Text("복습할 문법 없음")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(dueGrammarCount)개 대기 중")
+                                    .font(.caption)
+                                    .foregroundStyle(AppPalette.grammarBrown)
+                            }
+                        }
                         Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.tertiary)
+                        if dueGrammarCount > 0 {
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                     .padding(14)
                     .background(
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(AppPalette.grammarBrown.opacity(0.05))
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.grammarBrown.opacity(0.12), lineWidth: 1))
+                            .fill(AppPalette.grammarBrown.opacity(dueGrammarCount > 0 ? 0.05 : 0.02))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(AppPalette.grammarBrown.opacity(dueGrammarCount > 0 ? 0.12 : 0.06), lineWidth: 1))
                     )
+                    .opacity(dueGrammarCount > 0 ? 1.0 : 0.5)
                 }
                 .buttonStyle(.plain)
+                .disabled(dueGrammarCount == 0)
             }
             .padding(.horizontal, 32)
             Spacer()
         }
+    }
+
+    private func loadDueCounts() {
+        guard let userID = authManager.userID else { return }
+        let vocabPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "vocabulary"
+        }
+        dueVocabCount = (try? modelContext.fetchCount(FetchDescriptor<LearningProgress>(predicate: vocabPred))) ?? 0
+        let grammarPred = #Predicate<LearningProgress> {
+            $0.userID == userID && $0.markedForReview == true && $0.isMastered == false && $0.itemType == "grammar"
+        }
+        dueGrammarCount = (try? modelContext.fetchCount(FetchDescriptor<LearningProgress>(predicate: grammarPred))) ?? 0
     }
 }
 

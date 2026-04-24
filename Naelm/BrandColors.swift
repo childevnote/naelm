@@ -146,8 +146,9 @@ struct AppGradient {
         )
         : LinearGradient(
             colors: [
-                AppPalette.forest.opacity(0.06),
-                AppPalette.leaf.opacity(0.04),
+                AppPalette.forest.opacity(0.28),
+                AppPalette.leaf.opacity(0.18),
+                AppPalette.mint.opacity(0.10),
                 Color.white
             ],
             startPoint: .topLeading, endPoint: .bottomTrailing
