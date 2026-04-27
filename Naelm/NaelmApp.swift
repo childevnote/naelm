@@ -452,6 +452,7 @@ struct SignInView: View {
 
 struct MainDashboardView: View {
     @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.modelContext) private var modelContext
     @State private var selectedTab: Int = 0
 
     var body: some View {
@@ -478,6 +479,15 @@ struct MainDashboardView: View {
                     .tag(3)
             }
             .tint(AppPalette.forest)
+        }
+        .task {
+            // 앱 실행 시 CloudKit Public Profile 자동 업데이트
+            if let userID = authManager.userID {
+                FriendSyncService.shared.syncPublicProfileIfNeeded(
+                    userID: userID,
+                    context: modelContext
+                )
+            }
         }
     }
 }

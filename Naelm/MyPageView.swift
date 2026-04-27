@@ -9,6 +9,13 @@ import SwiftUI
 import SwiftData
 import AuthenticationServices
 
+// MARK: - MyPageTab
+
+enum MyPageTab: String, CaseIterable {
+    case profile = "내 정보"
+    case friends = "친구"
+}
+
 struct MyPageView: View {
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +24,9 @@ struct MyPageView: View {
     // ViewModel — 데이터/로직 전담
     @State private var viewModel: MyPageViewModel?
 
+    // 탭 선택
+    @State private var selectedMyPageTab: MyPageTab = .profile
+
     // UI 전용 상태
     @State private var showTargetScorePicker: Bool = false
     @State private var selectedTargetScore: Int = 700
@@ -24,6 +34,9 @@ struct MyPageView: View {
     @State private var levelGaugeProgress: Double = 0.0
     @State private var marqueeOffset: CGFloat = 400
     @State private var marqueeTextWidth: CGFloat = 300
+
+    /// 닉네임 미설정 유저 → 닉네임 설정 Sheet 표시
+    @State private var showNicknameSetup: Bool = false
 
     // ViewModel에서 읽는 편의 프로퍼티
     private var profile: UserProfile? { viewModel?.profile }
@@ -74,14 +87,35 @@ struct MyPageView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // ── 최상단 인사 헤더 ──────────────────────────────
-                    userGreetingHeader
-                    profileCard
-                    goalSection
-                    quizCategoryChart
-                    timerSettings
+                    // ── 탭 선택 Picker ────────────────────────────────
+                    Picker("", selection: $selectedMyPageTab) {
+                        ForEach(MyPageTab.allCases, id: \.self) { tab in
+                            Text(tab.rawValue).tag(tab)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 4)
+
+                    if selectedMyPageTab == .profile {
+                        // ── 내 정보 탭 콘텐츠 ──────────────────────────
+                        userGreetingHeader
+                        profileCard
+                        goalSection
+                        quizCategoryChart
+                        timerSettings
+                    } else {
+                        // ── 친구 탭 콘텐츠 ────────────────────────────
+                        FriendTabView(showNicknameSetup: $showNicknameSetup)
+                            .environment(authManager)
+                            .onAppear {
+                                // 친구 탭 진입 시 닉네임 미설정 확인
+                                checkNicknameSetup()
+                            }
+                    }
                 }
-                .padding(16)
+                .padding(.horizontal, selectedMyPageTab == .profile ? 16 : 0)
+                .padding(.bottom, 16)
             }
             .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())
             .navigationTitle("마이페이지")
@@ -93,6 +127,25 @@ struct MyPageView: View {
             .sheet(isPresented: $showTargetScorePicker) {
                 targetScorePickerSheet
             }
+            .sheet(isPresented: $showNicknameSetup) {
+                NicknameSetupView { _ in
+                    showNicknameSetup = false
+                }
+                .environment(authManager)
+                .presentationDetents([.medium, .large])
+            }
+        }
+    }
+
+    /// 친구 탭 진입 시 닉네임 설정 여부 확인
+    private func checkNicknameSetup() {
+        guard let myID = authManager.userID,
+              !myID.hasPrefix("guest_") else { return }
+        let predicate = #Predicate<UserProfile> { $0.userID == myID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        if let profile = try? modelContext.fetch(descriptor).first,
+           profile.nickname.isEmpty {
+            showNicknameSetup = true
         }
     }
 

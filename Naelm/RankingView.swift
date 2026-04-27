@@ -117,22 +117,30 @@ struct RankingView: View {
                     let ranking = selectedTab == .global ? globalRanking : friendRanking
                     if ranking.isEmpty {
                         VStack(spacing: 12) {
-                            Image(systemName: selectedTab == .friends ? "person.2" : "chart.bar")
+                            Image(systemName: selectedTab == .friends ? "person.2.slash" : "chart.bar")
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
-                            Text(selectedTab == .friends ? "친구 기능은 곧 출시될 예정이에요 🚧" : "이번 달 데이터가 없어요")
+                            Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
                                 .font(.subheadline).foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             if selectedTab == .friends {
-                                Text("업데이트를 기대해 주세요!")
+                                Text("마이페이지 → 친구 탭에서 친구를 추가해보세요")
                                     .font(.caption).foregroundStyle(.tertiary)
+                                    .multilineTextAlignment(.center)
                             }
                         }
                         .padding(.top, 60)
                     } else {
                         LazyVStack(spacing: 8) {
                             ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
-                                rankRow(rank: index + 1, score: score)
+                                if selectedTab == .friends, let friendship = fetchFriendship(for: score.userID) {
+                                    NavigationLink(destination: FriendDetailView(friendship: friendship)) {
+                                        rankRow(rank: index + 1, score: score)
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    rankRow(rank: index + 1, score: score)
+                                }
                             }
                         }
                     }
@@ -296,8 +304,42 @@ struct RankingView: View {
             $0.userID == userID && $0.isFriend == true
         }
         let friendDescriptor = FetchDescriptor<Friendship>(predicate: friendPredicate)
-        let friendIDs = Set((try? modelContext.fetch(friendDescriptor))?.map(\.friendID) ?? [])
+        let friendships = (try? modelContext.fetch(friendDescriptor)) ?? []
+        let friendIDs = Set(friendships.map(\.friendID))
 
-        friendRanking = globalRanking.filter { friendIDs.contains($0.userID) || $0.userID == userID }
+        // globalRanking에서 친구 + 나 필터링
+        let localFriendRanking = globalRanking.filter { friendIDs.contains($0.userID) || $0.userID == userID }
+        friendRanking = localFriendRanking
+
+        // globalRanking에 없는 친구는 CloudKit에서 보완
+        let localFriendUserIDs = Set(localFriendRanking.map(\.userID))
+        let missingFriendIDs = friendIDs.subtracting(localFriendUserIDs)
+
+        if !missingFriendIDs.isEmpty {
+            Task {
+                do {
+                    let infos = try await FriendService.shared.fetchPublicProfiles(userIDs: Array(missingFriendIDs))
+                    let month = RankingService.currentMonth
+                    for info in infos {
+                        // 가상 MonthlyScore 생성 (로컬에 없는 친구)
+                        let score = MonthlyScore(userID: info.userID, month: month, score: info.monthlyXP)
+                        friendRanking.append(score)
+                    }
+                    friendRanking.sort { $0.score > $1.score }
+                }
+                // 에러 무시
+            }
+        }
+    }
+
+    // MARK: - Friendship 조회 헬퍼
+
+    private func fetchFriendship(for friendUserID: String) -> Friendship? {
+        guard let myID = authManager.userID else { return nil }
+        let predicate = #Predicate<Friendship> {
+            $0.userID == myID && $0.friendID == friendUserID
+        }
+        let descriptor = FetchDescriptor<Friendship>(predicate: predicate)
+        return try? modelContext.fetch(descriptor).first
     }
 }

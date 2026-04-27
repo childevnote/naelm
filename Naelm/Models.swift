@@ -127,6 +127,12 @@ final class UserProfile {
     /// 프로필 생성일
     var createdAt: Date = Date()
 
+    /// 앱 내 표시 닉네임 (친구 검색 및 식별에 사용)
+    var nickname: String = ""
+
+    /// 공개 프로필 등록 완료 여부 (CloudKit Public DB 등록 여부)
+    var isPublicProfileRegistered: Bool = false
+
     init(userID: String, targetScore: Int = 700) {
         self.userID = userID
         self.targetScore = targetScore
@@ -500,6 +506,18 @@ final class Friendship {
     /// 친구 추가 여부
     var isFriend: Bool = false
 
+    /// 친구 요청 대기 상태 (true = 수락 대기 중)
+    var isPending: Bool = false
+
+    /// 내가 보낸 요청인지 여부 (true = 내가 요청함, false = 상대방이 요청함)
+    var requestedByMe: Bool = true
+
+    /// 캐시된 친구 닉네임 (조회 성능 최적화용)
+    var friendNickname: String = ""
+
+    /// CloudKit Public DB의 FriendRequest 레코드 ID (요청 처리 시 사용)
+    var cloudRequestRecordID: String = ""
+
     // ── 메타 ────────────────────────────────
     var createdAt: Date = Date()
 
@@ -508,12 +526,20 @@ final class Friendship {
         userID: String,
         friendID: String,
         isBlocked: Bool = false,
-        isFriend: Bool = false
+        isFriend: Bool = false,
+        isPending: Bool = false,
+        requestedByMe: Bool = true,
+        friendNickname: String = "",
+        cloudRequestRecordID: String = ""
     ) {
         self.userID = userID
         self.friendID = friendID
         self.isBlocked = isBlocked
         self.isFriend = isFriend
+        self.isPending = isPending
+        self.requestedByMe = requestedByMe
+        self.friendNickname = friendNickname
+        self.cloudRequestRecordID = cloudRequestRecordID
         self.createdAt = Date()
     }
 }

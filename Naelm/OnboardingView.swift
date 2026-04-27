@@ -31,7 +31,7 @@ struct OnboardingView: View {
     @State private var timer: Timer? = nil
 
     enum OnboardingStep {
-        case targetScore, placementIntro, placementTest, result
+        case targetScore, placementIntro, placementTest, result, nickname
     }
 
     var body: some View {
@@ -48,6 +48,11 @@ struct OnboardingView: View {
                 placementTestView
             case .result:
                 resultView
+            case .nickname:
+                NicknameSetupView { _ in
+                    finishOnboarding(level: estimatedLevel)
+                }
+                .environment(authManager)
             }
         }
     }
@@ -162,8 +167,6 @@ struct OnboardingView: View {
     }
 
     // MARK: - Step 3: Placement Test
-
-    private var placementTestView: some View {
         VStack(spacing: 16) {
             // Progress
             ProgressView(value: Double(currentQ), total: Double(placementQuestions.count))
@@ -297,7 +300,7 @@ struct OnboardingView: View {
             Spacer()
 
             Button {
-                finishOnboarding(level: estimatedLevel)
+                saveResultAndGoToNickname()
             } label: {
                 Text("학습 시작하기")
                     .font(.headline).frame(maxWidth: 280)
@@ -552,6 +555,32 @@ struct OnboardingView: View {
 
     // MARK: - Finish
 
+    /// 결과 화면에서 닉네임 설정 단계로 이동하기 전에 레벨을 저장합니다.
+    private func saveResultAndGoToNickname() {
+        guard let userID = authManager.userID else { return }
+
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        let profile: UserProfile
+        if let existing = try? modelContext.fetch(descriptor).first {
+            profile = existing
+        } else {
+            profile = UserProfile(userID: userID)
+            modelContext.insert(profile)
+        }
+
+        profile.targetScore = selectedTarget
+        profile.estimatedLevel = estimatedLevel
+        profile.hasCompletedPlacementTest = true
+
+        let gap = max(0, selectedTarget - estimatedLevel * 100 - 400)
+        profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
+        profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
+
+        try? modelContext.save()
+        step = .nickname
+    }
+
     private func finishOnboarding(level: Int) {
         guard let userID = authManager.userID else { return }
 
@@ -568,7 +597,7 @@ struct OnboardingView: View {
         profile.targetScore = selectedTarget
         profile.estimatedLevel = level
         profile.hasCompletedOnboarding = true
-        profile.hasCompletedPlacementTest = (step == .result)
+        profile.hasCompletedPlacementTest = (step == .result || step == .nickname)
 
         let gap = max(0, selectedTarget - level * 100 - 400)
         profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
