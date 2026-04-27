@@ -10,6 +10,7 @@
 
 import SwiftUI
 import SwiftData
+import os
 
 // MARK: - Ranking Score Calculator
 
@@ -93,6 +94,12 @@ struct RankingView: View {
     @State private var myScore: MonthlyScore?
     @State private var myRank: Int = 0
 
+    /// 친구 탭 행 렌더링 시 O(1) 조회를 위한 캐시 (friendUserID → Friendship)
+    @State private var friendshipCache: [String: Friendship] = [:]
+
+    /// 진행 중인 CloudKit 보완 Task (재진입 시 취소 후 재시작)
+    @State private var cloudKitSupplementTask: Task<Void, Never>? = nil
+
     enum RankingTab: String, CaseIterable {
         case global = "전체"
         case friends = "친구"
@@ -117,22 +124,30 @@ struct RankingView: View {
                     let ranking = selectedTab == .global ? globalRanking : friendRanking
                     if ranking.isEmpty {
                         VStack(spacing: 12) {
-                            Image(systemName: selectedTab == .friends ? "person.2" : "chart.bar")
+                            Image(systemName: selectedTab == .friends ? "person.2.slash" : "chart.bar")
                                 .font(.system(size: 48))
                                 .foregroundStyle(.secondary)
-                            Text(selectedTab == .friends ? "친구 기능은 곧 출시될 예정이에요 🚧" : "이번 달 데이터가 없어요")
+                            Text(selectedTab == .friends ? "아직 친구가 없어요" : "이번 달 데이터가 없어요")
                                 .font(.subheadline).foregroundStyle(.secondary)
                                 .multilineTextAlignment(.center)
                             if selectedTab == .friends {
-                                Text("업데이트를 기대해 주세요!")
+                                Text("마이페이지 → 친구 탭에서 친구를 추가해보세요")
                                     .font(.caption).foregroundStyle(.tertiary)
+                                    .multilineTextAlignment(.center)
                             }
                         }
                         .padding(.top, 60)
                     } else {
                         LazyVStack(spacing: 8) {
                             ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
-                                rankRow(rank: index + 1, score: score)
+                                if selectedTab == .friends, let friendship = friendshipCache[score.userID] {
+                                    NavigationLink(destination: FriendDetailView(friendship: friendship)) {
+                                        rankRow(rank: index + 1, score: score)
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    rankRow(rank: index + 1, score: score)
+                                }
                             }
                         }
                     }
@@ -296,8 +311,48 @@ struct RankingView: View {
             $0.userID == userID && $0.isFriend == true
         }
         let friendDescriptor = FetchDescriptor<Friendship>(predicate: friendPredicate)
-        let friendIDs = Set((try? modelContext.fetch(friendDescriptor))?.map(\.friendID) ?? [])
+        let friendships = (try? modelContext.fetch(friendDescriptor)) ?? []
+        let friendIDs = Set(friendships.map(\.friendID))
 
-        friendRanking = globalRanking.filter { friendIDs.contains($0.userID) || $0.userID == userID }
+        // 친구 캐시 구축 (O(1) 조회를 위해 친구 탭 렌더링 시 사용)
+        friendshipCache = Dictionary(
+            uniqueKeysWithValues: friendships.map { ($0.friendID, $0) }
+        )
+
+        // globalRanking에서 친구 + 나 필터링
+        let localFriendRanking = globalRanking.filter { friendIDs.contains($0.userID) || $0.userID == userID }
+        friendRanking = localFriendRanking
+
+        // globalRanking에 없는 친구는 CloudKit에서 보완
+        // 이전 Task를 취소하여 중복/오염된 append를 방지
+        let localFriendUserIDs = Set(localFriendRanking.map(\.userID))
+        let missingFriendIDs = friendIDs.subtracting(localFriendUserIDs)
+
+        cloudKitSupplementTask?.cancel()
+        guard !missingFriendIDs.isEmpty else { return }
+
+        cloudKitSupplementTask = Task {
+            do {
+                let infos = try await FriendService.shared.fetchPublicProfiles(userIDs: Array(missingFriendIDs))
+                guard !Task.isCancelled else { return }
+
+                let month = RankingService.currentMonth
+                for info in infos {
+                    // 가상 MonthlyScore 생성 (로컬에 없는 친구)
+                    let score = MonthlyScore(userID: info.userID, month: month, score: info.monthlyXP)
+                    friendRanking.append(score)
+                }
+                friendRanking.sort { $0.score > $1.score }
+            } catch {
+                AppLogger.friend.warning("Failed to fetch missing friend profiles for ranking: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // MARK: - Friendship 캐시 조회 헬퍼 (refreshRanking에서 미리 로드한 캐시 사용)
+
+    private func fetchFriendship(for friendUserID: String) -> Friendship? {
+        friendshipCache[friendUserID]
     }
 }
+

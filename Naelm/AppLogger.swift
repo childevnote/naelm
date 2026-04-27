@@ -19,4 +19,5 @@ enum AppLogger {
     static let session  = Logger(subsystem: subsystem, category: "Session")
     static let srs      = Logger(subsystem: subsystem, category: "SRS")
     static let keychain = Logger(subsystem: subsystem, category: "Keychain")
+    static let friend   = Logger(subsystem: subsystem, category: "Friend")
 }
