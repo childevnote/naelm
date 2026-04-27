@@ -11,6 +11,7 @@
 
 import Foundation
 import SwiftData
+import os
 
 // MARK: - FriendSyncService
 
@@ -60,8 +61,10 @@ final class FriendSyncService {
                     streak: streak,
                     weeklyXP: weeklyXP
                 )
+                AppLogger.friend.info("Public profile synced")
+            } catch {
+                AppLogger.friend.warning("Failed to sync public profile: \(error.localizedDescription)")
             }
-            // 에러 무시 (백그라운드 작업)
         }
     }
 

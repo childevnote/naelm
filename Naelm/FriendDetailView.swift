@@ -208,7 +208,7 @@ struct FriendDetailView: View {
                             Spacer()
                             Text("다음 레벨까지 \(xpToNext) XP")
                                 .font(.pretendardMedium(10))
-                                .foregroundStyle(.opacity(0.75))
+                                .foregroundStyle(.secondary.opacity(0.75))
                             Spacer()
                         }
                     }

@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import os
 
 // MARK: - FriendRequestListView
 
@@ -198,8 +199,9 @@ struct FriendRequestListView: View {
 
                 // 목록에서 제거
                 requests.removeAll { $0.recordName == request.recordName }
+            } catch {
+                AppLogger.friend.warning("Failed to accept friend request: \(error.localizedDescription)")
             }
-            // 에러 무시
         }
     }
 
@@ -227,8 +229,9 @@ struct FriendRequestListView: View {
 
                 // 목록에서 제거
                 requests.removeAll { $0.recordName == request.recordName }
+            } catch {
+                AppLogger.friend.warning("Failed to decline friend request: \(error.localizedDescription)")
             }
-            // 에러 무시
         }
     }
 

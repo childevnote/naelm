@@ -70,12 +70,11 @@ struct FriendSearchView: View {
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 8) {
-                                ForEach(searchResults) { info in
+                                ForEach(searchResults.filter { $0.userID != authManager.userID }) { info in
                                     SearchResultRowView(
-                                        info: info,
-                                        myUserID: authManager.userID ?? "",
                                         isAlreadyFriend: existingFriendIDs.contains(info.userID),
                                         isPending: pendingRequestIDs.contains(info.userID),
+                                        info: info,
                                         onAddFriend: { addFriend(info) }
                                     )
                                 }
@@ -223,10 +222,9 @@ struct FriendSearchView: View {
 // MARK: - SearchResultRowView
 
 private struct SearchResultRowView: View {
-    let info: PublicUserInfo
-    let myUserID: String
     let isAlreadyFriend: Bool
     let isPending: Bool
+    let info: PublicUserInfo
     let onAddFriend: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -240,89 +238,85 @@ private struct SearchResultRowView: View {
     }
 
     var body: some View {
-        // 나 자신은 표시하지 않음
-        if info.userID == myUserID { EmptyView() }
-        else {
-            HStack(spacing: 12) {
-                // 아바타
-                ZStack {
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [AppPalette.forest, AppPalette.leaf],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
+        HStack(spacing: 12) {
+            // 아바타
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest, AppPalette.leaf],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
                         )
-                        .frame(width: 44, height: 44)
-                    Text(avatarInitial)
-                        .font(.pretendardBold(18))
+                    )
+                    .frame(width: 44, height: 44)
+                Text(avatarInitial)
+                    .font(.pretendardBold(18))
+                    .foregroundStyle(.white)
+            }
+
+            // 닉네임 + 레벨
+            VStack(alignment: .leading, spacing: 3) {
+                Text(info.nickname)
+                    .font(.pretendardSemiBold(15))
+                Text("Lv.\(level)")
+                    .font(.pretendard(13))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            // 관계 상태 버튼
+            if isAlreadyFriend {
+                Label("친구", systemImage: "checkmark")
+                    .font(.pretendardMedium(13))
+                    .foregroundStyle(.secondary)
+            } else if isPending {
+                Text("요청됨")
+                    .font(.pretendardMedium(13))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(Color(.tertiarySystemFill))
+                    )
+            } else {
+                Button {
+                    onAddFriend()
+                } label: {
+                    Text("친구 추가")
+                        .font(.pretendardSemiBold(13))
                         .foregroundStyle(.white)
-                }
-
-                // 닉네임 + 레벨
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(info.nickname)
-                        .font(.pretendardSemiBold(15))
-                    Text("Lv.\(level)")
-                        .font(.pretendard(13))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                // 관계 상태 버튼
-                if isAlreadyFriend {
-                    Label("친구", systemImage: "checkmark")
-                        .font(.pretendardMedium(13))
-                        .foregroundStyle(.secondary)
-                } else if isPending {
-                    Text("요청됨")
-                        .font(.pretendardMedium(13))
-                        .foregroundStyle(.secondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
-                            Capsule().fill(Color(.tertiarySystemFill))
+                            Capsule().fill(AppPalette.forest)
                         )
-                } else {
-                    Button {
-                        onAddFriend()
-                    } label: {
-                        Text("친구 추가")
-                            .font(.pretendardSemiBold(13))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule().fill(AppPalette.forest)
-                            )
-                    }
                 }
             }
-            .padding(14)
-            .background(
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(.ultraThinMaterial)
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(
-                            LinearGradient(
-                                colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            )
-                        )
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(
-                            LinearGradient(
-                                colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
-                                startPoint: .topLeading, endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 1
-                        )
-                }
-            )
         }
+        .padding(14)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(
+                        LinearGradient(
+                            colors: [AppPalette.forest.opacity(0.06), AppPalette.leaf.opacity(0.03), Color.clear],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(
+                        LinearGradient(
+                            colors: [AppPalette.leaf.opacity(0.4), AppPalette.forest.opacity(0.15), AppPalette.leaf.opacity(0.2)],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+        )
     }
 }
 

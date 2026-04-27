@@ -10,6 +10,7 @@
 
 import SwiftUI
 import SwiftData
+import os
 
 // MARK: - Ranking Score Calculator
 
@@ -326,8 +327,9 @@ struct RankingView: View {
                         friendRanking.append(score)
                     }
                     friendRanking.sort { $0.score > $1.score }
+                } catch {
+                    AppLogger.friend.warning("Failed to fetch missing friend profiles for ranking: \(error.localizedDescription)")
                 }
-                // 에러 무시
             }
         }
     }

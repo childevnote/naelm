@@ -8,6 +8,7 @@
 
 import SwiftUI
 import SwiftData
+import os
 
 // MARK: - FriendTabView
 
@@ -218,7 +219,7 @@ struct FriendTabView: View {
                 friendPublicInfos[info.userID] = info
             }
         } catch {
-            // 에러 무시
+            AppLogger.friend.warning("Failed to fetch friend public profiles: \(error.localizedDescription)")
         }
     }
 
