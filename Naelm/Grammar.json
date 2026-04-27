@@ -6917,7 +6917,7 @@
   {
     "grammarID": "gram_462",
     "title": "접속사 - after (시간 접속사 vs 전치사 구별)",
-    "explanation": "'After + S + V'는 시간 접속사로 두 절을 연결한다. 반면 during/despite/despite는 전치사로 명사구만 취할 수 있어 완전한 절(S+V) 앞에 쓸 수 없다. 또한 after절 뒤에 then을 덧붙이는 것은 중복 표현이다.",
+    "explanation": "'After + S + V'는 시간 접속사로 두 절을 연결한다. 반면 during/despite/in spite of는 전치사로 명사구만 취할 수 있어 완전한 절(S+V) 앞에 쓸 수 없다. 또한 after절 뒤에 then을 덧붙이는 것은 중복 표현이다.",
     "toeicPart": "Part 5",
     "difficultyLevel": 1,
     "correctExample": "After the merger negotiations are completed, an official announcement will be made to all shareholders and stakeholders.",
