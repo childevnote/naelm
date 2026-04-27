@@ -150,14 +150,21 @@ struct NicknameSetupView: View {
             return
         }
 
-        // UserProfile에 닉네임 저장
+        // UserProfile에 닉네임 저장 (없으면 생성)
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-        if let profile = try? modelContext.fetch(descriptor).first {
-            profile.nickname = trimmed
-            profile.isPublicProfileRegistered = true
-            try? modelContext.save()
+        let existingProfile = try? modelContext.fetch(descriptor).first
+        let profile: UserProfile
+        if let existingProfile {
+            profile = existingProfile
+        } else {
+            let newProfile = UserProfile(userID: userID)
+            modelContext.insert(newProfile)
+            profile = newProfile
         }
+        profile.nickname = trimmed
+        profile.isPublicProfileRegistered = true
+        try? modelContext.save()
 
         // CloudKit Public DB에 프로필 등록 (에러 무시)
         Task {

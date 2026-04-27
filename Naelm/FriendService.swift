@@ -9,9 +9,17 @@
 //    2. 닉네임 기반 유저 검색
 //    3. 친구 요청 송/수신 관리
 //  ──────────────────────────────────────────────
+//  보안 참고:
+//    레코드 이름은 SHA256(userID)로 파생된 해시를 사용하여
+//    예측 가능한 이름 선점/스푸핑을 방지합니다.
+//    CloudKit record 필드의 userID 노출 최소화를 위해
+//    추후 CloudKit creator record ID 기반 소유자 검증을 권장합니다.
+//  ──────────────────────────────────────────────
 
 import Foundation
 import CloudKit
+import CryptoKit
+import os
 
 // MARK: - CloudKit 레코드 타입 상수
 
@@ -43,14 +51,13 @@ struct FriendRequestInfo: Identifiable {
     let fromUserID: String
     let fromNickname: String
     let toUserID: String
-    let status: String        // "pending" | "accepted" | "declined"
+    let status: String        // "pending" | "accepted" | "declined" | "removed"
     let createdAt: Date
 }
 
 // MARK: - FriendService
 
 /// CloudKit Public DB 기반 친구 기능 서비스
-@MainActor
 final class FriendService {
 
     static let shared = FriendService()
@@ -58,10 +65,24 @@ final class FriendService {
 
     private init() {}
 
+    // ── 내부 유틸리티 ────────────────────────────────────────
+
+    /// Apple userID를 SHA256으로 해시하여 예측 불가능한 공개 식별자를 반환합니다.
+    /// 동일 userID → 항상 동일 결과 (결정론적), 외부에서 역산 불가.
+    nonisolated static func hashedPublicID(from userID: String) -> String {
+        let digest = SHA256.hash(data: Data(userID.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// UserPublicProfile 레코드 이름 (해시 기반)
+    nonisolated private static func profileRecordName(for userID: String) -> String {
+        "profile_\(hashedPublicID(from: userID))"
+    }
+
     // ── Public Profile 관리 ──────────────────────────────────
 
     /// UserPublicProfile 레코드를 생성하거나 업데이트합니다.
-    /// recordName은 "profile_{userID}" 형식으로 고정합니다.
+    /// recordName은 SHA256(userID) 기반으로 고정하여 예측 선점을 방지합니다.
     func upsertPublicProfile(
         userID: String,
         nickname: String,
@@ -70,7 +91,7 @@ final class FriendService {
         streak: Int,
         weeklyXP: Int = 0
     ) async throws {
-        let recordName = "profile_\(userID)"
+        let recordName = Self.profileRecordName(for: userID)
         let recordID = CKRecord.ID(recordName: recordName)
 
         // 기존 레코드 조회 시도 후 없으면 새로 생성
@@ -106,28 +127,30 @@ final class FriendService {
 
         return results.compactMap { _, result in
             guard let record = try? result.get() else { return nil }
-            return parsePublicProfile(record)
+            return Self.parsePublicProfile(record)
         }
     }
 
     /// 특정 userID의 Public Profile을 가져옵니다.
     func fetchPublicProfile(userID: String) async throws -> PublicUserInfo? {
-        let recordName = "profile_\(userID)"
+        let recordName = Self.profileRecordName(for: userID)
         let recordID = CKRecord.ID(recordName: recordName)
 
         do {
             let record = try await publicDB.record(for: recordID)
-            return parsePublicProfile(record)
+            return Self.parsePublicProfile(record)
         } catch let ckError as CKError where ckError.code == .unknownItem {
             return nil
         }
     }
 
     /// 여러 userID의 Public Profile을 한 번에 가져옵니다.
+    /// CKFetchRecordsOperation 콜백은 백그라운드 스레드에서 호출되므로
+    /// 파서 함수를 static으로 선언하여 actor 격리 문제를 방지합니다.
     func fetchPublicProfiles(userIDs: [String]) async throws -> [PublicUserInfo] {
         guard !userIDs.isEmpty else { return [] }
 
-        let recordIDs = userIDs.map { CKRecord.ID(recordName: "profile_\($0)") }
+        let recordIDs = userIDs.map { CKRecord.ID(recordName: Self.profileRecordName(for: $0)) }
 
         return try await withCheckedThrowingContinuation { continuation in
             let operation = CKFetchRecordsOperation(recordIDs: recordIDs)
@@ -136,9 +159,10 @@ final class FriendService {
             var infos: [PublicUserInfo] = []
             let lock = NSLock()
 
+            // static 파서 사용: 백그라운드 스레드에서 actor 격리 없이 안전하게 호출
             operation.perRecordResultBlock = { _, result in
                 guard let record = try? result.get() else { return }
-                if let info = self.parsePublicProfile(record) {
+                if let info = FriendService.parsePublicProfile(record) {
                     lock.withLock { infos.append(info) }
                 }
             }
@@ -152,7 +176,7 @@ final class FriendService {
                 }
             }
 
-            self.publicDB.add(operation)
+            publicDB.add(operation)
         }
     }
 
@@ -186,7 +210,18 @@ final class FriendService {
 
         return results.compactMap { _, result in
             guard let record = try? result.get() else { return nil }
-            return parseFriendRequest(record)
+            return Self.parseFriendRequest(record)
+        }
+    }
+
+    /// 내가 보낸 특정 요청의 현재 status를 가져옵니다. (발신자 동기화용)
+    func fetchSentRequest(recordName: String) async throws -> FriendRequestInfo? {
+        let recordID = CKRecord.ID(recordName: recordName)
+        do {
+            let record = try await publicDB.record(for: recordID)
+            return Self.parseFriendRequest(record)
+        } catch let ckError as CKError where ckError.code == .unknownItem {
+            return nil
         }
     }
 
@@ -198,18 +233,23 @@ final class FriendService {
         try await publicDB.save(record)
     }
 
-    /// 이미 요청을 보낸 적이 있는지 확인합니다.
+    /// 이미 요청을 보낸 적이 있는지 CloudKit에서 확인합니다.
+    /// 앱 재설치 / 기기 변경 후 중복 요청 방지에 사용합니다.
     func hasPendingRequest(fromUserID: String, toUserID: String) async throws -> Bool {
-        let predicate = NSPredicate(format: "fromUserID == %@ AND toUserID == %@", fromUserID, toUserID)
+        let predicate = NSPredicate(
+            format: "fromUserID == %@ AND toUserID == %@ AND status == 'pending'",
+            fromUserID, toUserID
+        )
         let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
 
         let (results, _) = try await publicDB.records(matching: query, resultsLimit: 1)
         return !results.isEmpty
     }
 
-    // MARK: - 파싱 헬퍼
+    // MARK: - 정적 파싱 헬퍼
+    // static으로 선언하여 CKFetchRecordsOperation 백그라운드 콜백에서도 actor 격리 없이 호출 가능
 
-    private func parsePublicProfile(_ record: CKRecord) -> PublicUserInfo? {
+    nonisolated static func parsePublicProfile(_ record: CKRecord) -> PublicUserInfo? {
         guard let userID = record["userID"] as? String,
               let nickname = record["nickname"] as? String else { return nil }
 
@@ -229,7 +269,7 @@ final class FriendService {
         )
     }
 
-    private func parseFriendRequest(_ record: CKRecord) -> FriendRequestInfo? {
+    nonisolated static func parseFriendRequest(_ record: CKRecord) -> FriendRequestInfo? {
         guard let fromUserID = record["fromUserID"] as? String,
               let fromNickname = record["fromNickname"] as? String,
               let toUserID = record["toUserID"] as? String,

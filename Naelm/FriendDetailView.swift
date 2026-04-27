@@ -271,9 +271,21 @@ struct FriendDetailView: View {
     // MARK: - 친구 삭제
 
     private func deleteFriend() {
+        let recordID = friendship.cloudRequestRecordID
         friendship.isFriend = false
         friendship.isPending = false
         try? modelContext.save()
+
+        // CloudKit FriendRequest 레코드도 "removed"로 표시하여 상대방에게 변경 사항 전달
+        if !recordID.isEmpty {
+            Task {
+                try? await FriendService.shared.updateFriendRequestStatus(
+                    recordName: recordID,
+                    status: "removed"
+                )
+            }
+        }
+
         dismiss()
     }
 }

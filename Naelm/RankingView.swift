@@ -94,6 +94,12 @@ struct RankingView: View {
     @State private var myScore: MonthlyScore?
     @State private var myRank: Int = 0
 
+    /// 친구 탭 행 렌더링 시 O(1) 조회를 위한 캐시 (friendUserID → Friendship)
+    @State private var friendshipCache: [String: Friendship] = [:]
+
+    /// 진행 중인 CloudKit 보완 Task (재진입 시 취소 후 재시작)
+    @State private var cloudKitSupplementTask: Task<Void, Never>? = nil
+
     enum RankingTab: String, CaseIterable {
         case global = "전체"
         case friends = "친구"
@@ -134,7 +140,7 @@ struct RankingView: View {
                     } else {
                         LazyVStack(spacing: 8) {
                             ForEach(Array(ranking.enumerated()), id: \.element.userID) { index, score in
-                                if selectedTab == .friends, let friendship = fetchFriendship(for: score.userID) {
+                                if selectedTab == .friends, let friendship = friendshipCache[score.userID] {
                                     NavigationLink(destination: FriendDetailView(friendship: friendship)) {
                                         rankRow(rank: index + 1, score: score)
                                     }
@@ -308,40 +314,45 @@ struct RankingView: View {
         let friendships = (try? modelContext.fetch(friendDescriptor)) ?? []
         let friendIDs = Set(friendships.map(\.friendID))
 
+        // 친구 캐시 구축 (O(1) 조회를 위해 친구 탭 렌더링 시 사용)
+        friendshipCache = Dictionary(
+            uniqueKeysWithValues: friendships.map { ($0.friendID, $0) }
+        )
+
         // globalRanking에서 친구 + 나 필터링
         let localFriendRanking = globalRanking.filter { friendIDs.contains($0.userID) || $0.userID == userID }
         friendRanking = localFriendRanking
 
         // globalRanking에 없는 친구는 CloudKit에서 보완
+        // 이전 Task를 취소하여 중복/오염된 append를 방지
         let localFriendUserIDs = Set(localFriendRanking.map(\.userID))
         let missingFriendIDs = friendIDs.subtracting(localFriendUserIDs)
 
-        if !missingFriendIDs.isEmpty {
-            Task {
-                do {
-                    let infos = try await FriendService.shared.fetchPublicProfiles(userIDs: Array(missingFriendIDs))
-                    let month = RankingService.currentMonth
-                    for info in infos {
-                        // 가상 MonthlyScore 생성 (로컬에 없는 친구)
-                        let score = MonthlyScore(userID: info.userID, month: month, score: info.monthlyXP)
-                        friendRanking.append(score)
-                    }
-                    friendRanking.sort { $0.score > $1.score }
-                } catch {
-                    AppLogger.friend.warning("Failed to fetch missing friend profiles for ranking: \(error.localizedDescription)")
+        cloudKitSupplementTask?.cancel()
+        guard !missingFriendIDs.isEmpty else { return }
+
+        cloudKitSupplementTask = Task {
+            do {
+                let infos = try await FriendService.shared.fetchPublicProfiles(userIDs: Array(missingFriendIDs))
+                guard !Task.isCancelled else { return }
+
+                let month = RankingService.currentMonth
+                for info in infos {
+                    // 가상 MonthlyScore 생성 (로컬에 없는 친구)
+                    let score = MonthlyScore(userID: info.userID, month: month, score: info.monthlyXP)
+                    friendRanking.append(score)
                 }
+                friendRanking.sort { $0.score > $1.score }
+            } catch {
+                AppLogger.friend.warning("Failed to fetch missing friend profiles for ranking: \(error.localizedDescription)")
             }
         }
     }
 
-    // MARK: - Friendship 조회 헬퍼
+    // MARK: - Friendship 캐시 조회 헬퍼 (refreshRanking에서 미리 로드한 캐시 사용)
 
     private func fetchFriendship(for friendUserID: String) -> Friendship? {
-        guard let myID = authManager.userID else { return nil }
-        let predicate = #Predicate<Friendship> {
-            $0.userID == myID && $0.friendID == friendUserID
-        }
-        let descriptor = FetchDescriptor<Friendship>(predicate: predicate)
-        return try? modelContext.fetch(descriptor).first
+        friendshipCache[friendUserID]
     }
 }
+

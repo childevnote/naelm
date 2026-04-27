@@ -185,6 +185,17 @@ struct FriendSearchView: View {
 
         Task {
             do {
+                // 앱 재설치/기기 변경 상황에서 CloudKit 중복 요청 방지
+                let alreadySent = try await FriendService.shared.hasPendingRequest(
+                    fromUserID: myID,
+                    toUserID: info.userID
+                )
+                guard !alreadySent else {
+                    // CloudKit에 이미 요청이 있으면 로컬 상태만 업데이트
+                    pendingRequestIDs.insert(info.userID)
+                    return
+                }
+
                 let recordName = try await FriendService.shared.sendFriendRequest(
                     fromUserID: myID,
                     fromNickname: myNickname,
