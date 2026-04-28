@@ -167,6 +167,7 @@ struct OnboardingView: View {
     }
 
     // MARK: - Step 3: Placement Test
+    private var placementTestView: some View {
         VStack(spacing: 16) {
             // Progress
             ProgressView(value: Double(currentQ), total: Double(placementQuestions.count))
@@ -289,7 +290,7 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 32)
 
-            let levelRange = TOEICScoreRange(rawValue: estimatedLevel) ?? .range600
+            let levelRange = TOEICScoreRange.fromEstimatedLevel(estimatedLevel)
             Text("추정 수준: \(levelRange.label)")
                 .font(.title2).fontWeight(.bold)
                 .foregroundStyle(BrandTheme.accent)
@@ -456,7 +457,8 @@ struct OnboardingView: View {
     }
 
     private func makeGrammarQuestions(from grammars: [Grammar], level: Int, count: Int, targetLevel: Int) -> [PlacementQuestion] {
-        let filtered = grammars.filter { $0.difficultyLevel == level }.shuffled()
+        let effectiveLevel = min(level, 3)
+        let filtered = grammars.filter { $0.difficultyLevel == effectiveLevel }.shuffled()
         // blankTarget이 있고 correctExample에 실제로 포함되는 문법만 선택
         let validGrammars = filtered.filter { g in
             !g.blankTarget.isEmpty &&

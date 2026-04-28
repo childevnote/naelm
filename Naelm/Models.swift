@@ -68,6 +68,18 @@ enum TOEICScoreRange: Int, CaseIterable, Codable {
         }
     }
 
+    /// estimatedLevel(0~5) → scoreRange 변환
+    static func fromEstimatedLevel(_ level: Int) -> TOEICScoreRange {
+        switch level {
+        case 1: return .below600
+        case 2: return .range600
+        case 3: return .range700
+        case 4: return .range800
+        case 5: return .range900
+        default: return .below600
+        }
+    }
+
     /// 목표 점수에 해당하는 구간까지의 모든 구간 반환
     /// 예: 800점 목표 → [.range600, .range700, .range800]
     static func rangesUpTo(target: Int) -> [TOEICScoreRange] {

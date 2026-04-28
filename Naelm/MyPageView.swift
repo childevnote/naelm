@@ -263,7 +263,7 @@ struct MyPageView: View {
             }
 
             if let p = profile {
-                let level = TOEICScoreRange(rawValue: p.estimatedLevel) ?? .range600
+                let level = TOEICScoreRange.fromEstimatedLevel(p.estimatedLevel)
                 let targetLabel = TOEICScoreRange.rangesUpTo(target: p.targetScore).last?.plusLabel ?? "\(p.targetScore)++"
 
                     // 수준 뱃지

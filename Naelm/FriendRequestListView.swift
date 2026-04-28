@@ -176,8 +176,9 @@ struct FriendRequestListView: View {
                 )
 
                 // 로컬 Friendship 레코드 조회 또는 생성
+                let friendID = request.fromUserID
                 let predicate = #Predicate<Friendship> {
-                    $0.userID == myID && $0.friendID == request.fromUserID
+                    $0.userID == myID && $0.friendID == friendID
                 }
                 let descriptor = FetchDescriptor<Friendship>(predicate: predicate)
                 if let existing = try? modelContext.fetch(descriptor).first {
@@ -218,8 +219,9 @@ struct FriendRequestListView: View {
                 )
 
                 // 로컬 Friendship 레코드가 있으면 삭제
+                let friendID = request.fromUserID
                 let predicate = #Predicate<Friendship> {
-                    $0.userID == myID && $0.friendID == request.fromUserID && $0.isPending == true
+                    $0.userID == myID && $0.friendID == friendID && $0.isPending == true
                 }
                 let descriptor = FetchDescriptor<Friendship>(predicate: predicate)
                 if let existing = try? modelContext.fetch(descriptor).first {
