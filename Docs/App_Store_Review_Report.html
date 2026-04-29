@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Naelm — App Store 심사 탈락 사유 분석 보고서</title>
+  <style>
+    :root {
+      --green-dark: #1a5c32;
+      --green-mid: #2d7a4a;
+      --green-light: #4caf70;
+      --red: #d32f2f;
+      --orange: #e65100;
+      --yellow: #f9a825;
+      --blue: #1565c0;
+      --bg: #f5f7f5;
+      --card-bg: #ffffff;
+      --border: #dde8dd;
+      --text: #1a2a1a;
+      --text-secondary: #4a5c4a;
+      --fixed-badge: #1b5e20;
+      --fixed-bg: #e8f5e9;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, "Pretendard", "Noto Sans KR", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 0 16px 60px;
+    }
+    header {
+      background: linear-gradient(135deg, var(--green-dark) 0%, var(--green-mid) 100%);
+      color: #fff;
+      padding: 40px 32px 32px;
+      margin: 0 -16px 32px;
+      border-radius: 0 0 24px 24px;
+    }
+    header h1 { font-size: 26px; font-weight: 700; margin-bottom: 6px; }
+    header p  { font-size: 14px; opacity: 0.82; }
+    header .meta { margin-top: 16px; display: flex; gap: 24px; flex-wrap: wrap; }
+    header .meta span { background: rgba(255,255,255,0.15); padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .summary-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+    .summary-box .count { font-size: 32px; font-weight: 800; }
+    .summary-box .label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+    .count.critical { color: var(--red); }
+    .count.high     { color: var(--orange); }
+    .count.medium   { color: var(--yellow); }
+    .count.fixed    { color: var(--green-light); }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 32px 0 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 20px;
+      border-radius: 2px;
+      background: var(--green-mid);
+    }
+
+    .issue-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      margin-bottom: 14px;
+      border-left: 5px solid var(--border);
+    }
+    .issue-card.critical { border-left-color: var(--red); }
+    .issue-card.high     { border-left-color: var(--orange); }
+    .issue-card.medium   { border-left-color: var(--yellow); }
+    .issue-card.low      { border-left-color: var(--blue); }
+
+    .issue-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge.critical { background: #ffebee; color: var(--red); }
+    .badge.high     { background: #fff3e0; color: var(--orange); }
+    .badge.medium   { background: #fffde7; color: #6d4c00; }
+    .badge.low      { background: #e3f2fd; color: var(--blue); }
+    .badge.fixed    { background: var(--fixed-bg); color: var(--fixed-badge); }
+
+    .issue-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 200px; }
+    .guideline   { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+    .issue-body   { font-size: 14px; color: var(--text-secondary); margin-bottom: 10px; }
+    .issue-detail { background: #f8faf8; border-radius: 10px; padding: 12px 16px; font-size: 13px; margin-bottom: 10px; }
+    .issue-detail h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .issue-detail ul { padding-left: 18px; }
+    .issue-detail li { margin-bottom: 4px; }
+
+    .fix-box {
+      background: var(--fixed-bg);
+      border: 1px solid #a5d6a7;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+    .fix-box .fix-label { font-weight: 700; color: var(--fixed-badge); margin-bottom: 4px; }
+    code {
+      background: #e8f0e8;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 12px;
+      color: var(--green-dark);
+    }
+
+    .no-fix-box {
+      background: #fafafa;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+    .no-fix-box .no-fix-label { font-weight: 700; color: #5d4037; margin-bottom: 4px; }
+
+    .divider { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+
+    footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    @media (max-width: 480px) {
+      header { padding: 28px 20px 24px; }
+      .issue-card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🍎 Naelm — App Store 심사 탈락 사유 분석 보고서</h1>
+  <p>iOS App Store Review Guidelines 기준 코드 분석 결과</p>
+  <div class="meta">
+    <span>📅 분석일: 2026-04-29</span>
+    <span>🔍 대상: iOS / Naelm v1.0.0</span>
+    <span>📋 참고: App Store Review Guidelines 2024</span>
+  </div>
+</header>
+
+<!-- 요약 -->
+<div class="summary-grid">
+  <div class="summary-box"><div class="count critical">1</div><div class="label">🔴 치명적</div></div>
+  <div class="summary-box"><div class="count high">2</div><div class="label">🟠 높음</div></div>
+  <div class="summary-box"><div class="count medium">3</div><div class="label">🟡 중간</div></div>
+  <div class="summary-box"><div class="count low">2</div><div class="label">🔵 낮음</div></div>
+  <div class="summary-box"><div class="count fixed">5</div><div class="label">✅ 코드 수정 완료</div></div>
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<div class="section-title">🔴 치명적 — 거의 확실히 심사 탈락</div>
+
+<!-- Issue 1 -->
+<div class="issue-card critical">
+  <div class="issue-header">
+    <div>
+      <div class="badge critical">🔴 치명적</div>
+      <div class="badge fixed">✅ 부분 수정 완료</div>
+    </div>
+    <div class="issue-title">Sign in with Apple 토큰 취소 미구현</div>
+    <div class="guideline">Guideline 5.1.1 (iv) — 계정 삭제 시 토큰 취소 필수</div>
+  </div>
+  <div class="issue-body">
+    Apple은 Sign in with Apple을 지원하는 앱이 계정 삭제 기능을 제공할 때, Apple의 토큰 취소(token revocation) API를 반드시 호출하도록 요구합니다. 현재 <code>MyPageViewModel.deleteAccount()</code>는 로컬 Keychain만 삭제하고 실제 Apple 서버 측 토큰 취소는 수행하지 않습니다.
+  </div>
+  <div class="issue-detail">
+    <h4>문제 코드 위치</h4>
+    <ul>
+      <li><code>Naelm/MyPageViewModel.swift</code> — <code>deleteAccount()</code> 메서드</li>
+      <li>주석에 "현재는 클라이언트 Keychain 정리만 수행"이라고 명시됨</li>
+      <li>Apple REST API <code>POST /auth/token/revoke</code> 호출 없음</li>
+    </ul>
+  </div>
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 (부분): UI 개선</div>
+    <code>SettingsView.swift</code> — 계정 삭제 완료 후 "Apple ID 연동 해제 안내" 알림을 추가하여 사용자가 iPhone 설정 &gt; Apple ID &gt; 암호 및 보안에서 수동으로 앱 연동을 해제할 수 있도록 안내합니다.
+    <br/><br/>
+    ⚠️ <strong>근본 해결을 위해서는 서버 측 구현이 필요합니다:</strong> 백엔드 서버에서 <code>authorizationCode</code>를 사용해 <code>https://appleid.apple.com/auth/token/revoke</code>를 호출해야 합니다. 클라이언트 단독으로는 토큰 취소가 불가능합니다.
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<div class="section-title">🟠 높음 — 심사 탈락 가능성 높음</div>
+
+<!-- Issue 2 -->
+<div class="issue-card high">
+  <div class="issue-header">
+    <div>
+      <div class="badge high">🟠 높음</div>
+      <div class="badge fixed">✅ 수정 완료</div>
+    </div>
+    <div class="issue-title">NSUserTrackingUsageDescription 선언 후 ATT 미요청</div>
+    <div class="guideline">Guideline 5.1.2 — 추적 권한 / App Tracking Transparency</div>
+  </div>
+  <div class="issue-body">
+    <code>Info.plist</code>에 <code>NSUserTrackingUsageDescription</code> 키("맞춤형 학습 경험 제공을 위해 광고 추적 권한을 요청합니다.")가 선언되어 있으나, 코드 어디에도 <code>ATTrackingManager.requestTrackingAuthorization()</code>이 호출되지 않습니다. 앱이 실제로 사용자를 추적하지 않는다면 이 키는 없어야 합니다. Apple 심사관이 해당 사용 목적 문자열과 실제 동작 불일치를 발견하면 거절될 수 있습니다.
+  </div>
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>Naelm/Info.plist</code>에서 <code>NSUserTrackingUsageDescription</code> 키와 값을 제거하였습니다. 향후 실제 광고 추적이 필요한 경우, <code>AppTrackingTransparency</code> 프레임워크를 임포트하고 <code>ATTrackingManager.requestTrackingAuthorization()</code>을 먼저 호출한 뒤 권한이 허용된 경우에만 추적하세요.
+  </div>
+</div>
+
+<!-- Issue 3 -->
+<div class="issue-card high">
+  <div class="issue-header">
+    <div>
+      <div class="badge high">🟠 높음</div>
+      <div class="badge fixed">✅ 수정 완료</div>
+    </div>
+    <div class="issue-title">CFBundleDisplayName / CFBundleName 브랜딩 불일치 ("NLLM" vs "Naelm")</div>
+    <div class="guideline">Guideline 2.3.7 — 메타데이터 정확성</div>
+  </div>
+  <div class="issue-body">
+    <code>Info.plist</code>의 <code>CFBundleDisplayName</code>과 <code>CFBundleName</code>이 <strong>"NLLM"</strong>으로 설정되어 있어 홈 화면에 "NLLM"으로 표시됩니다. 그러나 앱 내부 브랜딩(로그인 화면 타이틀, 알림 제목, 위젯 설명 등)은 모두 "Naelm"을 사용합니다. 또한 <code>HelpPageView.swift</code>에도 "NLLM 사용 가이드"라고 표기되어 있었습니다. 이 불일치는 App Store 메타데이터 정확성 위반으로 거절될 수 있습니다.
+  </div>
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>Info.plist</code> — <code>CFBundleDisplayName</code>, <code>CFBundleName</code> 값을 <code>Naelm</code>으로 변경.<br/>
+    <code>HelpPageView.swift</code> — "NLLM 사용 가이드" → "Naelm 사용 가이드"로 변경.
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<div class="section-title">🟡 중간 — 거절 또는 재심사 요청 가능</div>
+
+<!-- Issue 4 -->
+<div class="issue-card medium">
+  <div class="issue-header">
+    <div>
+      <div class="badge medium">🟡 중간</div>
+      <div class="badge fixed">✅ 수정 완료</div>
+    </div>
+    <div class="issue-title">entitlements 중복 APS 환경 키</div>
+    <div class="guideline">Apple Developer — Entitlements / Push Notifications</div>
+  </div>
+  <div class="issue-body">
+    <code>Naelm.entitlements</code>에 <code>aps-environment</code>와 <code>com.apple.developer.aps-environment</code> 두 키가 모두 "production"으로 설정되어 있습니다. 공식 지원 키는 <code>aps-environment</code>뿐이며, 비표준 키가 중복으로 존재하면 코드 서명 오류나 예기치 않은 동작을 유발할 수 있습니다.
+  </div>
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>Naelm.entitlements</code>에서 비표준 키 <code>com.apple.developer.aps-environment</code>를 제거하고 표준 키 <code>aps-environment: production</code>만 남겼습니다.
+  </div>
+</div>
+
+<!-- Issue 5 -->
+<div class="issue-card medium">
+  <div class="issue-header">
+    <div>
+      <div class="badge medium">🟡 중간</div>
+    </div>
+    <div class="issue-title">iCloud 컨테이너 식별자 미설정</div>
+    <div class="guideline">CloudKit — Capability Configuration</div>
+  </div>
+  <div class="issue-body">
+    <code>Naelm.entitlements</code>의 <code>com.apple.developer.icloud-container-identifiers</code>가 빈 배열(<code>&lt;array/&gt;</code>)로 설정되어 있습니다. 앱은 CloudKit(<code>cloudKitDatabase: .automatic</code>)을 사용하는데, 컨테이너 식별자가 없으면 CloudKit 동기화가 올바르게 작동하지 않으며 App Store Connect 설정과 불일치할 경우 심사 거절 또는 런타임 오류가 발생할 수 있습니다.
+  </div>
+  <div class="no-fix-box">
+    <div class="no-fix-label">⚙️ 코드 외 조치 필요</div>
+    Xcode &gt; Signing &amp; Capabilities &gt; iCloud &gt; CloudKit Container에서 앱 번들 ID에 맞는 컨테이너(예: <code>iCloud.kdj.Naelm</code>)를 등록하고, App Store Connect의 iCloud 컨테이너와 일치시켜야 합니다. 그러면 entitlements에 컨테이너 ID가 자동으로 추가됩니다.
+  </div>
+</div>
+
+<!-- Issue 6 -->
+<div class="issue-card medium">
+  <div class="issue-header">
+    <div>
+      <div class="badge medium">🟡 중간</div>
+    </div>
+    <div class="issue-title">개인정보 처리방침 URL — Notion 임시 페이지</div>
+    <div class="guideline">Guideline 5.1.1 — 개인정보 처리방침 접근성 및 안정성</div>
+  </div>
+  <div class="issue-body">
+    <code>SettingsView.swift</code>의 개인정보 처리방침 URL이 <code>https://lively-mayonnaise-192.notion.site/naelm</code>으로 Notion 임시 URL을 사용하고 있습니다. Notion 공유 페이지 URL은 언제든 변경되거나 비공개로 전환될 수 있어 안정성이 낮습니다. Apple은 개인정보 처리방침이 항상 접근 가능해야 한다고 요구합니다. 심사 중 URL이 만료되거나 접근 불가 상태가 되면 거절됩니다. 또한 App Store Connect에도 개인정보 처리방침 URL을 등록해야 하며, 같은 URL이어야 합니다.
+  </div>
+  <div class="no-fix-box">
+    <div class="no-fix-label">⚙️ 코드 외 조치 필요</div>
+    안정적인 도메인(예: GitHub Pages, 자체 도메인)에 한국어 개인정보 처리방침 및 이용약관 페이지를 호스팅하고, <code>SettingsView.swift</code>의 URL과 App Store Connect의 개인정보 처리방침 URL을 동일하게 업데이트하세요.
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<div class="section-title">🔵 낮음 — 위험도 낮지만 개선 권장</div>
+
+<!-- Issue 7 -->
+<div class="issue-card low">
+  <div class="issue-header">
+    <div>
+      <div class="badge low">🔵 낮음</div>
+    </div>
+    <div class="issue-title">CloudKit Public DB에 Sign in with Apple userID 평문 저장</div>
+    <div class="guideline">Guideline 5.1 — 개인정보 보호</div>
+  </div>
+  <div class="issue-body">
+    <code>FriendService.upsertPublicProfile()</code>에서 Apple의 <code>userID</code>(unique stable identifier)를 CloudKit Public Database의 <code>userID</code> 필드에 그대로 저장합니다. Public DB는 인증된 모든 iCloud 사용자가 쿼리할 수 있으므로, 타 사용자가 다른 사람의 Apple userID를 알 수 있게 됩니다. 코드 주석도 이 문제를 인식하고 "추후 개선 권장"이라고 언급하고 있습니다.
+  </div>
+  <div class="no-fix-box">
+    <div class="no-fix-label">⚠️ 개선 권장 (심사 탈락 직접 사유는 아님)</div>
+    Public DB 레코드에는 <code>userID</code> 대신 SHA-256 해시값(<code>FriendService.hashedPublicID(from:)</code>이 이미 구현됨)만 저장하도록 변경하세요. recordName은 이미 해시 기반이나, <code>record["userID"]</code> 필드 자체를 제거하거나 해시값으로 대체해야 합니다.
+  </div>
+</div>
+
+<!-- Issue 8 -->
+<div class="issue-card low">
+  <div class="issue-header">
+    <div>
+      <div class="badge low">🔵 낮음</div>
+    </div>
+    <div class="issue-title">게스트 계정 생성 시 새 UUID가 매번 생성됨</div>
+    <div class="guideline">Guideline 5.1.1 — 사용자 데이터 관리</div>
+  </div>
+  <div class="issue-body">
+    로그아웃 후 재로그인 시 게스트 ID(<code>guest_XXXXXXXX</code>)가 새로 생성됩니다. 기존 게스트 데이터는 여전히 SwiftData에 남아 있지만 새 ID와 연결되지 않아 사용자가 데이터 분리를 경험할 수 있습니다. 직접적인 심사 탈락 사유는 아니지만 UX 관점에서 불량한 경험을 줄 수 있습니다.
+  </div>
+  <div class="no-fix-box">
+    <div class="no-fix-label">⚙️ UX 개선 권장</div>
+    게스트 ID를 <code>UserDefaults</code> 또는 Keychain에 저장하여 앱 재실행 및 로그아웃 후에도 동일한 ID를 복원하세요. 이미 <code>authManager.signInAsGuest()</code>가 Keychain에 저장하고 있으므로, <code>signOut()</code> 후 게스트 재로그인 경로도 동일 ID를 재사용하도록 개선이 필요합니다.
+  </div>
+</div>
+
+<hr class="divider"/>
+
+<!-- 수정 사항 요약 -->
+<div class="section-title">✅ 코드 수정 완료 요약</div>
+<div class="issue-card" style="border-left-color: var(--green-light);">
+  <table style="width:100%; border-collapse: collapse; font-size: 13px;">
+    <thead>
+      <tr style="background: #f0f7f0;">
+        <th style="padding: 8px 12px; text-align:left; border-bottom: 1px solid var(--border);">파일</th>
+        <th style="padding: 8px 12px; text-align:left; border-bottom: 1px solid var(--border);">변경 내용</th>
+        <th style="padding: 8px 12px; text-align:left; border-bottom: 1px solid var(--border);">관련 가이드라인</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/Info.plist</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>NSUserTrackingUsageDescription</code> 키 제거</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">5.1.2 (ATT)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/Info.plist</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>CFBundleDisplayName</code>, <code>CFBundleName</code> → <code>Naelm</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">2.3.7 (메타데이터)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/Naelm.entitlements</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">비표준 <code>com.apple.developer.aps-environment</code> 키 제거</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">Push Notifications</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/HelpPageView.swift</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">"NLLM 사용 가이드" → "Naelm 사용 가이드"</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">2.3.7 (메타데이터)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px;"><code>Naelm/SettingsView.swift</code></td>
+        <td style="padding: 8px 12px;">계정 삭제 후 Apple ID 연동 해제 안내 알림 추가 (설정 앱 딥링크 포함)</td>
+        <td style="padding: 8px 12px;">5.1.1 (iv) (계정 삭제)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 권장 조치 -->
+<div class="section-title">📋 심사 제출 전 필수 체크리스트</div>
+<div class="issue-card" style="border-left-color: var(--blue);">
+  <ul style="font-size: 14px; padding-left: 20px; line-height: 2;">
+    <li>☐ <strong>[필수 - 서버]</strong> Apple 토큰 취소 서버 API(<code>POST https://appleid.apple.com/auth/token/revoke</code>) 구현 및 연동</li>
+    <li>☐ <strong>[필수 - Xcode]</strong> iCloud 컨테이너 식별자 등록 (Signing &amp; Capabilities)</li>
+    <li>☐ <strong>[필수 - 외부]</strong> 개인정보 처리방침을 안정적인 URL로 호스팅 및 App Store Connect에 등록</li>
+    <li>☐ <strong>[권장]</strong> CloudKit Public DB의 <code>userID</code> 필드를 해시값으로 교체</li>
+    <li>☐ <strong>[권장]</strong> 게스트 ID 재사용 로직 개선</li>
+    <li>☐ <strong>[확인]</strong> App Store Connect에서 앱 이름이 "Naelm"으로 등록되어 있는지 확인</li>
+    <li>☐ <strong>[확인]</strong> 앱 심사용 데모 계정(Sign in with Apple 불가한 심사 환경 대비) 또는 게스트 로그인 경로 안내</li>
+  </ul>
+</div>
+
+<footer>
+  <p>이 보고서는 2026-04-29 기준 코드 정적 분석 결과이며, App Store 심사 결과를 보장하지 않습니다.</p>
+  <p>최신 Apple App Store Review Guidelines: <a href="https://developer.apple.com/app-store/review/guidelines/" style="color: var(--green-mid);">developer.apple.com/app-store/review/guidelines</a></p>
+</footer>
+
+</body>
+</html>

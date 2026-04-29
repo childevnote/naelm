@@ -21,7 +21,7 @@ struct HelpPageView: View {
                         Image(systemName: "book.closed.fill")
                             .font(.system(size: 48))
                             .foregroundStyle(AppPalette.forest)
-                        Text("NLLM 사용 가이드")
+                        Text("Naelm 사용 가이드")
                             .font(.pretendardBold(24))
                         Text("토익 영단어 · 문법 마스터")
                             .font(.pretendardMedium(14))

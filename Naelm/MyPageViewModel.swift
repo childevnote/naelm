@@ -108,17 +108,13 @@ final class MyPageViewModel {
         // Apple Sign In 토큰 취소 (App Store Guideline 5.1.1 iv 필수)
         if !userID.hasPrefix("guest_") && !userID.hasPrefix("dev_user_") {
             if let authCode = KeychainHelper.read(key: KeychainHelper.authCodeKey) {
-                Task {
-                    // ASAuthorizationAppleIDProvider.revokeCredential API는 미공개 내부 API이므로
-                    // 서버 측 Apple REST API(POST /auth/token/revoke)로 토큰 취소를 권장합니다.
-                    // 현재는 클라이언트 Keychain 정리만 수행하고 로그를 남깁니다.
-                    AppLogger.auth.info("Requesting Apple token revocation (authCode length: \(authCode.count))")
-                    // 토큰 취소 여부와 무관하게 로컬 데이터 삭제 진행
-                    await performLocalDeletion(userID: userID)
-                }
-                return
+                // ASAuthorizationAppleIDProvider.revokeCredential API는 미공개 내부 API이므로
+                // 서버 측 Apple REST API(POST /auth/token/revoke)로 토큰 취소를 권장합니다.
+                // 현재는 클라이언트 Keychain 정리만 수행하고 로그를 남깁니다.
+                AppLogger.auth.info("Requesting Apple token revocation (authCode length: \(authCode.count))")
+            } else {
+                AppLogger.auth.warning("No authorizationCode found — skipping Apple token revocation")
             }
-            AppLogger.auth.warning("No authorizationCode found — skipping Apple token revocation")
         }
 
         performLocalDeletion(userID: userID)
