@@ -15,6 +15,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
 
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
     @State private var showFeedback: Bool = false
@@ -147,7 +148,8 @@ struct SettingsView: View {
             }
             .alert("정말 삭제하시겠습니까?", isPresented: $showDeleteAccountConfirmation) {
                 Button("영구 삭제", role: .destructive) {
-                    let isAppleUser = !(authManager.userID?.hasPrefix("guest_") ?? true)
+                    let userID = authManager.userID ?? ""
+                    let isAppleUser = !userID.hasPrefix("guest_") && !userID.hasPrefix("dev_user_")
                     deleteAccount()
                     if isAppleUser {
                         showAppleRevokeGuide = true
@@ -159,8 +161,8 @@ struct SettingsView: View {
             }
             .alert("Apple ID 연동 해제 안내", isPresented: $showAppleRevokeGuide) {
                 Button("설정 열기") {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
+                    if let url = URL(string: "app-settings:") {
+                        openURL(url)
                     }
                 }
                 Button("나중에", role: .cancel) {}
