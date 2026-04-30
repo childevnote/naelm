@@ -83,6 +83,8 @@ struct NaelmApp: App {
 @Observable
 final class AuthenticationManager {
 
+    private static let guestIDDefaultsKey = "naelm.guest_id"
+
     /// 현재 인증된 사용자의 Apple userIdentifier.
     /// nil이면 미인증 상태.
     var userID: String? = nil
@@ -109,6 +111,10 @@ final class AuthenticationManager {
            let authCode = String(data: authCodeData, encoding: .utf8) {
             KeychainHelper.save(key: KeychainHelper.authCodeKey, value: authCode)
             AppLogger.auth.info("Authorization code saved for future token revocation")
+
+            Task {
+                await AppleTokenServerClient.storeAuthorizationCode(authCode, userID: credential.user)
+            }
         }
 
         AppLogger.auth.info("Signed in successfully")
@@ -132,7 +138,19 @@ final class AuthenticationManager {
     func signInAsGuest(guestID: String) {
         self.userID = guestID
         KeychainHelper.save(key: KeychainHelper.userIDKey, value: guestID)
+        UserDefaults.standard.set(guestID, forKey: Self.guestIDDefaultsKey)
         AppLogger.auth.info("Signed in as guest")
+    }
+
+    /// 이전 게스트 ID가 있으면 재사용하고 없으면 새로 생성합니다.
+    func signInAsGuest() {
+        if let savedGuestID = UserDefaults.standard.string(forKey: Self.guestIDDefaultsKey) {
+            signInAsGuest(guestID: savedGuestID)
+            return
+        }
+
+        let guestID = "guest_\(UUID().uuidString.prefix(8))"
+        signInAsGuest(guestID: guestID)
     }
 
     /// 앱 재실행 시 기존 인증 상태 복원.
@@ -400,8 +418,7 @@ struct SignInView: View {
 
                     // ── 게스트로 시작 버튼 ──
                     Button {
-                        let guestID = "guest_\(UUID().uuidString.prefix(8))"
-                        authManager.signInAsGuest(guestID: guestID)
+                        authManager.signInAsGuest()
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "person")
@@ -495,6 +512,6 @@ struct MainDashboardView: View {
 // MARK: - Previews
 
 #Preview("Sign In") {
-    @State var auth = AuthenticationManager()
-    return SignInView().environment(auth)
+    @Previewable @State var auth = AuthenticationManager()
+    SignInView().environment(auth)
 }

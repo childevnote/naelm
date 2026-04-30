@@ -508,7 +508,7 @@ final class Friendship {
     /// 사용자 식별자 (Sign in with Apple의 userIdentifier)
     var userID: String = ""
 
-    /// 친구 사용자 식별자
+    /// 친구 사용자 공개 식별자 (SHA-256 해시)
     var friendID: String = ""
 
     // ── 관계 상태 ───────────────────────────

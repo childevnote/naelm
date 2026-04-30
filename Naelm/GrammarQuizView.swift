@@ -74,7 +74,7 @@ struct GrammarQuizView: View {
                     Color.clear
                         .onAppear { buildAndShowResult() }
                 } else if viewModel.questions.isEmpty {
-                    emptyQuizView
+                    GrammarQuizEmptyStateView(onReload: loadQuiz)
                 } else if let question = viewModel.currentQuestion {
                     quizContentView(question: question)
                 }
@@ -115,7 +115,11 @@ struct GrammarQuizView: View {
             .toolbar(isGrammarSessionActive || viewModel.isQuizComplete || showLessonComplete ? .hidden : .visible, for: .tabBar)
             .sheet(isPresented: $viewModel.showExplanation) {
                 if let question = viewModel.currentQuestion {
-                    explanationSheet(question: question)
+                    GrammarQuizExplanationSheet(
+                        question: question,
+                        isCorrect: viewModel.selectedAnswer == question.correctAnswer,
+                        onClose: { viewModel.showExplanation = false }
+                    )
                 }
             }
             .onAppear {
@@ -189,93 +193,32 @@ struct GrammarQuizView: View {
 
     @ViewBuilder
     private func quizContentView(question: QuizQuestion) -> some View {
-        VStack(spacing: 0) {
-            // 타이머 바 (활성화된 경우만 표시)
-            if timerEnabled {
-                grammarTimerBar
+        GrammarQuizContentView(
+            question: question,
+            currentIndex: viewModel.currentIndex,
+            totalCount: viewModel.questions.count,
+            timerEnabled: timerEnabled,
+            timerRemaining: grammarTimerRemaining,
+            timerDuration: grammarTimerDuration,
+            timerColor: grammarTimerColor,
+            isAnswerRevealed: viewModel.isAnswerRevealed,
+            selectedAnswer: viewModel.selectedAnswer,
+            answerBounceScale: answerBounceScale,
+            answerShakeOffset: answerShakeOffset,
+            feedbackVisible: feedbackVisible,
+            onSelectAnswer: { option in
+                viewModel.selectAnswer(option, context: modelContext)
+            },
+            onSkipDontKnow: {
+                viewModel.skipAsDontKnow(context: modelContext)
+            },
+            onShowExplanation: {
+                viewModel.showExplanation = true
+            },
+            onNext: {
+                viewModel.moveToNext(context: modelContext)
             }
-
-            ScrollView {
-                VStack(spacing: 24) {
-                    // 문제 번호
-                    HStack {
-                        Text("Q\(viewModel.currentIndex + 1)/\(viewModel.questions.count)")
-                            .font(.caption).fontWeight(.bold)
-                            .foregroundStyle(AppPalette.forest)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 20)
-
-                    // 문제 문장
-                    sentenceView(question.sentenceWithBlank)
-                        .padding(.horizontal, 24)
-
-                    // 보기 버튼들
-                    VStack(spacing: 12) {
-                        ForEach(question.options, id: \.self) { option in
-                            optionButton(option: option, question: question)
-                        }
-
-                        // 모르겠다 버튼
-                        if !viewModel.isAnswerRevealed {
-                            Button {
-                                viewModel.skipAsDontKnow(context: modelContext)
-                            } label: {
-                                Text("모르겠어요.")
-                                    .font(.body).foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .contentShape(Rectangle())
-                                    .background(RoundedRectangle(cornerRadius: 12).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 24)
-
-                    // 정답 공개 후: 다음/해설 버튼
-                    if viewModel.isAnswerRevealed {
-                        feedbackSection(question: question)
-                            .scaleEffect(answerBounceScale)
-                            .offset(x: answerShakeOffset)
-                            .opacity(feedbackVisible ? 1 : 0)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
-                    Spacer(minLength: 40)
-                }
-            }
-        }
-    }
-
-    // MARK: - Progress Bar
-
-    private var progressBar: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Rectangle().fill(.quaternary).frame(height: 6)
-                Rectangle().fill(AppPalette.forest)
-                    .frame(width: geo.size.width * viewModel.progress, height: 6)
-                    .animation(.smooth, value: viewModel.progress)
-            }
-        }
-        .frame(height: 6)
-    }
-
-    // Grammar timer bar (bar only, no text)
-    private var grammarTimerBar: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.2)).frame(height: 5)
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(grammarTimerColor)
-                    .frame(width: geo.size.width * max(0, grammarTimerRemaining / grammarTimerDuration), height: 5)
-                    .animation(.linear(duration: 0.1), value: grammarTimerRemaining)
-            }
-        }
-        .frame(height: 5)
-        .padding(.horizontal, 16).padding(.top, 4)
+        )
     }
 
     private var grammarTimerColor: Color {
@@ -320,207 +263,6 @@ struct GrammarQuizView: View {
         grammarTimer = nil
     }
 
-    // MARK: - Sentence View
-
-    private func sentenceView(_ sentence: String) -> some View {
-        return HStack(spacing: 0) {
-            FlowLayout(spacing: 4) {
-                ForEach(Array(sentence.split(separator: " ").enumerated()), id: \.offset) { _, word in
-                    if word == "___" {
-                        Text("______")
-                            .font(.pretendardBold(20))
-                            .foregroundStyle(.blue)
-                            .underline()
-                            .padding(.horizontal, 2)
-                    } else {
-                        Text(String(word))
-                            .font(.pretendardMedium(20))
-                            .padding(.horizontal, 1)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.background)
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 2)
-        )
-    }
-
-    // MARK: - Option Button
-
-    private func optionButton(option: String, question: QuizQuestion) -> some View {
-        Button {
-            if !viewModel.isAnswerRevealed {
-                viewModel.selectAnswer(option, context: modelContext)
-            }
-        } label: {
-            HStack {
-                Text(option)
-                    .font(.pretendardMedium(16))
-
-                Spacer()
-
-                if viewModel.isAnswerRevealed {
-                    if option == question.correctAnswer {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                    } else if option == viewModel.selectedAnswer {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.red)
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(optionBackground(option: option, question: question))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(optionBorder(option: option, question: question), lineWidth: 2)
-            )
-        }
-        .buttonStyle(.plain)
-        .disabled(viewModel.isAnswerRevealed)
-    }
-
-    private func optionBackground(option: String, question: QuizQuestion) -> some ShapeStyle {
-        guard viewModel.isAnswerRevealed else {
-            return AnyShapeStyle(.background)
-        }
-        if option == question.correctAnswer {
-            return AnyShapeStyle(.green.opacity(0.15))
-        } else if option == viewModel.selectedAnswer {
-            return AnyShapeStyle(.red.opacity(0.15))
-        }
-        return AnyShapeStyle(.background)
-    }
-
-    private func optionBorder(option: String, question: QuizQuestion) -> Color {
-        guard viewModel.isAnswerRevealed else {
-            return .clear
-        }
-        if option == question.correctAnswer {
-            return .green
-        } else if option == viewModel.selectedAnswer {
-            return .red
-        }
-        return .clear
-    }
-
-    // MARK: - Feedback Section
-
-    private func feedbackSection(question: QuizQuestion) -> some View {
-        let isCorrect = viewModel.selectedAnswer == question.correctAnswer
-
-        return VStack(spacing: 16) {
-            // 정답/오답 배너
-            HStack {
-                Image(systemName: isCorrect ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.title2)
-                Text(isCorrect ? "정답입니다!" : "틀렸어요")
-                    .font(.headline)
-                Spacer()
-            }
-            .foregroundStyle(isCorrect ? .green : .red)
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isCorrect ? .green.opacity(0.1) : .red.opacity(0.1))
-            )
-
-            // 버튼
-            HStack(spacing: 12) {
-                Button {
-                    viewModel.showExplanation = true
-                } label: {
-                    Label("해설 보기", systemImage: "lightbulb")
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(.bordered)
-
-                Button {
-                    viewModel.moveToNext(context: modelContext)
-                } label: {
-                    Text(viewModel.currentIndex + 1 >= viewModel.questions.count ? "결과 보기" : "다음 문제")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(AppPalette.forest)
-            }
-        }
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Explanation Sheet
-
-    private func explanationSheet(question: QuizQuestion) -> some View {
-        let isCorrect = viewModel.selectedAnswer == question.correctAnswer
-
-        return NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    // 문법 규칙
-                    Text(question.grammar.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    // 설명
-                    Text(question.grammar.explanation)
-                        .font(.body)
-                        .foregroundStyle(.primary)
-
-                    Divider()
-
-                    // 틀렸을 때만 올바른 예문 표시
-                    if !isCorrect {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("올바른 예문", systemImage: "checkmark.circle")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.green)
-                            Text(question.grammar.correctExample)
-                                .font(.body)
-                                .italic()
-                        }
-                    }
-
-                    // 팁
-                    if !question.tip.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Label("학습 팁", systemImage: "lightbulb.fill")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(.orange)
-                            Text(question.tip)
-                                .font(.body)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(.orange.opacity(0.08))
-                        )
-                    }
-                }
-                .padding(24)
-            }
-            .navigationTitle("해설")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("닫기") {
-                        viewModel.showExplanation = false
-                    }
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
 
     // MARK: - Quiz Complete (LessonCompleteView로 대체)
 
@@ -561,31 +303,6 @@ struct GrammarQuizView: View {
         .font(.subheadline)
     }
 
-    // MARK: - Empty Quiz
-
-    private var emptyQuizView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "text.book.closed")
-                .font(.system(size: 56))
-                .foregroundStyle(.secondary)
-
-            Text("풀 수 있는 문제가 없어요")
-                .font(.title3)
-                .fontWeight(.semibold)
-
-            Text("문법 데이터를 로드 중이거나\n모든 문법을 숙달했습니다.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Button("새로고침") {
-                loadQuiz()
-            }
-            .buttonStyle(.bordered)
-            .tint(AppPalette.forest)
-            .padding(.top, 8)
-        }
-    }
 
     // MARK: - Helpers
 
@@ -632,50 +349,3 @@ struct GrammarQuizView: View {
     }
 }
 
-// MARK: - FlowLayout (간단한 워드 랩 레이아웃)
-
-/// 단어들이 줄바꿈되는 간단한 FlowLayout.
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 4
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        return result.size
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let result = arrange(proposal: proposal, subviews: subviews)
-        for (index, position) in result.positions.enumerated() {
-            subviews[index].place(
-                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
-                proposal: .unspecified
-            )
-        }
-    }
-
-    private func arrange(proposal: ProposedViewSize, subviews: Subviews) -> (positions: [CGPoint], size: CGSize) {
-        let maxWidth = proposal.width ?? .infinity
-        var positions: [CGPoint] = []
-        var x: CGFloat = 0
-        var y: CGFloat = 0
-        var lineHeight: CGFloat = 0
-        var maxX: CGFloat = 0
-
-        for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
-
-            if x + size.width > maxWidth && x > 0 {
-                x = 0
-                y += lineHeight + spacing
-                lineHeight = 0
-            }
-
-            positions.append(CGPoint(x: x, y: y))
-            lineHeight = max(lineHeight, size.height)
-            x += size.width + spacing
-            maxX = max(maxX, x)
-        }
-
-        return (positions, CGSize(width: maxX, height: y + lineHeight))
-    }
-}

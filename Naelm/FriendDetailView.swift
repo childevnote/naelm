@@ -263,7 +263,8 @@ struct FriendDetailView: View {
     private func loadPublicInfo() {
         isLoading = true
         Task {
-            publicInfo = try? await FriendService.shared.fetchPublicProfile(userID: friendship.friendID)
+            let publicID = FriendService.publicID(from: friendship.friendID)
+            publicInfo = try? await FriendService.shared.fetchPublicProfile(userID: publicID)
             isLoading = false
         }
     }

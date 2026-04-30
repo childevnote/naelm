@@ -355,9 +355,20 @@ struct BookmarkListView: View {
             ? String(sentence[range.upperBound..<sentence.endIndex])
             : ""
 
-        return Text(prefix).foregroundStyle(.secondary)
-        + Text(match).foregroundStyle(AppColor.primary).fontWeight(.bold)
-        + Text(suffix).foregroundStyle(.secondary)
+        var prefixText = AttributedString(prefix)
+        prefixText.foregroundColor = .secondary
+
+        var matchText = AttributedString(match)
+        matchText.foregroundColor = AppColor.primary
+        matchText.font = .body.bold()
+
+        var suffixText = AttributedString(suffix)
+        suffixText.foregroundColor = .secondary
+
+        var combined = prefixText
+        combined += matchText
+        combined += suffixText
+        return Text(combined)
     }
 
     // MARK: - Data

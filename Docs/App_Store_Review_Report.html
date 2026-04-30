@@ -180,9 +180,9 @@
 <div class="summary-grid">
   <div class="summary-box"><div class="count critical">1</div><div class="label">🔴 치명적</div></div>
   <div class="summary-box"><div class="count high">2</div><div class="label">🟠 높음</div></div>
-  <div class="summary-box"><div class="count medium">3</div><div class="label">🟡 중간</div></div>
+  <div class="summary-box"><div class="count medium">4</div><div class="label">🟡 중간</div></div>
   <div class="summary-box"><div class="count low">2</div><div class="label">🔵 낮음</div></div>
-  <div class="summary-box"><div class="count fixed">5</div><div class="label">✅ 코드 수정 완료</div></div>
+  <div class="summary-box"><div class="count fixed">7</div><div class="label">✅ 코드 수정 완료</div></div>
 </div>
 
 <!-- ─────────────────────────────────────── -->
@@ -196,6 +196,21 @@
       <div class="badge fixed">✅ 부분 수정 완료</div>
     </div>
     <div class="issue-title">Sign in with Apple 토큰 취소 미구현</div>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/FriendService.swift</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">Public DB <code>userID</code> → <code>publicID</code> 전환 및 친구 요청 필드 해시화</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">5.1 (개인정보)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/MyPageViewModel.swift</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">계정 삭제 시 CloudKit 공개 데이터 삭제 연동</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">5.1.1 (v)</td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);"><code>Naelm/NaelmApp.swift</code></td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">게스트 ID 재사용 로직 추가</td>
+        <td style="padding: 8px 12px; border-bottom: 1px solid var(--border);">5.1.1 (데이터 관리)</td>
+      </tr>
     <div class="guideline">Guideline 5.1.1 (iv) — 계정 삭제 시 토큰 취소 필수</div>
   </div>
   <div class="issue-body">
@@ -304,6 +319,25 @@
   <div class="issue-header">
     <div>
       <div class="badge medium">🟡 중간</div>
+      <div class="badge fixed">✅ 수정 완료</div>
+    </div>
+    <div class="issue-title">계정 삭제 시 CloudKit 공개 데이터 미삭제</div>
+    <div class="guideline">Guideline 5.1.1 (v) — 사용자 데이터 삭제</div>
+  </div>
+  <div class="issue-body">
+    계정 삭제는 로컬 SwiftData만 삭제하고, CloudKit Public DB에 저장된 공개 프로필 및 친구 요청 데이터는 남아 있었습니다. Apple은 계정 삭제 기능에서 관련 서버 데이터를 함께 삭제할 것을 요구하며, 공개 DB 데이터가 유지되면 심사 과정에서 보완 요청이나 거절 사유가 될 수 있습니다.
+  </div>
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>MyPageViewModel.deleteAccount()</code>에서 <code>FriendService.deletePublicData(for:)</code>를 호출해 Public Profile과 FriendRequest 레코드를 삭제합니다. 레거시 필드(<code>fromUserID</code>/<code>toUserID</code>)도 함께 정리합니다.
+  </div>
+</div>
+
+<!-- Issue 7 -->
+<div class="issue-card medium">
+  <div class="issue-header">
+    <div>
+      <div class="badge medium">🟡 중간</div>
     </div>
     <div class="issue-title">개인정보 처리방침 URL — Notion 임시 페이지</div>
     <div class="guideline">Guideline 5.1.1 — 개인정보 처리방침 접근성 및 안정성</div>
@@ -320,11 +354,12 @@
 <!-- ─────────────────────────────────────── -->
 <div class="section-title">🔵 낮음 — 위험도 낮지만 개선 권장</div>
 
-<!-- Issue 7 -->
+<!-- Issue 8 -->
 <div class="issue-card low">
   <div class="issue-header">
     <div>
       <div class="badge low">🔵 낮음</div>
+      <div class="badge fixed">✅ 수정 완료</div>
     </div>
     <div class="issue-title">CloudKit Public DB에 Sign in with Apple userID 평문 저장</div>
     <div class="guideline">Guideline 5.1 — 개인정보 보호</div>
@@ -332,17 +367,18 @@
   <div class="issue-body">
     <code>FriendService.upsertPublicProfile()</code>에서 Apple의 <code>userID</code>(unique stable identifier)를 CloudKit Public Database의 <code>userID</code> 필드에 그대로 저장합니다. Public DB는 인증된 모든 iCloud 사용자가 쿼리할 수 있으므로, 타 사용자가 다른 사람의 Apple userID를 알 수 있게 됩니다. 코드 주석도 이 문제를 인식하고 "추후 개선 권장"이라고 언급하고 있습니다.
   </div>
-  <div class="no-fix-box">
-    <div class="no-fix-label">⚠️ 개선 권장 (심사 탈락 직접 사유는 아님)</div>
-    Public DB 레코드에는 <code>userID</code> 대신 SHA-256 해시값(<code>FriendService.hashedPublicID(from:)</code>이 이미 구현됨)만 저장하도록 변경하세요. recordName은 이미 해시 기반이나, <code>record["userID"]</code> 필드 자체를 제거하거나 해시값으로 대체해야 합니다.
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>FriendService.upsertPublicProfile()</code>에서 Public DB 필드를 <code>userID</code> → <code>publicID(SHA-256)</code>로 전환하고, 친구 요청도 <code>fromPublicID</code>/<code>toPublicID</code>로 저장하도록 변경했습니다. 기존 레코드는 <code>recordName</code> 또는 legacy 필드 기반으로 호환 처리합니다.
   </div>
 </div>
 
-<!-- Issue 8 -->
+<!-- Issue 9 -->
 <div class="issue-card low">
   <div class="issue-header">
     <div>
       <div class="badge low">🔵 낮음</div>
+      <div class="badge fixed">✅ 수정 완료</div>
     </div>
     <div class="issue-title">게스트 계정 생성 시 새 UUID가 매번 생성됨</div>
     <div class="guideline">Guideline 5.1.1 — 사용자 데이터 관리</div>
@@ -350,9 +386,9 @@
   <div class="issue-body">
     로그아웃 후 재로그인 시 게스트 ID(<code>guest_XXXXXXXX</code>)가 새로 생성됩니다. 기존 게스트 데이터는 여전히 SwiftData에 남아 있지만 새 ID와 연결되지 않아 사용자가 데이터 분리를 경험할 수 있습니다. 직접적인 심사 탈락 사유는 아니지만 UX 관점에서 불량한 경험을 줄 수 있습니다.
   </div>
-  <div class="no-fix-box">
-    <div class="no-fix-label">⚙️ UX 개선 권장</div>
-    게스트 ID를 <code>UserDefaults</code> 또는 Keychain에 저장하여 앱 재실행 및 로그아웃 후에도 동일한 ID를 복원하세요. 이미 <code>authManager.signInAsGuest()</code>가 Keychain에 저장하고 있으므로, <code>signOut()</code> 후 게스트 재로그인 경로도 동일 ID를 재사용하도록 개선이 필요합니다.
+  <div class="fix-box">
+    <div class="fix-label">✅ 코드 수정 완료</div>
+    <code>AuthenticationManager.signInAsGuest()</code>에서 이전에 저장된 게스트 ID(<code>UserDefaults</code>)를 재사용하도록 변경하여 로그아웃 후에도 동일한 게스트 데이터가 이어지도록 개선했습니다.
   </div>
 </div>
 
@@ -406,8 +442,6 @@
     <li>☐ <strong>[필수 - 서버]</strong> Apple 토큰 취소 서버 API(<code>POST https://appleid.apple.com/auth/token/revoke</code>) 구현 및 연동</li>
     <li>☐ <strong>[필수 - Xcode]</strong> iCloud 컨테이너 식별자 등록 (Signing &amp; Capabilities)</li>
     <li>☐ <strong>[필수 - 외부]</strong> 개인정보 처리방침을 안정적인 URL로 호스팅 및 App Store Connect에 등록</li>
-    <li>☐ <strong>[권장]</strong> CloudKit Public DB의 <code>userID</code> 필드를 해시값으로 교체</li>
-    <li>☐ <strong>[권장]</strong> 게스트 ID 재사용 로직 개선</li>
     <li>☐ <strong>[확인]</strong> App Store Connect에서 앱 이름이 "Naelm"으로 등록되어 있는지 확인</li>
     <li>☐ <strong>[확인]</strong> 앱 심사용 데모 계정(Sign in with Apple 불가한 심사 환경 대비) 또는 게스트 로그인 경로 안내</li>
   </ul>

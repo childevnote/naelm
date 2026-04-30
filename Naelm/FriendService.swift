@@ -28,12 +28,30 @@ private enum CKRecordType {
     static let friendRequest = "FriendRequest"
 }
 
+private enum CKRecordField {
+    static let publicID = "publicID"
+    static let legacyUserID = "userID"
+    static let fromPublicID = "fromPublicID"
+    static let toPublicID = "toPublicID"
+    static let legacyFromUserID = "fromUserID"
+    static let legacyToUserID = "toUserID"
+    static let fromNickname = "fromNickname"
+    static let nickname = "nickname"
+    static let monthlyXP = "monthlyXP"
+    static let totalXP = "totalXP"
+    static let streak = "streak"
+    static let weeklyXP = "weeklyXP"
+    static let status = "status"
+    static let createdAt = "createdAt"
+    static let updatedAt = "updatedAt"
+}
+
 // MARK: - 공개 프로필 데이터 구조체
 
 /// CloudKit Public DB에서 조회한 유저 공개 정보
 struct PublicUserInfo: Identifiable {
     let id = UUID()
-    let userID: String        // Sign in with Apple userIdentifier
+    let publicID: String      // SHA-256 hashed public identifier
     let nickname: String      // 닉네임
     let monthlyXP: Int        // 이번 달 XP (랭킹용)
     let totalXP: Int          // 누적 총 XP
@@ -48,9 +66,9 @@ struct PublicUserInfo: Identifiable {
 struct FriendRequestInfo: Identifiable {
     let id = UUID()
     let recordName: String    // CKRecord.ID.recordName
-    let fromUserID: String
+    let fromPublicID: String
     let fromNickname: String
-    let toUserID: String
+    let toPublicID: String
     let status: String        // "pending" | "accepted" | "declined" | "removed"
     let createdAt: Date
 }
@@ -74,9 +92,22 @@ final class FriendService {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    nonisolated private static func isLikelyPublicID(_ value: String) -> Bool {
+        let lower = value.lowercased()
+        guard lower.count == 64 else { return false }
+        let hexSet = CharacterSet(charactersIn: "0123456789abcdef")
+        return lower.unicodeScalars.allSatisfy { hexSet.contains($0) }
+    }
+
+    /// userID 또는 publicID를 받아 항상 publicID(해시)를 반환합니다.
+    nonisolated static func publicID(from userIDOrPublicID: String) -> String {
+        let lower = userIDOrPublicID.lowercased()
+        return isLikelyPublicID(lower) ? lower : hashedPublicID(from: userIDOrPublicID)
+    }
+
     /// UserPublicProfile 레코드 이름 (해시 기반)
-    nonisolated private static func profileRecordName(for userID: String) -> String {
-        "profile_\(hashedPublicID(from: userID))"
+    nonisolated private static func profileRecordName(for userIDOrPublicID: String) -> String {
+        "profile_\(publicID(from: userIDOrPublicID))"
     }
 
     // ── Public Profile 관리 ──────────────────────────────────
@@ -91,7 +122,8 @@ final class FriendService {
         streak: Int,
         weeklyXP: Int = 0
     ) async throws {
-        let recordName = Self.profileRecordName(for: userID)
+        let publicID = Self.publicID(from: userID)
+        let recordName = Self.profileRecordName(for: publicID)
         let recordID = CKRecord.ID(recordName: recordName)
 
         // 기존 레코드 조회 시도 후 없으면 새로 생성
@@ -102,13 +134,13 @@ final class FriendService {
             record = CKRecord(recordType: CKRecordType.userPublicProfile, recordID: recordID)
         }
 
-        record["userID"] = userID as CKRecordValue
-        record["nickname"] = nickname as CKRecordValue
-        record["monthlyXP"] = Int64(monthlyXP) as CKRecordValue
-        record["totalXP"] = Int64(totalXP) as CKRecordValue
-        record["streak"] = Int64(streak) as CKRecordValue
-        record["weeklyXP"] = Int64(weeklyXP) as CKRecordValue
-        record["updatedAt"] = Date() as CKRecordValue
+        record[CKRecordField.publicID] = publicID as CKRecordValue
+        record[CKRecordField.nickname] = nickname as CKRecordValue
+        record[CKRecordField.monthlyXP] = Int64(monthlyXP) as CKRecordValue
+        record[CKRecordField.totalXP] = Int64(totalXP) as CKRecordValue
+        record[CKRecordField.streak] = Int64(streak) as CKRecordValue
+        record[CKRecordField.weeklyXP] = Int64(weeklyXP) as CKRecordValue
+        record[CKRecordField.updatedAt] = Date() as CKRecordValue
 
         try await publicDB.save(record)
     }
@@ -121,7 +153,14 @@ final class FriendService {
 
         let (results, _) = try await publicDB.records(
             matching: query,
-            desiredKeys: ["userID", "nickname", "monthlyXP", "totalXP", "streak", "weeklyXP"],
+            desiredKeys: [
+                CKRecordField.publicID,
+                CKRecordField.nickname,
+                CKRecordField.monthlyXP,
+                CKRecordField.totalXP,
+                CKRecordField.streak,
+                CKRecordField.weeklyXP,
+            ],
             resultsLimit: 20
         )
 
@@ -132,6 +171,7 @@ final class FriendService {
     }
 
     /// 특정 userID의 Public Profile을 가져옵니다.
+    /// userID 또는 publicID를 받아 Public Profile을 가져옵니다.
     func fetchPublicProfile(userID: String) async throws -> PublicUserInfo? {
         let recordName = Self.profileRecordName(for: userID)
         let recordID = CKRecord.ID(recordName: recordName)
@@ -154,7 +194,14 @@ final class FriendService {
 
         return try await withCheckedThrowingContinuation { continuation in
             let operation = CKFetchRecordsOperation(recordIDs: recordIDs)
-            operation.desiredKeys = ["userID", "nickname", "monthlyXP", "totalXP", "streak", "weeklyXP"]
+            operation.desiredKeys = [
+                CKRecordField.publicID,
+                CKRecordField.nickname,
+                CKRecordField.monthlyXP,
+                CKRecordField.totalXP,
+                CKRecordField.streak,
+                CKRecordField.weeklyXP,
+            ]
 
             var infos: [PublicUserInfo] = []
             let lock = NSLock()
@@ -187,14 +234,16 @@ final class FriendService {
     func sendFriendRequest(
         fromUserID: String,
         fromNickname: String,
-        toUserID: String
+        toPublicID: String
     ) async throws -> String {
+        let fromPublicID = Self.publicID(from: fromUserID)
+        let normalizedToPublicID = Self.publicID(from: toPublicID)
         let record = CKRecord(recordType: CKRecordType.friendRequest)
-        record["fromUserID"] = fromUserID as CKRecordValue
-        record["fromNickname"] = fromNickname as CKRecordValue
-        record["toUserID"] = toUserID as CKRecordValue
-        record["status"] = "pending" as CKRecordValue
-        record["createdAt"] = Date() as CKRecordValue
+        record[CKRecordField.fromPublicID] = fromPublicID as CKRecordValue
+        record[CKRecordField.fromNickname] = fromNickname as CKRecordValue
+        record[CKRecordField.toPublicID] = normalizedToPublicID as CKRecordValue
+        record[CKRecordField.status] = "pending" as CKRecordValue
+        record[CKRecordField.createdAt] = Date() as CKRecordValue
 
         let saved = try await publicDB.save(record)
         return saved.recordID.recordName
@@ -202,16 +251,15 @@ final class FriendService {
 
     /// 내가 받은 대기 중인 친구 요청 목록을 가져옵니다.
     func fetchPendingRequests(toUserID: String) async throws -> [FriendRequestInfo] {
-        let predicate = NSPredicate(format: "toUserID == %@ AND status == 'pending'", toUserID)
-        let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-
-        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 100)
-
-        return results.compactMap { _, result in
-            guard let record = try? result.get() else { return nil }
-            return Self.parseFriendRequest(record)
+        let publicID = Self.publicID(from: toUserID)
+        async let newResults = fetchFriendRequests(fieldName: CKRecordField.toPublicID, value: publicID)
+        async let legacyResults = fetchFriendRequests(fieldName: CKRecordField.legacyToUserID, value: toUserID)
+        let combined = try await newResults + legacyResults
+        var uniqueByRecord: [String: FriendRequestInfo] = [:]
+        for info in combined {
+            uniqueByRecord[info.recordName] = info
         }
+        return Array(uniqueByRecord.values).sorted { $0.createdAt > $1.createdAt }
     }
 
     /// 내가 보낸 특정 요청의 현재 status를 가져옵니다. (발신자 동기화용)
@@ -236,9 +284,80 @@ final class FriendService {
     /// 이미 요청을 보낸 적이 있는지 CloudKit에서 확인합니다.
     /// 앱 재설치 / 기기 변경 후 중복 요청 방지에 사용합니다.
     func hasPendingRequest(fromUserID: String, toUserID: String) async throws -> Bool {
+        let fromPublicID = Self.publicID(from: fromUserID)
+        let toPublicID = Self.publicID(from: toUserID)
+        async let newExists = hasPendingRequest(
+            fromField: CKRecordField.fromPublicID,
+            fromValue: fromPublicID,
+            toField: CKRecordField.toPublicID,
+            toValue: toPublicID
+        )
+        async let legacyExists = hasPendingRequest(
+            fromField: CKRecordField.legacyFromUserID,
+            fromValue: fromUserID,
+            toField: CKRecordField.legacyToUserID,
+            toValue: toUserID
+        )
+        let (newExistsValue, legacyExistsValue) = try await (newExists, legacyExists)
+        return newExistsValue || legacyExistsValue
+    }
+
+    /// 계정 삭제 시 Public DB에 남아있는 공개 프로필/친구 요청 데이터를 제거합니다.
+    func deletePublicData(for userID: String) async {
+        let publicID = Self.publicID(from: userID)
+        let recordID = CKRecord.ID(recordName: Self.profileRecordName(for: publicID))
+        do {
+            _ = try await publicDB.deleteRecord(withID: recordID)
+        } catch {
+            AppLogger.friend.warning("Failed to delete public profile: \(error.localizedDescription)")
+        }
+
+        do {
+            try await deleteFriendRequests(
+                predicate: NSPredicate(
+                    format: "fromPublicID == %@ OR toPublicID == %@",
+                    publicID, publicID
+                )
+            )
+        } catch {
+            AppLogger.friend.warning("Failed to delete public friend requests: \(error.localizedDescription)")
+        }
+
+        do {
+            try await deleteFriendRequests(
+                predicate: NSPredicate(
+                    format: "fromUserID == %@ OR toUserID == %@",
+                    userID, userID
+                )
+            )
+        } catch {
+            AppLogger.friend.warning("Failed to delete legacy friend requests: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Private Helpers
+
+    private func fetchFriendRequests(fieldName: String, value: String) async throws -> [FriendRequestInfo] {
+        let predicate = NSPredicate(format: "%K == %@ AND status == 'pending'", fieldName, value)
+        let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
+        query.sortDescriptors = [NSSortDescriptor(key: CKRecordField.createdAt, ascending: false)]
+
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 100)
+        return results.compactMap { _, result in
+            guard let record = try? result.get() else { return nil }
+            return Self.parseFriendRequest(record)
+        }
+    }
+
+    private func hasPendingRequest(
+        fromField: String,
+        fromValue: String,
+        toField: String,
+        toValue: String
+    ) async throws -> Bool {
         let predicate = NSPredicate(
-            format: "fromUserID == %@ AND toUserID == %@ AND status == 'pending'",
-            fromUserID, toUserID
+            format: "%K == %@ AND %K == %@ AND status == 'pending'",
+            fromField, fromValue, toField, toValue
         )
         let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
 
@@ -246,20 +365,40 @@ final class FriendService {
         return !results.isEmpty
     }
 
+    private func deleteFriendRequests(predicate: NSPredicate) async throws {
+        let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 200)
+        for (recordID, result) in results {
+            guard (try? result.get()) != nil else { continue }
+            _ = try? await publicDB.deleteRecord(withID: recordID)
+        }
+    }
+
     // MARK: - 정적 파싱 헬퍼
     // static으로 선언하여 CKFetchRecordsOperation 백그라운드 콜백에서도 actor 격리 없이 호출 가능
 
     nonisolated static func parsePublicProfile(_ record: CKRecord) -> PublicUserInfo? {
-        guard let userID = record["userID"] as? String,
-              let nickname = record["nickname"] as? String else { return nil }
+        let publicID: String?
+        if let value = record[CKRecordField.publicID] as? String {
+            publicID = value
+        } else if let legacyUserID = record[CKRecordField.legacyUserID] as? String {
+            publicID = Self.publicID(from: legacyUserID)
+        } else if record.recordID.recordName.hasPrefix("profile_") {
+            publicID = String(record.recordID.recordName.dropFirst("profile_".count))
+        } else {
+            publicID = nil
+        }
 
-        let monthlyXP = (record["monthlyXP"] as? Int64).map(Int.init) ?? 0
-        let totalXP = (record["totalXP"] as? Int64).map(Int.init) ?? 0
-        let streak = (record["streak"] as? Int64).map(Int.init) ?? 0
-        let weeklyXP = (record["weeklyXP"] as? Int64).map(Int.init) ?? 0
+        guard let publicID,
+              let nickname = record[CKRecordField.nickname] as? String else { return nil }
+
+        let monthlyXP = (record[CKRecordField.monthlyXP] as? Int64).map(Int.init) ?? 0
+        let totalXP = (record[CKRecordField.totalXP] as? Int64).map(Int.init) ?? 0
+        let streak = (record[CKRecordField.streak] as? Int64).map(Int.init) ?? 0
+        let weeklyXP = (record[CKRecordField.weeklyXP] as? Int64).map(Int.init) ?? 0
 
         return PublicUserInfo(
-            userID: userID,
+            publicID: publicID,
             nickname: nickname,
             monthlyXP: monthlyXP,
             totalXP: totalXP,
@@ -270,18 +409,22 @@ final class FriendService {
     }
 
     nonisolated static func parseFriendRequest(_ record: CKRecord) -> FriendRequestInfo? {
-        guard let fromUserID = record["fromUserID"] as? String,
-              let fromNickname = record["fromNickname"] as? String,
-              let toUserID = record["toUserID"] as? String,
-              let status = record["status"] as? String else { return nil }
+        let fromPublicID = (record[CKRecordField.fromPublicID] as? String)
+            ?? (record[CKRecordField.legacyFromUserID] as? String).map(Self.publicID(from:))
+        let toPublicID = (record[CKRecordField.toPublicID] as? String)
+            ?? (record[CKRecordField.legacyToUserID] as? String).map(Self.publicID(from:))
+        guard let fromPublicID,
+              let fromNickname = record[CKRecordField.fromNickname] as? String,
+              let toPublicID,
+              let status = record[CKRecordField.status] as? String else { return nil }
 
-        let createdAt = record["createdAt"] as? Date ?? Date()
+        let createdAt = record[CKRecordField.createdAt] as? Date ?? Date()
 
         return FriendRequestInfo(
             recordName: record.recordID.recordName,
-            fromUserID: fromUserID,
+            fromPublicID: fromPublicID,
             fromNickname: fromNickname,
-            toUserID: toUserID,
+            toPublicID: toPublicID,
             status: status,
             createdAt: createdAt
         )

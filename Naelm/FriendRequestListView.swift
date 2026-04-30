@@ -176,7 +176,7 @@ struct FriendRequestListView: View {
                 )
 
                 // 로컬 Friendship 레코드 조회 또는 생성
-                let friendID = request.fromUserID
+                let friendID = request.fromPublicID
                 let predicate = #Predicate<Friendship> {
                     $0.userID == myID && $0.friendID == friendID
                 }
@@ -187,7 +187,7 @@ struct FriendRequestListView: View {
                 } else {
                     let friendship = Friendship(
                         userID: myID,
-                        friendID: request.fromUserID,
+                        friendID: request.fromPublicID,
                         isFriend: true,
                         isPending: false,
                         requestedByMe: false,
@@ -219,7 +219,7 @@ struct FriendRequestListView: View {
                 )
 
                 // 로컬 Friendship 레코드가 있으면 삭제
-                let friendID = request.fromUserID
+                let friendID = request.fromPublicID
                 let predicate = #Predicate<Friendship> {
                     $0.userID == myID && $0.friendID == friendID && $0.isPending == true
                 }
@@ -256,7 +256,7 @@ struct FriendRequestListView: View {
 // MARK: - Preview
 
 #Preview {
-    @State var auth = AuthenticationManager()
-    return FriendRequestListView()
+    @Previewable @State var auth = AuthenticationManager()
+    FriendRequestListView()
         .environment(auth)
 }

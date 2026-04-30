@@ -107,14 +107,24 @@ final class MyPageViewModel {
 
         // Apple Sign In 토큰 취소 (App Store Guideline 5.1.1 iv 필수)
         if !userID.hasPrefix("guest_") && !userID.hasPrefix("dev_user_") {
-            if let authCode = KeychainHelper.read(key: KeychainHelper.authCodeKey) {
-                // ASAuthorizationAppleIDProvider.revokeCredential API는 미공개 내부 API이므로
-                // 서버 측 Apple REST API(POST /auth/token/revoke)로 토큰 취소를 권장합니다.
-                // 현재는 클라이언트 Keychain 정리만 수행하고 로그를 남깁니다.
-                AppLogger.auth.info("Requesting Apple token revocation (authCode length: \(authCode.count))")
-            } else {
-                AppLogger.auth.warning("No authorizationCode found — skipping Apple token revocation")
+            Task { [weak self] in
+                if let authCode = KeychainHelper.read(key: KeychainHelper.authCodeKey) {
+                    // ASAuthorizationAppleIDProvider.revokeCredential API는 미공개 내부 API이므로
+                    // 서버 측 Apple REST API(POST /auth/token/revoke)로 토큰 취소를 권장합니다.
+                    // 현재는 클라이언트 Keychain 정리만 수행하고 로그를 남깁니다.
+                    AppLogger.auth.info("Requesting Apple token revocation (authCode length: \(authCode.count))")
+                    await AppleTokenServerClient.revoke(userID: userID, authorizationCode: authCode)
+                } else {
+                    AppLogger.auth.warning("No authorizationCode found — skipping Apple token revocation")
+                    await AppleTokenServerClient.revoke(userID: userID, authorizationCode: nil)
+                }
+
+                await FriendService.shared.deletePublicData(for: userID)
+                await MainActor.run {
+                    self?.performLocalDeletion(userID: userID)
+                }
             }
+            return
         }
 
         performLocalDeletion(userID: userID)
@@ -133,30 +143,35 @@ final class MyPageViewModel {
     /// userID에 해당하는 모든 사용자 데이터를 삭제합니다 (DRY 원칙).
     private func deleteUserData(userID: String, includeFriendships: Bool) {
         let profilePred = #Predicate<UserProfile> { $0.userID == userID }
-        if let items = try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePred)) {
-            items.forEach { modelContext.delete($0) }
-        }
+        deleteItems(UserProfile.self, predicate: profilePred)
+
         let progressPred = #Predicate<LearningProgress> { $0.userID == userID }
-        if let items = try? modelContext.fetch(FetchDescriptor<LearningProgress>(predicate: progressPred)) {
-            items.forEach { modelContext.delete($0) }
-        }
+        deleteItems(LearningProgress.self, predicate: progressPred)
+
         let activityPred = #Predicate<UserActivity> { $0.userID == userID }
-        if let items = try? modelContext.fetch(FetchDescriptor<UserActivity>(predicate: activityPred)) {
-            items.forEach { modelContext.delete($0) }
-        }
+        deleteItems(UserActivity.self, predicate: activityPred)
+
         let scorePred = #Predicate<MonthlyScore> { $0.userID == userID }
-        if let items = try? modelContext.fetch(FetchDescriptor<MonthlyScore>(predicate: scorePred)) {
-            items.forEach { modelContext.delete($0) }
-        }
+        deleteItems(MonthlyScore.self, predicate: scorePred)
+
         let bookmarkPred = #Predicate<BookmarkedWord> { $0.userID == userID }
-        if let items = try? modelContext.fetch(FetchDescriptor<BookmarkedWord>(predicate: bookmarkPred)) {
-            items.forEach { modelContext.delete($0) }
-        }
+        deleteItems(BookmarkedWord.self, predicate: bookmarkPred)
+
         if includeFriendships {
-            let friendPred = #Predicate<Friendship> { $0.userID == userID || $0.friendID == userID }
-            if let items = try? modelContext.fetch(FetchDescriptor<Friendship>(predicate: friendPred)) {
-                items.forEach { modelContext.delete($0) }
+            let publicID = FriendService.publicID(from: userID)
+            let friendPred = #Predicate<Friendship> {
+                $0.userID == userID || $0.friendID == userID || $0.friendID == publicID
             }
+            deleteItems(Friendship.self, predicate: friendPred)
+        }
+    }
+
+    private func deleteItems<T: PersistentModel>(
+        _ type: T.Type,
+        predicate: Predicate<T>
+    ) {
+        if let items = try? modelContext.fetch(FetchDescriptor<T>(predicate: predicate)) {
+            items.forEach { modelContext.delete($0) }
         }
     }
 }

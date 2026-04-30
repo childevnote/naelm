@@ -1,0 +1,7 @@
+name = "naelm-apple-token-revoke"
+main = "src/index.mjs"
+compatibility_date = "2026-04-29"
+
+kv_namespaces = [
+  { binding = "APPLE_TOKEN_KV", id = "3c20609d6f31484facb5bf5886a3b1a0" }
+]

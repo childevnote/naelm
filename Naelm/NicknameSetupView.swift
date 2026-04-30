@@ -184,8 +184,8 @@ struct NicknameSetupView: View {
 // MARK: - Preview
 
 #Preview {
-    @State var auth = AuthenticationManager()
-    return NicknameSetupView { _ in }
+    @Previewable @State var auth = AuthenticationManager()
+    NicknameSetupView { _ in }
         .environment(auth)
         .preferredColorScheme(.light)
 }

@@ -69,11 +69,15 @@ struct FriendSearchView: View {
                         Spacer()
                     } else {
                         ScrollView {
+                            let currentPublicID = authManager.userID.map { FriendService.publicID(from: $0) }
                             LazyVStack(spacing: 8) {
-                                ForEach(searchResults.filter { $0.userID != authManager.userID }) { info in
+                                ForEach(searchResults.filter { info in
+                                    guard let currentPublicID else { return true }
+                                    return info.publicID != currentPublicID
+                                }) { info in
                                     SearchResultRowView(
-                                        isAlreadyFriend: existingFriendIDs.contains(info.userID),
-                                        isPending: pendingRequestIDs.contains(info.userID),
+                                        isAlreadyFriend: existingFriendIDs.contains(info.publicID),
+                                        isPending: pendingRequestIDs.contains(info.publicID),
                                         info: info,
                                         onAddFriend: { addFriend(info) }
                                     )
@@ -173,8 +177,8 @@ struct FriendSearchView: View {
         let descriptor = FetchDescriptor<Friendship>(predicate: predicate)
         let friendships = (try? modelContext.fetch(descriptor)) ?? []
 
-        existingFriendIDs = Set(friendships.filter { $0.isFriend }.map(\.friendID))
-        pendingRequestIDs = Set(friendships.filter { $0.isPending }.map(\.friendID))
+        existingFriendIDs = Set(friendships.filter { $0.isFriend }.map { FriendService.publicID(from: $0.friendID) })
+        pendingRequestIDs = Set(friendships.filter { $0.isPending }.map { FriendService.publicID(from: $0.friendID) })
     }
 
     // MARK: - 친구 추가
@@ -188,24 +192,24 @@ struct FriendSearchView: View {
                 // 앱 재설치/기기 변경 상황에서 CloudKit 중복 요청 방지
                 let alreadySent = try await FriendService.shared.hasPendingRequest(
                     fromUserID: myID,
-                    toUserID: info.userID
+                    toUserID: info.publicID
                 )
                 guard !alreadySent else {
                     // CloudKit에 이미 요청이 있으면 로컬 상태만 업데이트
-                    pendingRequestIDs.insert(info.userID)
+                    pendingRequestIDs.insert(info.publicID)
                     return
                 }
 
                 let recordName = try await FriendService.shared.sendFriendRequest(
                     fromUserID: myID,
                     fromNickname: myNickname,
-                    toUserID: info.userID
+                    toPublicID: info.publicID
                 )
 
                 // 로컬 Friendship 레코드 생성
                 let friendship = Friendship(
                     userID: myID,
-                    friendID: info.userID,
+                    friendID: info.publicID,
                     isPending: true,
                     requestedByMe: true,
                     friendNickname: info.nickname,
@@ -214,7 +218,7 @@ struct FriendSearchView: View {
                 modelContext.insert(friendship)
                 try? modelContext.save()
 
-                pendingRequestIDs.insert(info.userID)
+                pendingRequestIDs.insert(info.publicID)
             } catch {
                 searchError = "친구 요청에 실패했어요. 다시 시도해주세요."
                 showError = true
@@ -334,7 +338,7 @@ private struct SearchResultRowView: View {
 // MARK: - Preview
 
 #Preview {
-    @State var auth = AuthenticationManager()
-    return FriendSearchView()
+    @Previewable @State var auth = AuthenticationManager()
+    FriendSearchView()
         .environment(auth)
 }

@@ -41,13 +41,41 @@ struct OnboardingView: View {
 
             switch step {
             case .targetScore:
-                targetScoreView
+                OnboardingTargetScoreView(selectedTarget: $selectedTarget) {
+                    step = .placementIntro
+                }
             case .placementIntro:
-                placementIntroView
+                OnboardingPlacementIntroView(
+                    onStartTest: {
+                        loadPlacementQuestions()
+                        step = .placementTest
+                        startTimer()
+                    },
+                    onSkip: {
+                        finishOnboarding(level: 2)
+                    }
+                )
             case .placementTest:
-                placementTestView
+                OnboardingPlacementTestView(
+                    currentIndex: currentQ,
+                    questions: placementQuestions,
+                    timerRemaining: timerRemaining,
+                    onAnswer: { option, question in
+                        answerQuestion(option: option, question: question)
+                    },
+                    onStopTimer: {
+                        stopTimer()
+                    }
+                )
             case .result:
-                resultView
+                OnboardingResultView(
+                    placementAnswers: placementAnswers,
+                    estimatedLevel: estimatedLevel,
+                    selectedTarget: selectedTarget,
+                    onConfirm: {
+                        saveResultAndGoToNickname()
+                    }
+                )
             case .nickname:
                 NicknameSetupView { _ in
                     finishOnboarding(level: estimatedLevel)
@@ -55,264 +83,6 @@ struct OnboardingView: View {
                 .environment(authManager)
             }
         }
-    }
-
-    // MARK: - Step 1: Target Score
-
-    private var targetScoreView: some View {
-        VStack(spacing: 32) {
-            Spacer()
-            Image(systemName: "target")
-                .font(.system(size: 64))
-                .foregroundStyle(BrandTheme.accent)
-
-            Text("목표 TOEIC 점수를 선택해주세요")
-                .font(.pretendardBold(22))
-                .multilineTextAlignment(.center)
-
-            Text("선택한 점수에 맞는 단어와 문법을 추천해 드립니다")
-                .font(.pretendardMedium(15)).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            VStack(spacing: 12) {
-                ForEach([600, 700, 800, 900], id: \.self) { score in
-                    Button {
-                        selectedTarget = score
-                        HapticManager.shared.playTap()
-                    } label: {
-                        HStack {
-                            Text("\(score)점 이상")
-                                .font(.headline)
-                            Spacer()
-                            if selectedTarget == score {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(BrandTheme.accent)
-                            }
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(selectedTarget == score ? BrandTheme.accent.opacity(0.12) : Color(.secondarySystemBackground))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(selectedTarget == score ? BrandTheme.accent : .clear, lineWidth: 2)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 32)
-
-            Spacer()
-
-            Button {
-                step = .placementIntro
-            } label: {
-                Text("다음")
-                    .font(.headline).frame(maxWidth: 280)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(BrandTheme.accent)
-
-            Spacer().frame(height: 40)
-        }
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Step 2: Placement Intro
-
-    private var placementIntroView: some View {
-        VStack(spacing: 32) {
-            Spacer()
-            Image(systemName: "pencil.and.list.clipboard")
-                .font(.system(size: 64))
-                .foregroundStyle(BrandTheme.accent)
-
-            Text("간단한 수준 파악 테스트")
-                .font(.pretendardBold(22))
-
-            Text("20문제로 현재 실력을 진단합니다.\n문제당 10초 제한이 있습니다.\n약 3분 소요됩니다.")
-                .font(.pretendardMedium(15)).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-
-            Spacer()
-
-            VStack(spacing: 12) {
-                Button {
-                    loadPlacementQuestions()
-                    step = .placementTest
-                    startTimer()
-                } label: {
-                    Text("테스트 시작")
-                        .font(.headline).frame(maxWidth: 280)
-                        .padding(.vertical, 14)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(BrandTheme.accent)
-
-                Button {
-                    finishOnboarding(level: 2)
-                } label: {
-                    Text("건너뛰기")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            Spacer().frame(height: 40)
-        }
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Step 3: Placement Test
-    private var placementTestView: some View {
-        VStack(spacing: 16) {
-            // Progress
-            ProgressView(value: Double(currentQ), total: Double(placementQuestions.count))
-                .tint(BrandTheme.accent)
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-
-            HStack {
-                Text("\(currentQ + 1) / \(placementQuestions.count)")
-                    .font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                if currentQ < placementQuestions.count {
-                    let lvl = placementQuestions[currentQ].difficulty
-                    let scoreLbl = TOEICScoreRange.from(frequencyLevel: lvl).shortLabel
-                    Text("\(scoreLbl)++")
-                        .font(.caption2).fontWeight(.bold)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Capsule().fill(BrandTheme.accent.opacity(0.15)))
-                }
-            }
-            .padding(.horizontal, 24)
-
-            // 타이머 바
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3).fill(Color.gray.opacity(0.2)).frame(height: 5)
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(timerRemaining > 5 ? BrandTheme.knewIt : timerRemaining > 3 ? .orange : .red)
-                        .frame(width: geo.size.width * max(0, timerRemaining / 10.0), height: 5)
-                        .animation(.linear(duration: 0.1), value: timerRemaining)
-                }
-            }
-            .frame(height: 5)
-            .padding(.horizontal, 24)
-
-            if currentQ < placementQuestions.count {
-                let q = placementQuestions[currentQ]
-
-                VStack(spacing: 16) {
-                    // 문제 유형 표시
-                    Text(q.type == .vocabulary ? "단어" : "문법")
-                        .font(.caption).fontWeight(.bold)
-                        .foregroundStyle(BrandTheme.accent)
-
-                    // 문제
-                    Text(q.question)
-                        .font(.title3).fontWeight(.semibold)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-
-                    // 보기 (5지선다: 4개 + 모르겠다)
-                    VStack(spacing: 10) {
-                        ForEach(q.options, id: \.self) { option in
-                            Button {
-                                answerQuestion(option: option, question: q)
-                            } label: {
-                                Text(option)
-                                    .font(.body)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 14)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(.secondarySystemBackground)))
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        // 모르겠다 버튼
-                        Button {
-                            answerQuestion(option: nil, question: q)
-                        } label: {
-                            Text("모르겠다")
-                                .font(.body).foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.3), lineWidth: 1))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 24)
-                }
-                .padding(.top, 8)
-            }
-
-            Spacer()
-        }
-        .onDisappear { stopTimer() }
-    }
-
-    // MARK: - Step 4: Result
-
-    private var resultView: some View {
-        VStack(spacing: 24) {
-            Spacer()
-
-            Image(systemName: "chart.bar.doc.horizontal")
-                .font(.system(size: 64))
-                .foregroundStyle(BrandTheme.accent)
-
-            Text("수준 파악 완료!")
-                .font(.title).fontWeight(.bold)
-
-            let correctCount = placementAnswers.filter(\.correct).count
-            let total = placementAnswers.count
-
-            Text("\(total)문제 중 \(correctCount)문제 정답")
-                .font(.headline).foregroundStyle(.secondary)
-
-            // 구간별 결과 표시
-            VStack(spacing: 8) {
-                ForEach([1, 2, 3, 4], id: \.self) { lvl in
-                    let lvlAnswers = placementAnswers.filter { $0.level == lvl }
-                    let lvlCorrect = lvlAnswers.filter(\.correct).count
-                    let scoreLbl = TOEICScoreRange(rawValue: lvl)?.label ?? ""
-                    HStack {
-                        Text(scoreLbl).font(.caption).frame(width: 60, alignment: .leading)
-                        ProgressView(value: Double(lvlCorrect), total: 5.0)
-                            .tint(lvlCorrect >= 3 ? BrandTheme.knewIt : .orange)
-                        Text("\(lvlCorrect)/5").font(.caption).fontWeight(.bold).frame(width: 30)
-                    }
-                }
-            }
-            .padding(.horizontal, 32)
-
-            let levelRange = TOEICScoreRange.fromEstimatedLevel(estimatedLevel)
-            Text("추정 수준: \(levelRange.label)")
-                .font(.title2).fontWeight(.bold)
-                .foregroundStyle(BrandTheme.accent)
-
-            Text("목표: \(selectedTarget)점")
-                .font(.subheadline).foregroundStyle(.secondary)
-
-            Spacer()
-
-            Button {
-                saveResultAndGoToNickname()
-            } label: {
-                Text("학습 시작하기")
-                    .font(.headline).frame(maxWidth: 280)
-                    .padding(.vertical, 14)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(BrandTheme.accent)
-
-            Spacer().frame(height: 40)
-        }
-        .padding(.horizontal, 24)
     }
 
     // MARK: - Timer

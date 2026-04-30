@@ -1,0 +1,12 @@
+{
+  "name": "apple-token-revoke-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/basic.test.mjs",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "runner": "node scripts/local-runner.mjs"
+  }
+}

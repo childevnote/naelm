@@ -15,14 +15,12 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
 
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
     @State private var showFeedback: Bool = false
     @State private var showResetAlert: Bool = false
     @State private var showDeleteAccountAlert: Bool = false
     @State private var showDeleteAccountConfirmation: Bool = false
-    @State private var showAppleRevokeGuide: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -147,27 +145,10 @@ struct SettingsView: View {
                 Text("계정을 삭제하면 모든 학습 데이터와 저장된 단어가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
             }
             .alert("정말 삭제하시겠습니까?", isPresented: $showDeleteAccountConfirmation) {
-                Button("영구 삭제", role: .destructive) {
-                    let userID = authManager.userID ?? ""
-                    let isAppleUser = !userID.hasPrefix("guest_") && !userID.hasPrefix("dev_user_")
-                    deleteAccount()
-                    if isAppleUser {
-                        showAppleRevokeGuide = true
-                    }
-                }
+                Button("영구 삭제", role: .destructive) { deleteAccount() }
                 Button("취소", role: .cancel) {}
             } message: {
                 Text("마지막 확인입니다. 계정 삭제 후에는 데이터를 복구할 수 없습니다.")
-            }
-            .alert("Apple ID 연동 해제 안내", isPresented: $showAppleRevokeGuide) {
-                Button("설정 열기") {
-                    if let url = URL(string: "app-settings:") {
-                        openURL(url)
-                    }
-                }
-                Button("나중에", role: .cancel) {}
-            } message: {
-                Text("앱 계정이 삭제되었습니다.\n\nApple ID 연동을 완전히 해제하려면 iPhone 설정 > [내 이름] > 암호 및 보안 > Apple로 로그인한 앱 에서 'Naelm'을 선택하고 'Apple ID 사용 중단'을 탭하세요.")
             }
         }
     }
@@ -201,7 +182,7 @@ struct SettingsView: View {
     // MARK: - Actions
 
     private func resetOnboarding() {
-        guard let userID = authManager.userID else { return }
+        guard authManager.userID != nil else { return }
         let vm = MyPageViewModel(modelContext: modelContext, authManager: authManager)
         vm.resetOnboarding()
     }

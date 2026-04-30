@@ -339,7 +339,7 @@ struct RankingView: View {
                 let month = RankingService.currentMonth
                 for info in infos {
                     // 가상 MonthlyScore 생성 (로컬에 없는 친구)
-                    let score = MonthlyScore(userID: info.userID, month: month, score: info.monthlyXP)
+                    let score = MonthlyScore(userID: info.publicID, month: month, score: info.monthlyXP)
                     friendRanking.append(score)
                 }
                 friendRanking.sort { $0.score > $1.score }
@@ -355,4 +355,3 @@ struct RankingView: View {
         friendshipCache[friendUserID]
     }
 }
-

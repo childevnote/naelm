@@ -108,7 +108,7 @@ struct FriendRowView: View {
         friendNickname: "토익왕"
     )
     let publicInfo = PublicUserInfo(
-        userID: "friend1",
+        publicID: "friend1",
         nickname: "토익왕",
         monthlyXP: 800,
         totalXP: 3200,

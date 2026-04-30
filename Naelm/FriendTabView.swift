@@ -23,7 +23,7 @@ struct FriendTabView: View {
     @State private var showFriendSearch: Bool = false
     @State private var showFriendRequests: Bool = false
     @State private var pendingRequestCount: Int = 0
-    @State private var friendPublicInfos: [String: PublicUserInfo] = [:]  // friendID → 공개 정보
+    @State private var friendPublicInfos: [String: PublicUserInfo] = [:]  // publicID → 공개 정보
 
     /// 현재 친구 목록 (isFriend && !isBlocked)
     @Query private var allFriendships: [Friendship]
@@ -129,7 +129,7 @@ struct FriendTabView: View {
                         NavigationLink(destination: FriendDetailView(friendship: friendship)) {
                             FriendRowView(
                                 friendship: friendship,
-                                publicInfo: friendPublicInfos[friendship.friendID]
+                                publicInfo: friendPublicInfos[FriendService.publicID(from: friendship.friendID)]
                             )
                         }
                         .buttonStyle(.plain)
@@ -211,12 +211,12 @@ struct FriendTabView: View {
 
     @MainActor
     private func loadFriendPublicInfosAsync() async {
-        let friendIDs = friends.map(\.friendID)
+        let friendIDs = friends.map { FriendService.publicID(from: $0.friendID) }
         guard !friendIDs.isEmpty else { return }
         do {
             let infos = try await FriendService.shared.fetchPublicProfiles(userIDs: friendIDs)
             for info in infos {
-                friendPublicInfos[info.userID] = info
+                friendPublicInfos[info.publicID] = info
             }
         } catch {
             AppLogger.friend.warning("Failed to fetch friend public profiles: \(error.localizedDescription)")
@@ -234,8 +234,8 @@ struct FriendTabView: View {
 // MARK: - Preview
 
 #Preview {
-    @State var auth = AuthenticationManager()
-    @State var showNickname = false
-    return FriendTabView(showNicknameSetup: $showNickname)
+    @Previewable @State var auth = AuthenticationManager()
+    @Previewable @State var showNickname = false
+    FriendTabView(showNicknameSetup: $showNickname)
         .environment(auth)
 }
