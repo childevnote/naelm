@@ -135,6 +135,7 @@ struct NicknameSetupView: View {
 
     // MARK: - 닉네임 저장
 
+    @MainActor
     private func saveNickname() {
         let trimmed = nickname.trimmingCharacters(in: .whitespaces)
         guard trimmed.count >= 2 else {
@@ -166,7 +167,11 @@ struct NicknameSetupView: View {
         profile.isPublicProfileRegistered = true
         try? modelContext.save()
 
-        // CloudKit Public DB에 프로필 등록 (에러 무시)
+        // 저장 완료 UI는 즉시 닫고, CloudKit 동기화는 백그라운드에서 처리
+        isSaving = false
+        onComplete(trimmed)
+
+        guard !userID.hasPrefix("guest_") else { return }
         Task {
             try? await FriendService.shared.upsertPublicProfile(
                 userID: userID,
@@ -175,8 +180,6 @@ struct NicknameSetupView: View {
                 totalXP: 0,
                 streak: 0
             )
-            isSaving = false
-            onComplete(trimmed)
         }
     }
 }
