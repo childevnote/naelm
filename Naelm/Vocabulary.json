@@ -54,28 +54,28 @@
   {
     "wordID": "vocab_005",
     "english": "request",
-    "pronunciation": "/rɪˈkwest/",
-    "frequencyLevel": 1,
-    "category": "HR",
-    "dataVersion": 1,
     "korean": "요청, 요구",
+    "pronunciation": "/rɪˈkwest/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "The manager submitted a request for additional funding to the finance department last Monday.",
     "exampleTranslation": "부장은 지난 월요일에 재무부에 추가 자금 요청서를 제출했다.",
-    "synonyms": "appeal, petition, demand"
+    "category": "HR",
+    "synonyms": "appeal, petition, demand",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_006",
     "english": "schedule",
-    "pronunciation": "/ˈskedʒ.uːl/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "일정, 스케줄",
+    "pronunciation": "/ˈskedʒ.uːl/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "Please check the schedule for the conference posted on the company intranet.",
     "exampleTranslation": "사내 인트라넷에 게시된 컨퍼런스 일정을 확인해 주세요.",
-    "synonyms": "timetable, agenda, itinerary"
+    "category": "General Business",
+    "synonyms": "timetable, agenda, itinerary",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_007",
@@ -132,15 +132,15 @@
   {
     "wordID": "vocab_011",
     "english": "purchase",
-    "pronunciation": "/ˈpɜːr.tʃəs/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "구매, 구입",
+    "pronunciation": "/ˈpɜːr.tʃəs/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "All purchases over five hundred dollars require approval from a department head.",
     "exampleTranslation": "500달러 이상의 모든 구매는 부서장의 승인이 필요합니다.",
-    "synonyms": "acquisition, procurement, buying"
+    "category": "General Business",
+    "synonyms": "acquisition, procurement, buying",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_012",
@@ -184,15 +184,15 @@
   {
     "wordID": "vocab_015",
     "english": "complete",
-    "pronunciation": "/kəmˈpliːt/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "완료하다, 마치다",
+    "pronunciation": "/kəmˈpliːt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "All employees must complete the safety training before starting work on the factory floor.",
     "exampleTranslation": "모든 직원은 공장 현장에서 근무하기 전에 안전 교육을 이수해야 합니다.",
-    "synonyms": "finish, accomplish, finalize"
+    "category": "General Business",
+    "synonyms": "finish, accomplish, finalize",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_016",
@@ -210,15 +210,15 @@
   {
     "wordID": "vocab_017",
     "english": "report",
-    "pronunciation": "/rɪˈpɔːrt/",
-    "frequencyLevel": 1,
-    "category": "Finance",
-    "dataVersion": 1,
     "korean": "보고서, 리포트",
+    "pronunciation": "/rɪˈpɔːrt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "The quarterly financial report will be distributed to all shareholders at the annual meeting.",
     "exampleTranslation": "분기 재무 보고서는 연례 회의에서 모든 주주에게 배포될 것입니다.",
-    "synonyms": "document, account, statement"
+    "category": "Finance",
+    "synonyms": "document, account, statement",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_018",
@@ -236,15 +236,15 @@
   {
     "wordID": "vocab_019",
     "english": "increase",
-    "pronunciation": "/ɪnˈkriːs/",
-    "frequencyLevel": 1,
-    "category": "Manufacturing",
-    "dataVersion": 1,
     "korean": "증가, 인상",
+    "pronunciation": "/ɪnˈkriːs/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "The annual increase in operating costs has prompted management to review the budget carefully.",
     "exampleTranslation": "연간 운영 비용 증가로 인해 경영진은 예산을 신중하게 검토하게 되었습니다.",
-    "synonyms": "rise, growth, surge"
+    "category": "Manufacturing",
+    "synonyms": "rise, growth, surge",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_020",
@@ -262,15 +262,15 @@
   {
     "wordID": "vocab_021",
     "english": "contact",
-    "pronunciation": "/ˈkɒn.tækt/",
-    "frequencyLevel": 1,
-    "category": "Customer Service",
-    "dataVersion": 1,
     "korean": "연락처, 담당자",
+    "pronunciation": "/ˈkɒn.tækt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "Please provide the name and contact of the person responsible for handling vendor inquiries.",
     "exampleTranslation": "공급업체 문의를 담당하는 사람의 이름과 연락처를 알려주세요.",
-    "synonyms": "connection, representative, liaison"
+    "category": "Customer Service",
+    "synonyms": "connection, representative, liaison",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_022",
@@ -379,15 +379,15 @@
   {
     "wordID": "vocab_030",
     "english": "register",
-    "pronunciation": "/ˈredʒ.ɪ.stər/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "등록부, 명부",
+    "pronunciation": "/ˈredʒ.ɪ.stər/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "All visitors must sign the register at the front desk before entering the building.",
     "exampleTranslation": "모든 방문자는 건물에 들어가기 전에 안내 데스크에서 등록부에 서명해야 합니다.",
-    "synonyms": "log, record, ledger"
+    "category": "General Business",
+    "synonyms": "log, record, ledger",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_031",
@@ -418,15 +418,15 @@
   {
     "wordID": "vocab_033",
     "english": "guarantee",
-    "pronunciation": "/ˌɡær.ənˈtiː/",
-    "frequencyLevel": 1,
-    "category": "Customer Service",
-    "dataVersion": 1,
     "korean": "보증, 보증서",
+    "pronunciation": "/ˌɡær.ənˈtiː/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "This product comes with a two-year guarantee that covers all manufacturing defects.",
     "exampleTranslation": "이 제품에는 모든 제조 결함을 보장하는 2년 보증이 포함되어 있습니다.",
-    "synonyms": "warranty, assurance, pledge"
+    "category": "Customer Service",
+    "synonyms": "warranty, assurance, pledge",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_034",
@@ -535,41 +535,41 @@
   {
     "wordID": "vocab_042",
     "english": "refund",
-    "pronunciation": "/ˈriː.fʌnd/",
-    "frequencyLevel": 1,
-    "category": "Customer Service",
-    "dataVersion": 1,
     "korean": "환불, 반환",
+    "pronunciation": "/ˈriː.fʌnd/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "Customers may request a full refund within thirty days of the original purchase date.",
     "exampleTranslation": "고객은 구매일로부터 30일 이내에 전액 환불을 요청할 수 있습니다.",
-    "synonyms": "reimbursement, repayment"
+    "category": "Customer Service",
+    "synonyms": "reimbursement, repayment",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_043",
     "english": "effective",
-    "pronunciation": "/ɪˈfek.tɪv/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "효과적인",
+    "pronunciation": "/ɪˈfek.tɪv/",
     "partOfSpeech": "adjective",
+    "frequencyLevel": 1,
     "exampleSentence": "The new marketing strategy proved to be highly effective in attracting younger customers.",
     "exampleTranslation": "새로운 마케팅 전략은 젊은 고객을 유치하는 데 매우 효과적인 것으로 입증되었습니다.",
-    "synonyms": "efficient, productive, successful"
+    "category": "General Business",
+    "synonyms": "efficient, productive, successful",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_044",
     "english": "application",
-    "pronunciation": "/ˌæp.lɪˈkeɪ.ʃən/",
-    "frequencyLevel": 1,
-    "category": "HR",
-    "dataVersion": 1,
     "korean": "지원서, 신청서",
+    "pronunciation": "/ˌæp.lɪˈkeɪ.ʃən/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "All job applications must be submitted through the company's online recruitment portal.",
     "exampleTranslation": "모든 입사 지원서는 회사의 온라인 채용 포털을 통해 제출해야 합니다.",
-    "synonyms": "submission, request, petition"
+    "category": "HR",
+    "synonyms": "submission, request, petition",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_045",
@@ -587,28 +587,28 @@
   {
     "wordID": "vocab_046",
     "english": "document",
-    "pronunciation": "/ˈdɒk.jə.mənt/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "문서, 서류",
+    "pronunciation": "/ˈdɒk.jə.mənt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "Please submit the required document to the human resources department by the end of this week.",
     "exampleTranslation": "이번 주 말까지 필요한 서류를 인사부에 제출해 주세요.",
-    "synonyms": "file, record, paperwork"
+    "category": "General Business",
+    "synonyms": "file, record, paperwork",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_047",
     "english": "supply",
-    "pronunciation": "/səˈplaɪ/",
-    "frequencyLevel": 1,
-    "category": "Logistics",
-    "dataVersion": 1,
     "korean": "공급, 물품",
+    "pronunciation": "/səˈplaɪ/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 1,
     "exampleSentence": "The factory has maintained an adequate supply of raw materials throughout the quarter.",
     "exampleTranslation": "그 공장은 분기 내내 충분한 원자재 공급을 유지해 왔습니다.",
-    "synonyms": "stock, inventory, provision"
+    "category": "Logistics",
+    "synonyms": "stock, inventory, provision",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_048",
@@ -1055,15 +1055,15 @@
   {
     "wordID": "vocab_082",
     "english": "delegate",
-    "pronunciation": "/ˈdel.ɪ.ɡeɪt/",
-    "frequencyLevel": 2,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "대표, 대리인",
+    "pronunciation": "/ˈdel.ɪ.ɡeɪt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 2,
     "exampleSentence": "Each branch office sent a delegate to represent their interests at the annual board meeting.",
     "exampleTranslation": "각 지사는 연례 이사회에서 자사의 이익을 대표할 대리인을 파견했습니다.",
-    "synonyms": "representative, envoy, deputy"
+    "category": "General Business",
+    "synonyms": "representative, envoy, deputy",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_083",
@@ -1146,15 +1146,15 @@
   {
     "wordID": "vocab_089",
     "english": "attribute",
-    "pronunciation": "/əˈtrɪb.juːt/",
-    "frequencyLevel": 2,
-    "category": "Marketing",
-    "dataVersion": 1,
     "korean": "속성, 특성",
+    "pronunciation": "/əˈtrɪb.juːt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 2,
     "exampleSentence": "Leadership and communication skills are essential attributes for any management position.",
     "exampleTranslation": "리더십과 의사소통 능력은 모든 관리직에 필수적인 자질입니다.",
-    "synonyms": "quality, characteristic, trait"
+    "category": "Marketing",
+    "synonyms": "quality, characteristic, trait",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_090",
@@ -1263,15 +1263,15 @@
   {
     "wordID": "vocab_098",
     "english": "audit",
-    "pronunciation": "/ˈɔː.dɪt/",
-    "frequencyLevel": 2,
-    "category": "Finance",
-    "dataVersion": 1,
     "korean": "감사, 회계 감사",
+    "pronunciation": "/ˈɔː.dɪt/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 2,
     "exampleSentence": "The annual audit revealed several discrepancies in the company's financial records.",
     "exampleTranslation": "연례 감사에서 회사의 재무 기록에 여러 불일치가 발견되었습니다.",
-    "synonyms": "inspection, examination, review"
+    "category": "Finance",
+    "synonyms": "inspection, examination, review",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_099",
@@ -1536,15 +1536,15 @@
   {
     "wordID": "vocab_119",
     "english": "leverage",
-    "pronunciation": "/ˈlev.ər.ɪdʒ/",
-    "frequencyLevel": 3,
-    "category": "Marketing",
-    "dataVersion": 1,
     "korean": "지렛대 효과, 영향력",
+    "pronunciation": "/ˈlev.ər.ɪdʒ/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 3,
     "exampleSentence": "The merger gave the company significant leverage in negotiating with international suppliers.",
     "exampleTranslation": "합병으로 그 회사는 해외 공급업체와의 협상에서 상당한 영향력을 갖게 되었습니다.",
-    "synonyms": "influence, power, advantage"
+    "category": "Marketing",
+    "synonyms": "influence, power, advantage",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_120",
@@ -1731,15 +1731,15 @@
   {
     "wordID": "vocab_134",
     "english": "collateral",
-    "pronunciation": "/kəˈlæt.ər.əl/",
-    "frequencyLevel": 3,
-    "category": "Finance",
-    "dataVersion": 1,
     "korean": "담보, 담보물",
+    "pronunciation": "/kəˈlæt.ər.əl/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 3,
     "exampleSentence": "The bank requires collateral valued at twice the loan amount for commercial lending.",
     "exampleTranslation": "은행은 상업 대출에 대해 대출 금액의 두 배에 해당하는 담보를 요구합니다.",
-    "synonyms": "security, guarantee, pledge"
+    "category": "Finance",
+    "synonyms": "security, guarantee, pledge",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_135",
@@ -2368,15 +2368,15 @@
   {
     "wordID": "vocab_183",
     "english": "incumbent",
-    "pronunciation": "/ɪnˈkʌm.bənt/",
-    "frequencyLevel": 4,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "현직의, 재임 중인",
+    "pronunciation": "/ɪnˈkʌm.bənt/",
     "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
     "exampleSentence": "The incumbent board members were asked to provide their assessment of the company's future direction.",
     "exampleTranslation": "현직 이사회 구성원들에게 회사의 미래 방향에 대한 평가를 제공해 달라는 요청을 받았습니다.",
-    "synonyms": "current, present, existing"
+    "category": "General Business",
+    "synonyms": "current, present, existing",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_184",
@@ -2511,15 +2511,15 @@
   {
     "wordID": "vocab_194",
     "english": "subpoena",
-    "pronunciation": "/səˈpiː.nə/",
-    "frequencyLevel": 4,
-    "category": "Legal",
-    "dataVersion": 1,
     "korean": "소환장",
+    "pronunciation": "/səˈpiː.nə/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 4,
     "exampleSentence": "The court issued a subpoena requiring the company to produce all relevant financial documents.",
     "exampleTranslation": "법원은 회사에 모든 관련 재무 서류를 제출하도록 요구하는 소환장을 발부했습니다.",
-    "synonyms": "summons, court order, writ"
+    "category": "Legal",
+    "synonyms": "summons, court order, writ",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_195",
@@ -2563,15 +2563,15 @@
   {
     "wordID": "vocab_198",
     "english": "redress",
-    "pronunciation": "/rɪˈdres/",
-    "frequencyLevel": 4,
-    "category": "HR",
-    "dataVersion": 1,
     "korean": "시정, 배상, 구제",
+    "pronunciation": "/rɪˈdres/",
     "partOfSpeech": "noun",
+    "frequencyLevel": 4,
     "exampleSentence": "Employees who experience workplace discrimination have the right to seek legal redress.",
     "exampleTranslation": "직장 내 차별을 경험한 직원은 법적 구제를 요청할 권리가 있습니다.",
-    "synonyms": "remedy, compensation, reparation"
+    "category": "HR",
+    "synonyms": "remedy, compensation, reparation",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_199",
@@ -2602,15 +2602,15 @@
   {
     "wordID": "vocab_201",
     "english": "resume",
-    "pronunciation": "/rɪˈzjuːm/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "재개하다, 다시 시작하다",
+    "pronunciation": "/rɪˈzjuːm/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "Construction work on the new headquarters will resume after the safety inspection has been completed.",
     "exampleTranslation": "안전 점검이 완료된 후 새 본사 건설 공사가 재개될 것이다.",
-    "synonyms": "restart, continue, recommence"
+    "category": "General Business",
+    "synonyms": "restart, continue, recommence",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_202",
@@ -2641,15 +2641,15 @@
   {
     "wordID": "vocab_204",
     "english": "estimate",
-    "pronunciation": "/ˈes.tɪ.meɪt/",
-    "frequencyLevel": 1,
-    "category": "Finance",
-    "dataVersion": 1,
     "korean": "추정하다, 견적하다",
+    "pronunciation": "/ˈes.tɪ.meɪt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "The contractor was asked to estimate the total cost of renovating the office building.",
     "exampleTranslation": "시공업체는 사무실 건물 리모델링의 총 비용을 견적하도록 요청받았다.",
-    "synonyms": "calculate, assess, approximate"
+    "category": "Finance",
+    "synonyms": "calculate, assess, approximate",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_205",
@@ -3122,28 +3122,28 @@
   {
     "wordID": "vocab_241",
     "english": "update",
-    "pronunciation": "/ˈʌp.deɪt/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "업데이트하다, 갱신하다",
+    "pronunciation": "/ˈʌp.deɪt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "Please update your contact information in the company database as soon as your address or phone number changes.",
     "exampleTranslation": "주소나 전화번호가 변경되는 즉시 회사 데이터베이스에 연락처 정보를 업데이트해 주세요.",
-    "synonyms": "revise, refresh, renew"
+    "category": "General Business",
+    "synonyms": "revise, refresh, renew",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_242",
     "english": "permit",
-    "pronunciation": "/pəˈmɪt/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "허가하다, 허용하다",
+    "pronunciation": "/pəˈmɪt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "Company policy does not permit employees to share confidential client information with any outside parties under any circumstances.",
     "exampleTranslation": "회사 정책은 어떠한 경우에도 직원들이 기밀 고객 정보를 외부 당사자와 공유하는 것을 허용하지 않습니다.",
-    "synonyms": "allow, authorize, approve"
+    "category": "General Business",
+    "synonyms": "allow, authorize, approve",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_243",
@@ -3174,15 +3174,15 @@
   {
     "wordID": "vocab_245",
     "english": "review",
-    "pronunciation": "/rɪˈvjuː/",
-    "frequencyLevel": 1,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "검토하다, 검사하다",
+    "pronunciation": "/rɪˈvjuː/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 1,
     "exampleSentence": "The legal team will review the draft contract carefully before it is signed by the senior management.",
     "exampleTranslation": "법무팀은 고위 경영진이 서명하기 전에 계약서 초안을 신중하게 검토할 것입니다.",
-    "synonyms": "examine, assess, evaluate"
+    "category": "General Business",
+    "synonyms": "examine, assess, evaluate",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_246",
@@ -3213,15 +3213,15 @@
   {
     "wordID": "vocab_248",
     "english": "coordinate",
-    "pronunciation": "/kəʊˈɔː.dɪ.neɪt/",
-    "frequencyLevel": 2,
-    "category": "General Business",
-    "dataVersion": 1,
     "korean": "조율하다, 조정하다",
+    "pronunciation": "/kəʊˈɔː.dɪ.neɪt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 2,
     "exampleSentence": "The event manager will coordinate all logistics for the upcoming annual company conference scheduled for next month.",
     "exampleTranslation": "행사 관리자는 다음 달 예정된 연례 회사 컨퍼런스의 모든 물류를 조율할 것입니다.",
-    "synonyms": "organize, arrange, synchronize"
+    "category": "General Business",
+    "synonyms": "organize, arrange, synchronize",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_249",
@@ -3304,15 +3304,15 @@
   {
     "wordID": "vocab_255",
     "english": "remit",
-    "pronunciation": "/rɪˈmɪt/",
-    "frequencyLevel": 3,
-    "category": "Finance",
-    "dataVersion": 1,
     "korean": "송금하다, 납부하다",
+    "pronunciation": "/rɪˈmɪt/",
     "partOfSpeech": "verb",
+    "frequencyLevel": 3,
     "exampleSentence": "All vendors are required to remit their invoices to the accounts payable department by the fifteenth of each month.",
     "exampleTranslation": "모든 공급업체는 매월 15일까지 미지급금 부서에 청구서를 제출해야 합니다.",
-    "synonyms": "send, transfer, transmit"
+    "category": "Finance",
+    "synonyms": "send, transfer, transmit",
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_256",
@@ -3926,6 +3926,7 @@
     "dataVersion": 1
   },
   {
+    "wordID": "vocab_303",
     "english": "acknowledge",
     "korean": "인정하다, 확인하다",
     "pronunciation": "/əkˈnɑː.lɪdʒ/",
@@ -3935,8 +3936,7 @@
     "exampleTranslation": "접수 담당자가 제출 후 24시간 이내에 귀하의 지원서 수령을 확인할 것입니다.",
     "category": "General Business",
     "synonyms": "confirm, recognize, accept",
-    "dataVersion": 1,
-    "wordID": "vocab_303"
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_304",
@@ -3991,6 +3991,7 @@
     "dataVersion": 1
   },
   {
+    "wordID": "vocab_308",
     "english": "exempt",
     "korean": "면제된",
     "pronunciation": "/ɪɡˈzempt/",
@@ -4000,10 +4001,10 @@
     "exampleTranslation": "비영리 단체는 일반적으로 특정 유형의 연방세 및 주세 납부가 면제됩니다.",
     "category": "Finance",
     "synonyms": "excused, excluded, released",
-    "dataVersion": 1,
-    "wordID": "vocab_308"
+    "dataVersion": 1
   },
   {
+    "wordID": "vocab_309",
     "english": "voucher",
     "korean": "상품권, 바우처",
     "pronunciation": "/ˈvaʊ.tʃər/",
@@ -4013,8 +4014,7 @@
     "exampleTranslation": "각 참가자에게 호텔의 3개 레스토랑 중 어디에서나 사용할 수 있는 무료 식사 바우처가 제공됩니다.",
     "category": "General Business",
     "synonyms": "coupon, ticket, certificate",
-    "dataVersion": 1,
-    "wordID": "vocab_309"
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_310",
@@ -4082,6 +4082,7 @@
     "dataVersion": 1
   },
   {
+    "wordID": "vocab_315",
     "english": "stipulation",
     "korean": "규정, 조건",
     "pronunciation": "/ˌstɪp.jəˈleɪ.ʃən/",
@@ -4091,8 +4092,7 @@
     "exampleTranslation": "임대 계약의 규정에 따르면 임차인은 퇴거 전 90일 전에 통지해야 합니다.",
     "category": "Legal",
     "synonyms": "condition, requirement, provision",
-    "dataVersion": 1,
-    "wordID": "vocab_315"
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_316",
@@ -4108,6 +4108,7 @@
     "dataVersion": 1
   },
   {
+    "wordID": "vocab_317",
     "english": "prognosis",
     "korean": "예측, 전망",
     "pronunciation": "/prɑːɡˈnoʊ.sɪs/",
@@ -4117,8 +4118,7 @@
     "exampleTranslation": "지속적인 지정학적 불확실성에도 불구하고 다가오는 회계연도의 경제 전망은 조심스럽게 낙관적입니다.",
     "category": "Finance",
     "synonyms": "forecast, outlook, prediction",
-    "dataVersion": 1,
-    "wordID": "vocab_317"
+    "dataVersion": 1
   },
   {
     "wordID": "vocab_318",
@@ -8577,6 +8577,266 @@
     "exampleTranslation": "IT 부서는 새로운 전사적 자원 관리 시스템을 기존 데이터베이스 인프라와 통합하기 위해 운영 부서와 긴밀히 협력했습니다.",
     "category": "IT",
     "synonyms": "merge, unify, incorporate",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_661",
+    "english": "indicate",
+    "korean": "나타내다, 가리키다",
+    "pronunciation": "/ˈɪn.dɪ.keɪt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "The quarterly report indicates a significant increase in operating expenses compared to the same period last year.",
+    "exampleTranslation": "분기 보고서는 지난해 같은 기간에 비해 영업 비용이 크게 증가했음을 나타낸다.",
+    "category": "General Business",
+    "synonyms": "show, suggest, signify",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_662",
+    "english": "prioritize",
+    "korean": "우선순위를 두다, 우선시하다",
+    "pronunciation": "/praɪˈɒr.ɪ.taɪz/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "The project leader asked all team members to prioritize client deliverables over internal administrative tasks this week.",
+    "exampleTranslation": "프로젝트 리더는 모든 팀원에게 이번 주 내부 행정 업무보다 고객 납품물을 우선시할 것을 요청했다.",
+    "category": "Management",
+    "synonyms": "rank, order, focus on",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_663",
+    "english": "contribute",
+    "korean": "기여하다, 기부하다",
+    "pronunciation": "/kənˈtrɪb.juːt/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "All employees are encouraged to contribute ideas to the company's annual innovation challenge hosted by the R&D department.",
+    "exampleTranslation": "모든 직원들은 R&D 부서가 주관하는 회사 연간 혁신 챌린지에 아이디어를 기여하도록 장려된다.",
+    "category": "General Business",
+    "synonyms": "give, add, donate",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_664",
+    "english": "deliver",
+    "korean": "배달하다, 전달하다",
+    "pronunciation": "/dɪˈlɪv.ər/",
+    "partOfSpeech": "verb",
+    "frequencyLevel": 1,
+    "exampleSentence": "The courier company has guaranteed to deliver all international packages within five business days of the shipment date.",
+    "exampleTranslation": "택배 회사는 모든 국제 소포를 발송일로부터 5영업일 이내에 배달할 것을 보장했다.",
+    "category": "Logistics",
+    "synonyms": "ship, transport, hand over",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_665",
+    "english": "suitable",
+    "korean": "적합한, 적절한",
+    "pronunciation": "/ˈsuː.tə.bəl/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 1,
+    "exampleSentence": "The hiring committee determined that only two of the twelve applicants were suitable for the senior project manager position.",
+    "exampleTranslation": "채용 위원회는 열두 명의 지원자 중 두 명만이 선임 프로젝트 매니저 직위에 적합하다고 판단했다.",
+    "category": "HR",
+    "synonyms": "appropriate, fitting, qualified",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_666",
+    "english": "commission",
+    "korean": "수수료; 위원회; 위탁하다",
+    "pronunciation": "/kəˈmɪʃ.ən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 2,
+    "exampleSentence": "Sales representatives at the firm earn a five percent commission on every successful deal they close during the fiscal quarter.",
+    "exampleTranslation": "회사의 영업 사원들은 회계 분기 동안 성사시킨 모든 거래에 대해 5%의 수수료를 받는다.",
+    "category": "Finance",
+    "synonyms": "fee, percentage, brokerage",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_667",
+    "english": "installation",
+    "korean": "설치, 설비",
+    "pronunciation": "/ˌɪn.stəˈleɪ.ʃən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 2,
+    "exampleSentence": "The installation of the new server infrastructure is scheduled to begin after regular business hours to minimize disruption to daily operations.",
+    "exampleTranslation": "새로운 서버 인프라 설치는 일상 업무의 혼란을 최소화하기 위해 정규 업무 시간 이후에 시작될 예정이다.",
+    "category": "Operations",
+    "synonyms": "setup, fitting, deployment",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_668",
+    "english": "participant",
+    "korean": "참가자, 참여자",
+    "pronunciation": "/pɑːrˈtɪs.ɪ.pənt/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 2,
+    "exampleSentence": "Each participant in the leadership development program will receive a certificate of completion upon finishing all required modules.",
+    "exampleTranslation": "리더십 개발 프로그램의 각 참가자는 모든 필수 모듈을 이수하면 수료증을 받는다.",
+    "category": "General Business",
+    "synonyms": "attendee, member, contributor",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_669",
+    "english": "profitable",
+    "korean": "수익성 있는, 이익이 되는",
+    "pronunciation": "/ˈprɒf.ɪ.tə.bəl/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 2,
+    "exampleSentence": "The company's new product line has proven to be highly profitable, contributing to a record-breaking annual revenue this fiscal year.",
+    "exampleTranslation": "회사의 신제품 라인은 매우 수익성이 높은 것으로 입증되어, 이번 회계연도에 기록적인 연간 매출을 달성하는 데 기여했다.",
+    "category": "Finance",
+    "synonyms": "lucrative, rewarding, productive",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_670",
+    "english": "fulfillment",
+    "korean": "이행, 성취; 주문 처리",
+    "pronunciation": "/fʊlˈfɪl.mənt/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 2,
+    "exampleSentence": "The company recently opened a new warehouse to improve order fulfillment speed and meet the growing demand from its e-commerce customers.",
+    "exampleTranslation": "회사는 최근 주문 처리 속도를 개선하고 전자상거래 고객들의 증가하는 수요를 충족시키기 위해 새 창고를 열었다.",
+    "category": "Logistics",
+    "synonyms": "completion, execution, realization",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_671",
+    "english": "adequate",
+    "korean": "충분한, 적절한",
+    "pronunciation": "/ˈæd.ɪ.kwət/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 3,
+    "exampleSentence": "Management must ensure that all employees have adequate resources and support to complete their assigned projects by the stated deadlines.",
+    "exampleTranslation": "경영진은 모든 직원이 명시된 마감일까지 할당된 프로젝트를 완수할 수 있는 충분한 자원과 지원을 갖추도록 해야 한다.",
+    "category": "General Business",
+    "synonyms": "sufficient, satisfactory, appropriate",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_672",
+    "english": "negligence",
+    "korean": "과실, 태만",
+    "pronunciation": "/ˈneɡ.lɪ.dʒəns/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 3,
+    "exampleSentence": "The court ruled that the contractor's negligence in following safety protocols directly caused the workplace accident that injured three workers.",
+    "exampleTranslation": "법원은 시공사의 안전 규정 준수 태만이 세 명의 작업자를 부상시킨 직장 사고를 직접적으로 초래했다고 판결했다.",
+    "category": "Legal",
+    "synonyms": "carelessness, neglect, dereliction",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_673",
+    "english": "deliberate",
+    "korean": "의도적인; 신중한; 심사숙고하다",
+    "pronunciation": "/dɪˈlɪb.ər.ɪt/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 3,
+    "exampleSentence": "The management team made a deliberate decision to postpone the product launch until more comprehensive market research had been conducted.",
+    "exampleTranslation": "경영진은 보다 포괄적인 시장 조사가 수행될 때까지 제품 출시를 연기하는 의도적인 결정을 내렸다.",
+    "category": "General Business",
+    "synonyms": "intentional, calculated, purposeful",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_674",
+    "english": "obligation",
+    "korean": "의무, 채무",
+    "pronunciation": "/ˌɒb.lɪˈɡeɪ.ʃən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 3,
+    "exampleSentence": "Under the terms of the signed contract, both parties have a legal obligation to disclose any material changes that may affect the agreement.",
+    "exampleTranslation": "서명된 계약 조건에 따라 양 당사자는 합의에 영향을 미칠 수 있는 중요한 변경 사항을 공개할 법적 의무가 있다.",
+    "category": "Legal",
+    "synonyms": "duty, requirement, commitment",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_675",
+    "english": "reconciliation",
+    "korean": "조정, 화해; 계정 조정",
+    "pronunciation": "/ˌrek.ən.sɪl.iˈeɪ.ʃən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 3,
+    "exampleSentence": "The finance department performs a monthly bank reconciliation to ensure that all recorded transactions match the official bank statements.",
+    "exampleTranslation": "재무부는 기록된 모든 거래가 공식 은행 명세서와 일치하는지 확인하기 위해 월별 은행 계정 조정을 수행한다.",
+    "category": "Finance",
+    "synonyms": "settlement, balancing, adjustment",
+    "dataVersion": 2
+  },
+  {
+    "wordID": "vocab_676",
+    "english": "ratification",
+    "korean": "비준, 정식 승인",
+    "pronunciation": "/ˌræt.ɪ.fɪˈkeɪ.ʃən/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 4,
+    "exampleSentence": "The trade agreement will not take effect until its ratification by the legislative bodies of all three participating countries has been formally completed.",
+    "exampleTranslation": "무역 협정은 참여하는 세 나라 모두의 입법 기관에 의한 비준이 공식적으로 완료될 때까지 발효되지 않는다.",
+    "category": "Legal",
+    "synonyms": "approval, confirmation, endorsement",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_677",
+    "english": "contentious",
+    "korean": "논쟁적인, 분쟁의 소지가 있는",
+    "pronunciation": "/kənˈten.ʃəs/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "The proposed revision to the intellectual property clause proved to be the most contentious issue during the entire merger negotiation process.",
+    "exampleTranslation": "지식재산권 조항에 대한 제안된 수정안은 전체 합병 협상 과정에서 가장 논쟁적인 쟁점으로 드러났다.",
+    "category": "Legal",
+    "synonyms": "controversial, disputed, debatable",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_678",
+    "english": "encroachment",
+    "korean": "침해, 잠식",
+    "pronunciation": "/ɪnˈkrəʊtʃ.mənt/",
+    "partOfSpeech": "noun",
+    "frequencyLevel": 4,
+    "exampleSentence": "The company filed a lawsuit alleging encroachment on its patented manufacturing process by a rival firm that had copied its proprietary technology.",
+    "exampleTranslation": "그 회사는 자사의 독점 기술을 복제한 경쟁사에 의해 특허받은 제조 공정이 침해되었다고 주장하며 소송을 제기했다.",
+    "category": "Legal",
+    "synonyms": "infringement, intrusion, violation",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_679",
+    "english": "cognizant",
+    "korean": "인식하는, 알고 있는",
+    "pronunciation": "/ˈkɒɡ.nɪ.zənt/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "Senior executives must remain cognizant of rapidly changing regulatory requirements to ensure the company maintains full legal compliance at all times.",
+    "exampleTranslation": "고위 경영진은 회사가 항상 완전한 법적 준법 상태를 유지하도록 빠르게 변화하는 규제 요건을 인식하고 있어야 한다.",
+    "category": "General Business",
+    "synonyms": "aware, conscious, informed",
+    "dataVersion": 1
+  },
+  {
+    "wordID": "vocab_680",
+    "english": "superfluous",
+    "korean": "불필요한, 과잉의",
+    "pronunciation": "/suːˈpɜː.flu.əs/",
+    "partOfSpeech": "adjective",
+    "frequencyLevel": 4,
+    "exampleSentence": "The consultant recommended eliminating all superfluous steps in the approval process to reduce turnaround time and improve overall operational efficiency.",
+    "exampleTranslation": "컨설턴트는 처리 시간을 줄이고 전반적인 운영 효율성을 개선하기 위해 승인 프로세스의 모든 불필요한 단계를 제거할 것을 권고했다.",
+    "category": "General Business",
+    "synonyms": "unnecessary, redundant, excessive",
     "dataVersion": 1
   }
 ]
