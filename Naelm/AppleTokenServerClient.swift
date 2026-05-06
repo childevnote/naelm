@@ -10,8 +10,7 @@ import os
 
 enum AppleTokenServerClient {
 
-    // Update this to your deployed Worker base URL, e.g. https://naelm-apple-token-revoke.workers.dev
-    static let baseURL = URL(string: "https://REPLACE_WITH_DEPLOYED_WORKER_URL")!
+    static let baseURL = URL(string: "https://naelm-apple-token-revoke.naelm.workers.dev")!
 
     static func storeAuthorizationCode(_ authorizationCode: String, userID: String) async {
         let payload = [
