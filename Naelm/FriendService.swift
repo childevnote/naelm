@@ -28,7 +28,7 @@ private enum CKRecordType {
     static let friendRequest = "FriendRequest"
 }
 
-private enum CKRecordField {
+private nonisolated enum CKRecordField {
     static let publicID = "publicID"
     static let legacyUserID = "userID"
     static let fromPublicID = "fromPublicID"

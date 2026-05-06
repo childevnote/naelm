@@ -48,7 +48,7 @@ struct SplashView: View {
                 Spacer().frame(height: 32)
 
                 // ── 앱 이름 ────────────────────────────
-                Text("NLLM")
+                Text("Naelm")
                     .font(.sfRounded(52, weight: .bold))
                     .foregroundStyle(titleColor)
                     .opacity(titleOpacity)
