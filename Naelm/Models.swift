@@ -161,9 +161,8 @@ final class Vocabulary {
 
     // ── 식별자 ──────────────────────────────
     /// JSON 시딩 시 중복 삽입 방지를 위한 고유 키.
-    /// CloudKit은 @Attribute(.unique)를 지원하지 않으므로,
+    /// CloudKit은 @Attribute(.unique) 및 .spotlight를 지원하지 않으므로,
     /// DataLoader에서 코드 레벨로 중복 체크합니다.
-    @Attribute(.spotlight)
     var wordID: String = ""
 
     // ── 핵심 필드 ───────────────────────────
@@ -248,7 +247,7 @@ final class Vocabulary {
 final class Grammar {
 
     // ── 식별자 ──────────────────────────────
-    @Attribute(.spotlight)
+    // CloudKit과의 호환성을 위해 @Attribute(.spotlight) 미사용
     var grammarID: String = ""
 
     // ── 핵심 필드 ───────────────────────────
@@ -580,7 +579,7 @@ final class BookmarkedWord {
 @Model
 final class VocabularyMeaning {
 
-    @Attribute(.spotlight)
+    // CloudKit과의 호환성을 위해 @Attribute(.spotlight) 미사용
     var meaningID: String = ""
 
     var pos: String = ""

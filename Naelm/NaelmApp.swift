@@ -61,7 +61,7 @@ struct NaelmApp: App {
                 return try ModelContainer(for: schema, configurations: [fallbackConfig])
             } catch {
                 // ARCH FIX: fatalError acceptable here — app is non-functional without any storage
-            fatalError("❌ In-memory ModelContainer also failed: \(error)")
+            fatalError("❌ In-memory ModelContainer also failed: \(error.localizedDescription)\nUnderlying: \(error)")
             }
         }
     }()
