@@ -95,7 +95,7 @@ struct MyPageView: View {
                     if selectedMyPageTab == .profile {
                         // ── 내 정보 탭 콘텐츠 ──────────────────────────
                         MyPageHeaderView(
-                            userID: authManager.userID,
+                            nickname: profile?.nickname ?? "",
                             encouragement: Self.encouragements[dailyEncouragementIndex]
                         )
                         ProfileCardView(profile: profile, streak: streak, totalXP: totalXP)

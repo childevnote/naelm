@@ -142,6 +142,9 @@ final class UserProfile {
     /// 앱 내 표시 닉네임 (친구 검색 및 식별에 사용)
     var nickname: String = ""
 
+    /// 닉네임 마지막 변경일 (한 달 1회 제한)
+    var nicknameChangedAt: Date? = nil
+
     /// 공개 프로필 등록 완료 여부 (CloudKit Public DB 등록 여부)
     var isPublicProfileRegistered: Bool = false
 

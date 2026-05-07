@@ -48,7 +48,7 @@ struct NaelmApp: App {
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false,
-            cloudKitDatabase: .automatic   // CloudKit 자동 동기화
+            cloudKitDatabase: .none
         )
 
         do {
@@ -95,12 +95,28 @@ final class AuthenticationManager {
     /// 온보딩 재진행 플래그 (마이페이지 초기화 시 true)
     var needsOnboarding: Bool = false
 
+    /// 애플 로그인 최초 시 제공되는 실명 (최초 1회만 제공됨)
+    var pendingAppleName: String? = nil
+
+    /// 게스트 로그인 시 입력한 이름
+    var pendingGuestName: String? = nil
+
     /// Sign in with Apple 성공 시 호출
     func handleSignInSuccess(authorization: ASAuthorization) {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             return
         }
         self.userID = credential.user
+
+        // 최초 로그인 시에만 fullName이 제공됨
+        if let fullName = credential.fullName {
+            let parts = [fullName.familyName, fullName.givenName]
+                .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+            if !parts.isEmpty {
+                pendingAppleName = parts.joined()
+            }
+        }
 
         // Keychain에 userIdentifier 저장
         KeychainHelper.save(key: KeychainHelper.userIDKey, value: credential.user)
@@ -151,6 +167,12 @@ final class AuthenticationManager {
 
         let guestID = "guest_\(UUID().uuidString.prefix(8))"
         signInAsGuest(guestID: guestID)
+    }
+
+    /// 이름을 함께 지정해서 게스트 로그인
+    func signInAsGuest(name: String) {
+        pendingGuestName = name.trimmingCharacters(in: .whitespaces).isEmpty ? nil : name.trimmingCharacters(in: .whitespaces)
+        signInAsGuest()
     }
 
     /// 앱 재실행 시 기존 인증 상태 복원.
@@ -293,6 +315,7 @@ struct RootView: View {
         .onChange(of: authManager.userID) { _, newID in
             if let uid = newID {
                 authManager.needsOnboarding = !isOnboardingComplete(userID: uid)
+                applyPendingNameIfNeeded(userID: uid)
             }
         }
     }
@@ -301,6 +324,25 @@ struct RootView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         return (try? modelContext.fetch(descriptor).first?.hasCompletedOnboarding) ?? false
+    }
+
+    /// 애플/게스트 로그인 시 pending name을 UserProfile에 저장합니다 (기존 닉네임 있으면 덮어쓰지 않음).
+    private func applyPendingNameIfNeeded(userID: String) {
+        let name = authManager.pendingAppleName ?? authManager.pendingGuestName
+        guard let name, !name.isEmpty else { return }
+        defer {
+            authManager.pendingAppleName = nil
+            authManager.pendingGuestName = nil
+        }
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        if let profile = try? modelContext.fetch(descriptor).first {
+            if profile.nickname.isEmpty {
+                profile.nickname = name
+                try? modelContext.save()
+            }
+        }
+        // 프로필이 아직 없으면 OnboardingView의 finishOnboarding에서 처리됨
     }
 
 }
@@ -314,6 +356,7 @@ struct SignInView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isSigningIn = false
     @State private var signInError: String? = nil
+    @State private var showGuestNameSheet = false
 
     var body: some View {
         ZStack {
@@ -418,7 +461,7 @@ struct SignInView: View {
 
                     // ── 게스트로 시작 버튼 ──
                     Button {
-                        authManager.signInAsGuest()
+                        showGuestNameSheet = true
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "person")
@@ -432,6 +475,17 @@ struct SignInView: View {
                             RoundedRectangle(cornerRadius: 14)
                                 .stroke(AppPalette.forest.opacity(0.45), lineWidth: 1.5)
                         )
+                    }
+                    .sheet(isPresented: $showGuestNameSheet) {
+                        GuestNameInputView { name in
+                            showGuestNameSheet = false
+                            if let name {
+                                authManager.signInAsGuest(name: name)
+                            } else {
+                                authManager.signInAsGuest()
+                            }
+                        }
+                        .presentationDetents([.medium])
                     }
                 }
 
@@ -514,4 +568,87 @@ struct MainDashboardView: View {
 #Preview("Sign In") {
     @Previewable @State var auth = AuthenticationManager()
     SignInView().environment(auth)
+}
+
+
+// MARK: - Guest Name Input View
+
+/// 게스트 로그인 시 이름을 입력받는 간단한 시트.
+struct GuestNameInputView: View {
+    /// 완료 콜백. nil이면 이름 없이 게스트 시작.
+    var onComplete: (String?) -> Void
+
+    @State private var name: String = ""
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isValid: Bool {
+        let t = name.trimmingCharacters(in: .whitespaces)
+        return t.count >= 2 && t.count <= 10
+    }
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Spacer()
+
+            Image(systemName: "person.crop.circle")
+                .font(.system(size: 56))
+                .foregroundStyle(AppPalette.forest)
+
+            VStack(spacing: 8) {
+                Text("이름을 입력해주세요")
+                    .font(.pretendardBold(22))
+                Text("앱 내에서 사용할 이름이에요")
+                    .font(.pretendardMedium(14))
+                    .foregroundStyle(.secondary)
+            }
+
+            TextField("2~10자", text: $name)
+                .font(.pretendardMedium(17))
+                .multilineTextAlignment(.center)
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.secondarySystemBackground))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isValid ? AppPalette.forest : Color.clear, lineWidth: 2)
+                )
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .onChange(of: name) { _, newValue in
+                    if newValue.count > 10 { name = String(newValue.prefix(10)) }
+                }
+                .padding(.horizontal, 40)
+
+            Spacer()
+
+            VStack(spacing: 12) {
+                Button {
+                    onComplete(name.trimmingCharacters(in: .whitespaces))
+                } label: {
+                    Text("시작하기")
+                        .font(.pretendardSemiBold(16))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: 280)
+                        .padding(.vertical, 14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(isValid ? AppPalette.forest : AppPalette.forest.opacity(0.4))
+                        )
+                }
+                .disabled(!isValid)
+
+                Button {
+                    onComplete(nil)
+                } label: {
+                    Text("이름 없이 시작")
+                        .font(.pretendardMedium(14))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.bottom, 32)
+        }
+        .padding(.horizontal, 24)
+    }
 }

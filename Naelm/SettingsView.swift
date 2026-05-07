@@ -19,8 +19,29 @@ struct SettingsView: View {
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
     @State private var showFeedback: Bool = false
     @State private var showResetAlert: Bool = false
-    @State private var showDeleteAccountAlert: Bool = false
-    @State private var showDeleteAccountConfirmation: Bool = false
+    @State private var showWithdrawAlert: Bool = false
+    @State private var showWithdrawConfirmation: Bool = false
+    @State private var showNicknameEdit: Bool = false
+    @State private var isWithdrawing: Bool = false
+
+    // 현재 유저 프로필 (닉네임 변경일 표시용)
+    private var profile: UserProfile? {
+        guard let uid = authManager.userID else { return nil }
+        let predicate = #Predicate<UserProfile> { $0.userID == uid }
+        return try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
+    }
+
+    // 닉네임 변경 가능 여부 (한 달 1회)
+    private var canChangeNickname: Bool {
+        guard let changedAt = profile?.nicknameChangedAt else { return true }
+        let oneMonthAgo = Calendar.current.date(byAdding: .month, value: -1, to: Date()) ?? Date()
+        return changedAt < oneMonthAgo
+    }
+
+    private var nicknameChangeAvailableDate: Date? {
+        guard let changedAt = profile?.nicknameChangedAt else { return nil }
+        return Calendar.current.date(byAdding: .month, value: 1, to: changedAt)
+    }
 
     var body: some View {
         NavigationStack {
@@ -40,6 +61,32 @@ struct SettingsView: View {
                             .pickerStyle(.segmented)
                             .frame(width: 200)
                         }
+                    }
+
+                    // 닉네임 변경
+                    settingsCard {
+                        Button {
+                            if canChangeNickname {
+                                showNicknameEdit = true
+                            }
+                        } label: {
+                            HStack {
+                                Label("닉네임 변경", systemImage: "person.crop.circle.badge.pencil")
+                                    .font(.subheadline)
+                                Spacer()
+                                if canChangeNickname {
+                                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                } else if let availDate = nicknameChangeAvailableDate {
+                                    let daysLeft = Calendar.current.dateComponents([.day], from: Date(), to: availDate).day ?? 0
+                                    Text("\(max(1, daysLeft))일 후 변경 가능")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                        .disabled(!canChangeNickname)
                     }
 
                     // 도움/피드백
@@ -72,16 +119,21 @@ struct SettingsView: View {
 
                             Divider()
 
-                            Button { showDeleteAccountAlert = true } label: {
+                            Button { showWithdrawAlert = true } label: {
                                 HStack {
-                                    Label("계정 삭제", systemImage: "person.crop.circle.badge.minus")
+                                    Label("회원 탈퇴", systemImage: "person.crop.circle.badge.minus")
                                         .foregroundStyle(.red)
                                     Spacer()
-                                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                    if isWithdrawing {
+                                        ProgressView().tint(.red)
+                                    } else {
+                                        Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                    }
                                 }.font(.subheadline)
                             }
                             .buttonStyle(.plain)
                             .padding(.vertical, 4)
+                            .disabled(isWithdrawing)
 
                             Divider()
 
@@ -132,23 +184,33 @@ struct SettingsView: View {
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
             }
+            .sheet(isPresented: $showNicknameEdit) {
+                NicknameChangeView(
+                    currentNickname: profile?.nickname ?? "",
+                    userID: authManager.userID ?? ""
+                ) { newNickname in
+                    saveNickname(newNickname)
+                    showNicknameEdit = false
+                }
+                .presentationDetents([.medium])
+            }
             .alert("전체 초기화", isPresented: $showResetAlert) {
                 Button("초기화", role: .destructive) { resetOnboarding() }
                 Button("취소", role: .cancel) {}
             } message: {
                 Text("모든 학습 데이터가 삭제되고 처음 상태로 돌아갑니다.")
             }
-            .alert("계정 삭제", isPresented: $showDeleteAccountAlert) {
-                Button("삭제하기", role: .destructive) { showDeleteAccountConfirmation = true }
+            .alert("회원 탈퇴", isPresented: $showWithdrawAlert) {
+                Button("계속", role: .destructive) { showWithdrawConfirmation = true }
                 Button("취소", role: .cancel) {}
             } message: {
-                Text("계정을 삭제하면 모든 학습 데이터와 저장된 단어가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
+                Text("회원 탈퇴 시 모든 학습 데이터와 저장된 단어가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.")
             }
-            .alert("정말 삭제하시겠습니까?", isPresented: $showDeleteAccountConfirmation) {
-                Button("영구 삭제", role: .destructive) { deleteAccount() }
+            .alert("정말 탈퇴하시겠습니까?", isPresented: $showWithdrawConfirmation) {
+                Button("영구 삭제", role: .destructive) { performWithdraw() }
                 Button("취소", role: .cancel) {}
             } message: {
-                Text("마지막 확인입니다. 계정 삭제 후에는 데이터를 복구할 수 없습니다.")
+                Text("마지막 확인입니다. 탈퇴 후에는 데이터를 복구할 수 없습니다.")
             }
         }
     }
@@ -187,9 +249,207 @@ struct SettingsView: View {
         vm.resetOnboarding()
     }
 
-    private func deleteAccount() {
+    private func performWithdraw() {
+        isWithdrawing = true
         let vm = MyPageViewModel(modelContext: modelContext, authManager: authManager)
-        vm.deleteAccount()
+        Task {
+            await vm.deleteAccount()
+            await MainActor.run {
+                isWithdrawing = false
+                dismiss()
+            }
+        }
+    }
+
+    private func saveNickname(_ newNickname: String) {
+        guard let uid = authManager.userID else { return }
+        let predicate = #Predicate<UserProfile> { $0.userID == uid }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        guard let profile = try? modelContext.fetch(descriptor).first else { return }
+        profile.nickname = newNickname
+        profile.nicknameChangedAt = Date()
+        try? modelContext.save()
+
+        // CloudKit 동기화
+        guard !uid.hasPrefix("guest_") else { return }
+        Task {
+            try? await FriendService.shared.upsertPublicProfile(
+                userID: uid,
+                nickname: newNickname,
+                monthlyXP: 0,
+                totalXP: 0,
+                streak: 0
+            )
+        }
+    }
+}
+
+// MARK: - NicknameChangeView
+
+struct NicknameChangeView: View {
+    let currentNickname: String
+    let userID: String
+    var onSave: (String) -> Void
+
+    @State private var nickname: String = ""
+    @State private var checkState: NicknameCheckState = .idle
+    @State private var checkTask: Task<Void, Never>? = nil
+    @Environment(\.dismiss) private var dismiss
+
+    enum NicknameCheckState {
+        case idle, checking, available, unavailable, error
+    }
+
+    private var isValid: Bool {
+        let t = nickname.trimmingCharacters(in: .whitespaces)
+        return t.count >= 2 && t.count <= 10 && !t.contains(" ")
+    }
+
+    private var isSameAsCurrent: Bool {
+        nickname.trimmingCharacters(in: .whitespaces) == currentNickname
+    }
+
+    private var canSave: Bool {
+        // 에러 상태에서도 저장 허용 (중복 확인 실패는 네트워크 문제일 수 있음)
+        isValid && (checkState == .available || checkState == .error) && !isSameAsCurrent
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Spacer()
+
+                Image(systemName: "person.crop.circle.badge.pencil")
+                    .font(.system(size: 52))
+                    .foregroundStyle(AppPalette.forest)
+
+                VStack(spacing: 8) {
+                    Text("닉네임 변경")
+                        .font(.pretendardBold(22))
+                    Text("한 달에 한 번만 변경할 수 있어요")
+                        .font(.pretendardMedium(14))
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("2~10자 한글/영문/숫자", text: $nickname)
+                        .font(.pretendardMedium(17))
+                        .padding(14)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color(.secondarySystemBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(strokeColor, lineWidth: 2)
+                        )
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.never)
+                        .onChange(of: nickname) { _, newValue in
+                            // 공백 제거, 10자 제한
+                            var cleaned = newValue.replacingOccurrences(of: " ", with: "")
+                            if cleaned.count > 10 { cleaned = String(cleaned.prefix(10)) }
+                            if cleaned != newValue { nickname = cleaned }
+                            scheduleCheck()
+                        }
+
+                    HStack {
+                        checkStatusView
+                        Spacer()
+                        Text("\(nickname.count)/10")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 32)
+
+                Spacer()
+            }
+            .onAppear { nickname = currentNickname }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") { dismiss() }
+                        .foregroundStyle(AppPalette.forest)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("저장") {
+                        onSave(nickname.trimmingCharacters(in: .whitespaces))
+                    }
+                    .font(.pretendardSemiBold(16))
+                    .foregroundStyle(canSave ? AppPalette.forest : AppPalette.forest.opacity(0.3))
+                    .disabled(!canSave)
+                }
+            }
+        }
+    }
+
+    private var strokeColor: Color {
+        switch checkState {
+        case .available: return AppPalette.forest
+        case .unavailable: return .red
+        default: return .clear
+        }
+    }
+
+    @ViewBuilder
+    private var checkStatusView: some View {
+        switch checkState {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 4) {
+                ProgressView().scaleEffect(0.7)
+                Text("확인 중...").font(.caption).foregroundStyle(.secondary)
+            }
+        case .available:
+            if isSameAsCurrent {
+                Text("현재 닉네임과 동일해요").font(.caption).foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(AppPalette.forest)
+                    Text("사용 가능한 닉네임이에요").font(.caption).foregroundStyle(AppPalette.forest)
+                }
+            }
+        case .unavailable:
+            HStack(spacing: 4) {
+                Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
+                Text("이미 사용 중인 닉네임이에요").font(.caption).foregroundStyle(.red)
+            }
+        case .error:
+            HStack(spacing: 4) {
+                Image(systemName: "wifi.exclamationmark").foregroundStyle(.orange)
+                Text("중복 확인 불가 (저장은 가능해요)").font(.caption).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    // 0.6초 디바운스 후 중복 체크
+    private func scheduleCheck() {
+        checkTask?.cancel()
+        guard isValid else {
+            checkState = .idle
+            return
+        }
+        checkState = .checking
+        let trimmed = nickname.trimmingCharacters(in: .whitespaces)
+        let myPublicID = FriendService.publicID(from: userID)
+        checkTask = Task {
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+
+            // 게스트는 CloudKit 체크 없이 바로 통과
+            if userID.hasPrefix("guest_") {
+                checkState = .available
+                return
+            }
+
+            do {
+                let available = try await FriendService.shared.isNicknameAvailable(trimmed, excludingPublicID: myPublicID)
+                checkState = available ? .available : .unavailable
+            } catch {
+                checkState = .error
+            }
+        }
     }
 }
 

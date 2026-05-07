@@ -170,6 +170,35 @@ final class FriendService {
         }
     }
 
+    /// 닉네임 중복 여부를 확인합니다. true = 사용 가능.
+    /// - Parameter excludingPublicID: 자기 자신의 publicID (본인 제외)
+    /// CloudKit은 ==[cd] 인덱스를 지원하지 않으므로 BEGINSWITH[cd] 후 클라이언트 사이드 정확 매칭으로 처리합니다.
+    func isNicknameAvailable(_ nickname: String, excludingPublicID: String? = nil) async throws -> Bool {
+        let normalized = nickname.trimmingCharacters(in: .whitespaces).lowercased()
+        let predicate = NSPredicate(format: "nickname BEGINSWITH[cd] %@", normalized)
+        let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+        query.sortDescriptors = [NSSortDescriptor(key: CKRecordField.nickname, ascending: true)]
+
+        let (results, _) = try await publicDB.records(
+            matching: query,
+            desiredKeys: [CKRecordField.publicID, CKRecordField.nickname],
+            resultsLimit: 20
+        )
+
+        // 클라이언트 사이드 정확 매칭 (대소문자 무시)
+        let exactMatches = results.compactMap { _, result -> String? in
+            guard let record = try? result.get(),
+                  let storedNickname = record[CKRecordField.nickname] as? String,
+                  storedNickname.lowercased() == normalized else { return nil }
+            return record[CKRecordField.publicID] as? String
+        }
+
+        if let exclude = excludingPublicID {
+            return exactMatches.filter { $0 != exclude }.isEmpty
+        }
+        return exactMatches.isEmpty
+    }
+
     /// 특정 userID의 Public Profile을 가져옵니다.
     /// userID 또는 publicID를 받아 Public Profile을 가져옵니다.
     func fetchPublicProfile(userID: String) async throws -> PublicUserInfo? {

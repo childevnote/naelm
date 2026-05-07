@@ -24,6 +24,7 @@ struct OnboardingView: View {
     @State private var currentQ: Int = 0
     @State private var placementQuestions: [PlacementQuestion] = []
     @State private var estimatedLevel: Int = 0
+    @State private var savedNickname: String = ""
 
     // 타이머
     @State private var timerRemaining: Double = 10.0
@@ -31,7 +32,7 @@ struct OnboardingView: View {
     @State private var timer: Timer? = nil
 
     enum OnboardingStep {
-        case targetScore, placementIntro, placementTest, result, nickname
+        case targetScore, placementIntro, placementTest, result, nickname, welcome
     }
 
     var body: some View {
@@ -77,10 +78,15 @@ struct OnboardingView: View {
                     }
                 )
             case .nickname:
-                NicknameSetupView { _ in
-                    finishOnboarding(level: estimatedLevel)
+                NicknameSetupView { savedName in
+                    // 닉네임 저장 후 환영 화면으로
+                    finishOnboardingStep(level: estimatedLevel, savedNickname: savedName)
                 }
                 .environment(authManager)
+            case .welcome:
+                OnboardingWelcomeView(nickname: savedNickname) {
+                    onComplete()
+                }
             }
         }
     }
@@ -353,6 +359,47 @@ struct OnboardingView: View {
         step = .nickname
     }
 
+    /// 닉네임 단계 완료 후 호출. UserProfile을 저장하고 환영 화면으로 이동합니다.
+    private func finishOnboardingStep(level: Int, savedNickname name: String?) {
+        guard let userID = authManager.userID else { return }
+
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        let profile: UserProfile
+        if let existing = try? modelContext.fetch(descriptor).first {
+            profile = existing
+        } else {
+            profile = UserProfile(userID: userID)
+            modelContext.insert(profile)
+        }
+
+        profile.targetScore = selectedTarget
+        profile.estimatedLevel = level
+        profile.hasCompletedOnboarding = true
+        profile.hasCompletedPlacementTest = true
+
+        let gap = max(0, selectedTarget - level * 100 - 400)
+        profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
+        profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
+
+        // pending name 또는 입력된 닉네임 적용
+        if profile.nickname.isEmpty {
+            let pendingName = authManager.pendingAppleName ?? authManager.pendingGuestName
+            if let name = pendingName, !name.isEmpty {
+                profile.nickname = name
+            }
+        }
+        authManager.pendingAppleName = nil
+        authManager.pendingGuestName = nil
+
+        try? modelContext.save()
+        HapticManager.shared.playOnboardingComplete()
+
+        // 저장된 닉네임 전달 후 환영 화면으로
+        savedNickname = profile.nickname
+        withAnimation { step = .welcome }
+    }
+
     private func finishOnboarding(level: Int) {
         guard let userID = authManager.userID else { return }
 
@@ -369,15 +416,27 @@ struct OnboardingView: View {
         profile.targetScore = selectedTarget
         profile.estimatedLevel = level
         profile.hasCompletedOnboarding = true
-        profile.hasCompletedPlacementTest = (step == .result || step == .nickname)
+        profile.hasCompletedPlacementTest = (step == .result || step == .nickname || step == .welcome)
 
         let gap = max(0, selectedTarget - level * 100 - 400)
         profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
         profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
 
+        // pending name 적용 (기존 닉네임 없을 때만)
+        if profile.nickname.isEmpty {
+            let pendingName = authManager.pendingAppleName ?? authManager.pendingGuestName
+            if let name = pendingName, !name.isEmpty {
+                profile.nickname = name
+            }
+        }
+        authManager.pendingAppleName = nil
+        authManager.pendingGuestName = nil
+
         try? modelContext.save()
         HapticManager.shared.playOnboardingComplete()
-        onComplete()
+
+        savedNickname = profile.nickname
+        withAnimation { step = .welcome }
     }
 }
 

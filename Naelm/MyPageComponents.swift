@@ -1,17 +1,15 @@
 import SwiftUI
 
 struct MyPageHeaderView: View {
-    let userID: String?
+    let nickname: String
     let encouragement: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let uid = userID {
-                let shortID = uid.count > 8 ? String(uid.prefix(8)) : uid
-                Text("\(shortID)님,")
-                    .font(.pretendardBold(24))
-                    .foregroundStyle(.primary)
-            }
+            let displayName = nickname.isEmpty ? "사용자" : nickname
+            Text("\(displayName)님,")
+                .font(.pretendardBold(24))
+                .foregroundStyle(.primary)
             Text(encouragement)
                 .font(.pretendardMedium(15))
                 .foregroundStyle(AppPalette.forest.opacity(0.80))
