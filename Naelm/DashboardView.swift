@@ -100,7 +100,7 @@ struct DashboardView: View {
                     )
                 }
                 .padding(16)
-                .padding(.top, 70)
+                .padding(.top, 30)
                 .padding(.bottom, 16)
             }
             .background(AppGradient.background(scheme: colorScheme).ignoresSafeArea())

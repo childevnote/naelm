@@ -34,6 +34,21 @@ final class NaelmUITests: XCTestCase {
     }
 
     @MainActor
+    func testSignInShowsFriendlyErrorForRealFailureInjection() throws {
+        throw XCTSkip("실패 경로는 Apple 시스템 인증 결과 주입 훅이 필요해 현재는 수동 QA 체크리스트로 검증합니다.")
+    }
+
+    @MainActor
+    func testSignInSuppressesErrorForCanceledInjection() throws {
+        throw XCTSkip("취소 경로는 Apple 시스템 시트 자동화 제약으로 수동 QA 체크리스트에서 검증합니다.")
+    }
+
+    @MainActor
+    func testSignInAppleSystemSheetCancelIsManualCheck() throws {
+        throw XCTSkip("Sign in with Apple 시스템 시트는 자동화 제약이 있어 수동 심사 체크리스트로 검증합니다.")
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

@@ -25,9 +25,13 @@ enum DashboardLaunchAction: Equatable {
         guard url.scheme?.lowercased() == "naelm" else { return nil }
         guard let host = url.host?.lowercased(), host == "study" else { return nil }
 
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+
         // 경로는 정확히 "/vocabulary", "/grammar", "/review" 이어야 합니다
         // 후행 슬래시가 있는 "/vocabulary/" 등은 불일치
-        switch url.path.lowercased() {
+        switch components.path.lowercased() {
         case "/vocabulary": self = .startVocabulary
         case "/grammar":    self = .startGrammar
         case "/review":     self = .startReview
