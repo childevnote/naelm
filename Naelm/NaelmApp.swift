@@ -113,8 +113,16 @@ final class AuthenticationManager {
             let parts = [fullName.familyName, fullName.givenName]
                 .compactMap { $0?.trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
+
             if !parts.isEmpty {
                 pendingAppleName = parts.joined()
+            } else {
+                let formatted = PersonNameComponentsFormatter()
+                    .string(from: fullName)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if !formatted.isEmpty {
+                    pendingAppleName = formatted
+                }
             }
         }
 
@@ -294,6 +302,11 @@ struct RootView: View {
                     showDataLoadError = true
                 }
                 authManager.restoreAuthState()
+                #if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("-ui-test-force-signout") {
+                    authManager.signOut()
+                }
+                #endif
                 isDataLoaded = true
             }
             // 알림 권한 요청 (최초 1회, 이미 결정된 경우 OS가 무시)
@@ -330,10 +343,6 @@ struct RootView: View {
     private func applyPendingNameIfNeeded(userID: String) {
         let name = authManager.pendingAppleName ?? authManager.pendingGuestName
         guard let name, !name.isEmpty else { return }
-        defer {
-            authManager.pendingAppleName = nil
-            authManager.pendingGuestName = nil
-        }
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         if let profile = try? modelContext.fetch(descriptor).first {
@@ -341,6 +350,8 @@ struct RootView: View {
                 profile.nickname = name
                 try? modelContext.save()
             }
+            authManager.pendingAppleName = nil
+            authManager.pendingGuestName = nil
         }
         // 프로필이 아직 없으면 OnboardingView의 finishOnboarding에서 처리됨
     }
@@ -357,6 +368,8 @@ struct SignInView: View {
     @State private var isSigningIn = false
     @State private var signInError: String? = nil
     @State private var showGuestNameSheet = false
+
+    private let userFacingSignInErrorMessage = "로그인 중 문제가 발생했어요. 잠시 후 다시 시도해주세요."
 
     var body: some View {
         ZStack {
@@ -429,24 +442,20 @@ struct SignInView: View {
                         signInError = nil
                         request.requestedScopes = [.fullName, .email]
                     } onCompletion: { result in
-                        // Task { @MainActor in } 으로 래핑하여 컴파일러 수준에서
-                        // MainActor 격리를 보장합니다. DispatchQueue.main.async 와 달리
-                        // Swift 엄격한 동시성 검사 하에서도 @MainActor 메서드 호출 및
-                        // @State 변경이 안전하게 실행됩니다.
+                        // Task { @MainActor in }으로 감싸서 @State 변경과
+                        // @MainActor 인증 메서드 호출을 메인 스레드에서 보장합니다.
                         Task { @MainActor in
                             isSigningIn = false
                             switch result {
                             case .success(let authorization):
                                 authManager.handleSignInSuccess(authorization: authorization)
                             case .failure(let error):
-                                let code = (error as NSError).code
-                                if code == ASAuthorizationError.canceled.rawValue ||
-                                   code == ASAuthorizationError.notInteractive.rawValue {
-                                    // 취소 또는 비대화형 환경 — 에러 메시지 없음
+                                if shouldSuppressSignInError(for: error) {
+                                    // 사용자가 취소했거나 비대화형 상황이면 에러 UI를 숨깁니다.
                                     signInError = nil
                                 } else {
-                                    // 실제 오류 — 사용자 친화적 메시지 표시
-                                    signInError = "Apple 로그인에 실패했습니다. 잠시 후 다시 시도해주세요."
+                                    // 실제 실패만 사용자 메시지 노출 + 로깅합니다.
+                                    signInError = userFacingSignInErrorMessage
                                     authManager.handleSignInError(error)
                                 }
                             }
@@ -457,6 +466,7 @@ struct SignInView: View {
                     .frame(maxWidth: 320)
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .shadow(color: .black.opacity(0.12), radius: 6, y: 3)
+                    .disabled(isSigningIn)
 
                     if isSigningIn {
                         ProgressView().tint(AppPalette.forest)
@@ -525,6 +535,32 @@ struct SignInView: View {
             }
             .padding(.horizontal, 32)
         }
+        .onAppear {
+            applyUITestSignInErrorIfNeeded()
+        }
+    }
+
+    private func shouldSuppressSignInError(for error: Error) -> Bool {
+        let nsError = error as NSError
+        guard nsError.domain == ASAuthorizationError.errorDomain else {
+            return false
+        }
+
+        return nsError.code == ASAuthorizationError.canceled.rawValue
+            || nsError.code == ASAuthorizationError.notInteractive.rawValue
+    }
+
+    private func applyUITestSignInErrorIfNeeded() {
+        #if DEBUG
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-ui-test-signin-error-generic") {
+            signInError = userFacingSignInErrorMessage
+            return
+        }
+        if arguments.contains("-ui-test-signin-error-canceled") {
+            signInError = nil
+        }
+        #endif
     }
 }
 
