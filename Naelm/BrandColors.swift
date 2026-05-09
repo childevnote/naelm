@@ -334,7 +334,6 @@ extension Font {
 // 기존 코드에서 BrandTheme.*를 사용하는 부분과의 호환성 유지.
 // 신규 코드에서는 AppColor.* / AppPalette.* 를 사용하세요.
 
-@available(*, deprecated, message: "Use AppColor or AppPalette in new code.")
 struct BrandTheme {
 
     // ── Colors ──────────────────────────────────
