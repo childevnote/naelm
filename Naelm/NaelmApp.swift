@@ -429,17 +429,27 @@ struct SignInView: View {
                         signInError = nil
                         request.requestedScopes = [.fullName, .email]
                     } onCompletion: { result in
-                        isSigningIn = false
-                        switch result {
-                        case .success(let authorization):
-                            authManager.handleSignInSuccess(authorization: authorization)
-                        case .failure(let error):
-                            if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
-                                signInError = nil
-                            } else {
-                                signInError = error.localizedDescription
+                        // Task { @MainActor in } 으로 래핑하여 컴파일러 수준에서
+                        // MainActor 격리를 보장합니다. DispatchQueue.main.async 와 달리
+                        // Swift 엄격한 동시성 검사 하에서도 @MainActor 메서드 호출 및
+                        // @State 변경이 안전하게 실행됩니다.
+                        Task { @MainActor in
+                            isSigningIn = false
+                            switch result {
+                            case .success(let authorization):
+                                authManager.handleSignInSuccess(authorization: authorization)
+                            case .failure(let error):
+                                let code = (error as NSError).code
+                                if code == ASAuthorizationError.canceled.rawValue ||
+                                   code == ASAuthorizationError.notInteractive.rawValue {
+                                    // 취소 또는 비대화형 환경 — 에러 메시지 없음
+                                    signInError = nil
+                                } else {
+                                    // 실제 오류 — 사용자 친화적 메시지 표시
+                                    signInError = "Apple 로그인에 실패했습니다. 잠시 후 다시 시도해주세요."
+                                    authManager.handleSignInError(error)
+                                }
                             }
-                            authManager.handleSignInError(error)
                         }
                     }
                     .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
