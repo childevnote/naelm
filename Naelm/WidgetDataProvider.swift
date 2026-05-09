@@ -10,7 +10,7 @@ import Foundation
 import WidgetKit
 
 /// 위젯과 앱이 공유하는 UserDefaults 키 정의
-enum WidgetDataKey {
+private enum WidgetDataKey {
     static let streak           = "naelm.widget.streak"
     static let vocabCompleted   = "naelm.widget.vocabCompleted"
     static let grammarCompleted = "naelm.widget.grammarCompleted"
@@ -18,7 +18,7 @@ enum WidgetDataKey {
 }
 
 /// 앱 그룹 식별자 (Apple Developer Console에서 동일하게 설정해야 합니다)
-let naelmAppGroupID = "group.naelm.shared"
+private let naelmAppGroupID = "group.naelm.shared"
 
 @MainActor
 final class WidgetDataProvider {

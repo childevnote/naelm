@@ -67,6 +67,7 @@ struct SM2AlgorithmTests {
 
 // MARK: - DashboardLaunchAction URL Tests
 
+@MainActor
 struct DashboardLaunchActionTests {
 
     @Test func vocabularyURL() {

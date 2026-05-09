@@ -255,7 +255,7 @@ extension View {
 
 /// 리퀴드 글래스 카드 배경 뷰.
 /// ultraThinMaterial + 그라데이션 오버레이 + 테두리로 glass 효과를 구현합니다.
-struct GlassCardBackground: View {
+private struct GlassCardBackground: View {
     let cornerRadius: CGFloat
     let scheme: ColorScheme
 
@@ -297,7 +297,7 @@ struct GlassCardBackground: View {
 // MARK: - Liquid Press Effect (물방울 터치 효과)
 
 /// 터치 시 눌린 부분이 물방울처럼 살짝 축소되었다가 원래 크기로 돌아오는 효과.
-struct LiquidPressModifier: ViewModifier {
+private struct LiquidPressModifier: ViewModifier {
     @State private var isPressed = false
 
     func body(content: Content) -> some View {
@@ -334,6 +334,7 @@ extension Font {
 // 기존 코드에서 BrandTheme.*를 사용하는 부분과의 호환성 유지.
 // 신규 코드에서는 AppColor.* / AppPalette.* 를 사용하세요.
 
+@available(*, deprecated, message: "Use AppColor or AppPalette in new code.")
 struct BrandTheme {
 
     // ── Colors ──────────────────────────────────

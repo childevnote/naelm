@@ -625,7 +625,6 @@ struct GuestNameInputView: View {
     var onComplete: (String?) -> Void
 
     @State private var name: String = ""
-    @Environment(\.colorScheme) private var colorScheme
 
     private var isValid: Bool {
         let t = name.trimmingCharacters(in: .whitespaces)

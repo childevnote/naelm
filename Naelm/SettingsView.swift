@@ -7,8 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import AuthenticationServices
-import os
 
 struct SettingsView: View {
     @Environment(AuthenticationManager.self) var authManager
@@ -23,13 +21,7 @@ struct SettingsView: View {
     @State private var showWithdrawConfirmation: Bool = false
     @State private var showNicknameEdit: Bool = false
     @State private var isWithdrawing: Bool = false
-
-    // 현재 유저 프로필 (닉네임 변경일 표시용)
-    private var profile: UserProfile? {
-        guard let uid = authManager.userID else { return nil }
-        let predicate = #Predicate<UserProfile> { $0.userID == uid }
-        return try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first
-    }
+    @State private var profile: UserProfile? = nil
 
     // 닉네임 변경 가능 여부 (한 달 1회)
     private var canChangeNickname: Bool {
@@ -184,6 +176,9 @@ struct SettingsView: View {
             .sheet(isPresented: $showFeedback) {
                 FeedbackView()
             }
+            .task(id: authManager.userID) {
+                loadProfile()
+            }
             .sheet(isPresented: $showNicknameEdit) {
                 NicknameChangeView(
                     currentNickname: profile?.nickname ?? "",
@@ -263,12 +258,21 @@ struct SettingsView: View {
 
     private func saveNickname(_ newNickname: String) {
         guard let uid = authManager.userID else { return }
-        let predicate = #Predicate<UserProfile> { $0.userID == uid }
-        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-        guard let profile = try? modelContext.fetch(descriptor).first else { return }
-        profile.nickname = newNickname
-        profile.nicknameChangedAt = Date()
+
+        let targetProfile: UserProfile
+        if let cachedProfile = profile, cachedProfile.userID == uid {
+            targetProfile = cachedProfile
+        } else {
+            let predicate = #Predicate<UserProfile> { $0.userID == uid }
+            let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+            guard let fetchedProfile = try? modelContext.fetch(descriptor).first else { return }
+            targetProfile = fetchedProfile
+        }
+
+        targetProfile.nickname = newNickname
+        targetProfile.nicknameChangedAt = Date()
         try? modelContext.save()
+        profile = targetProfile
 
         // CloudKit 동기화
         guard !uid.hasPrefix("guest_") else { return }
@@ -282,11 +286,21 @@ struct SettingsView: View {
             )
         }
     }
+
+    private func loadProfile() {
+        guard let uid = authManager.userID else {
+            profile = nil
+            return
+        }
+        let predicate = #Predicate<UserProfile> { $0.userID == uid }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        profile = try? modelContext.fetch(descriptor).first
+    }
 }
 
 // MARK: - NicknameChangeView
 
-struct NicknameChangeView: View {
+private struct NicknameChangeView: View {
     let currentNickname: String
     let userID: String
     var onSave: (String) -> Void

@@ -22,7 +22,6 @@ struct DashboardView: View {
     @State private var todayGrammarStudied: Int = 0
     @State private var dailyVocabGoal: Int = 20
     @State private var dailyGrammarGoal: Int = 10
-    @State private var targetScore: Int = 700
     @State private var totalWordsStudied: Int = 0
     @State private var totalDaysStudied: Int = 0
     @State private var monthlyActivity: [Date: Int] = [:]
@@ -137,28 +136,13 @@ struct DashboardView: View {
                 }
             }
             .onChange(of: showVocabSession) { _, active in
-                if !active {
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        refreshStats()
-                    }
-                }
+                refreshStatsAfterSessionDismiss(isActive: active)
             }
             .onChange(of: showGrammarSession) { _, active in
-                if !active {
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        refreshStats()
-                    }
-                }
+                refreshStatsAfterSessionDismiss(isActive: active)
             }
             .onChange(of: showReviewSession) { _, active in
-                if !active {
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 300_000_000)
-                        refreshStats()
-                    }
-                }
+                refreshStatsAfterSessionDismiss(isActive: active)
             }
             .navigationDestination(isPresented: $showVocabSession) {
                 VocabularyStudyView().environment(authManager)
@@ -227,7 +211,6 @@ struct DashboardView: View {
             let predicate = #Predicate<UserProfile> { $0.userID == userID }
             let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
             if let profile = try? modelContext.fetch(descriptor).first {
-                targetScore = profile.targetScore
                 dailyVocabGoal = profile.dailyVocabGoal
                 dailyGrammarGoal = profile.dailyGrammarGoal
             }
@@ -276,13 +259,12 @@ struct DashboardView: View {
             )
         }
     }
-}
 
-// MARK: - ScrollOffset PreferenceKey
-
-struct ScrollOffsetPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+    private func refreshStatsAfterSessionDismiss(isActive: Bool) {
+        guard !isActive else { return }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            refreshStats()
+        }
     }
 }

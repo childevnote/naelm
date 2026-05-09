@@ -10,7 +10,7 @@ import UIKit
 
 // MARK: - Font Name Constants
 
-enum PretendardFont {
+private enum PretendardFont {
     static let regular   = "Pretendard-Regular"
     static let medium    = "Pretendard-Medium"
     static let semiBold  = "Pretendard-SemiBold"
