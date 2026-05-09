@@ -429,11 +429,11 @@ struct SignInView: View {
                         signInError = nil
                         request.requestedScopes = [.fullName, .email]
                     } onCompletion: { result in
-                        // DispatchQueue.main.async 로 래핑하여 @MainActor 메서드 호출 및
-                        // @State 변경이 항상 메인 스레드에서 실행되도록 보장합니다.
-                        // iOS 26에서 @Observable의 메인 스레드 강제가 강화되어,
-                        // 백그라운드 스레드에서의 userID 변경이 예외를 유발할 수 있습니다.
-                        DispatchQueue.main.async {
+                        // Task { @MainActor in } 으로 래핑하여 컴파일러 수준에서
+                        // MainActor 격리를 보장합니다. DispatchQueue.main.async 와 달리
+                        // Swift 엄격한 동시성 검사 하에서도 @MainActor 메서드 호출 및
+                        // @State 변경이 안전하게 실행됩니다.
+                        Task { @MainActor in
                             isSigningIn = false
                             switch result {
                             case .success(let authorization):
