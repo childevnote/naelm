@@ -20,6 +20,8 @@ struct NicknameSetupView: View {
 
     /// 닉네임 저장 완료 콜백 (nil이면 나중에 설정 선택)
     var onComplete: (String?) -> Void
+    /// false이면 "나중에 설정" 버튼 숨김 (온보딩에서 사용)
+    var showSkip: Bool = true
 
     @State private var nickname: String = ""
     @State private var isSaving: Bool = false
@@ -46,7 +48,7 @@ struct NicknameSetupView: View {
                     .font(.pretendardBold(22))
                     .multilineTextAlignment(.center)
 
-                Text("친구들에게 보여질 이름이에요")
+                Text("친구들에게 보여질 이름이에요\n실명과 다르게 설정할 수 있어요")
                     .font(.pretendardMedium(15))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -118,19 +120,28 @@ struct NicknameSetupView: View {
                 .tint(BrandTheme.accent)
                 .disabled(!isValid || isSaving)
 
-                // 나중에 설정 버튼
-                Button {
-                    onComplete(nil)
-                } label: {
-                    Text("나중에 설정")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                if showSkip {
+                    // 나중에 설정 버튼
+                    Button {
+                        onComplete(nil)
+                    } label: {
+                        Text("나중에 설정")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
             Spacer().frame(height: 40)
         }
         .padding(.horizontal, 24)
+        .onAppear {
+            // Apple 이름을 제안값으로 미리 채움 (유저가 직접 확정해야 함)
+            if nickname.isEmpty, let suggestion = authManager.pendingAppleName, !suggestion.isEmpty {
+                let trimmed = String(suggestion.prefix(10)).replacingOccurrences(of: " ", with: "")
+                nickname = trimmed
+            }
+        }
     }
 
     // MARK: - 닉네임 저장
@@ -165,6 +176,7 @@ struct NicknameSetupView: View {
         }
         profile.nickname = trimmed
         profile.isPublicProfileRegistered = true
+        profile.hasExplicitlySetNickname = true
         try? modelContext.save()
 
         // 저장 완료 UI는 즉시 닫고, CloudKit 동기화는 백그라운드에서 처리

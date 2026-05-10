@@ -78,7 +78,7 @@ struct OnboardingView: View {
                     }
                 )
             case .nickname:
-                NicknameSetupView { savedName in
+                NicknameSetupView(showSkip: false) { savedName in
                     // 닉네임 저장 후 환영 화면으로
                     finishOnboardingStep(level: estimatedLevel, savedNickname: savedName)
                 }
@@ -382,16 +382,6 @@ struct OnboardingView: View {
         profile.dailyVocabGoal = min(40, max(10, 15 + gap / 50))
         profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
 
-        // pending name 또는 입력된 닉네임 적용
-        if profile.nickname.isEmpty {
-            let pendingName = authManager.pendingAppleName ?? authManager.pendingGuestName
-            if let name = pendingName, !name.isEmpty {
-                profile.nickname = name
-            }
-        }
-        authManager.pendingAppleName = nil
-        authManager.pendingGuestName = nil
-
         try? modelContext.save()
         HapticManager.shared.playOnboardingComplete()
 
@@ -423,15 +413,6 @@ struct OnboardingView: View {
         profile.dailyGrammarGoal = min(20, max(5, 8 + gap / 80))
 
         // pending name 적용 (기존 닉네임 없을 때만)
-        if profile.nickname.isEmpty {
-            let pendingName = authManager.pendingAppleName ?? authManager.pendingGuestName
-            if let name = pendingName, !name.isEmpty {
-                profile.nickname = name
-            }
-        }
-        authManager.pendingAppleName = nil
-        authManager.pendingGuestName = nil
-
         try? modelContext.save()
         HapticManager.shared.playOnboardingComplete()
 

@@ -142,6 +142,10 @@ final class UserProfile {
     /// 앱 내 표시 닉네임 (친구 검색 및 식별에 사용)
     var nickname: String = ""
 
+    /// 닉네임을 NicknameSetupView를 통해 직접 설정했는지 여부
+    /// false이면 온보딩 시 닉네임 설정 화면이 다시 표시됩니다.
+    var hasExplicitlySetNickname: Bool = false
+
     /// 닉네임 마지막 변경일 (한 달 1회 제한)
     var nicknameChangedAt: Date? = nil
 

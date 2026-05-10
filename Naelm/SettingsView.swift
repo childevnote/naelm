@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import AuthenticationServices
 
 struct SettingsView: View {
     @Environment(AuthenticationManager.self) var authManager
@@ -22,6 +23,11 @@ struct SettingsView: View {
     @State private var showNicknameEdit: Bool = false
     @State private var isWithdrawing: Bool = false
     @State private var profile: UserProfile? = nil
+    @State private var lastICloudBackupDate: Date? = nil
+    @State private var isSavingToICloud: Bool = false
+    @State private var isRestoringFromICloud: Bool = false
+    @State private var showRestoreAlert: Bool = false
+    @State private var backupMessage: String? = nil
 
     // 닉네임 변경 가능 여부 (한 달 1회)
     private var canChangeNickname: Bool {
@@ -96,9 +102,89 @@ struct SettingsView: View {
                         }
                     }
 
+                    // iCloud 백업
+                    settingsCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Label("iCloud 저장", systemImage: "icloud")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(lastBackupText)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            HStack(spacing: 10) {
+                                Button {
+                                    saveProgressToICloud()
+                                } label: {
+                                    if isSavingToICloud {
+                                        ProgressView().tint(AppPalette.forest)
+                                    } else {
+                                        Text("지금 저장")
+                                            .font(.pretendardSemiBold(13))
+                                            .foregroundStyle(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(Capsule().fill(AppPalette.forest))
+                                    }
+                                }
+                                .disabled(isSavingToICloud || isRestoringFromICloud)
+
+                                Button {
+                                    showRestoreAlert = true
+                                } label: {
+                                    if isRestoringFromICloud {
+                                        ProgressView().tint(.secondary)
+                                    } else {
+                                        Text("불러오기")
+                                            .font(.pretendardMedium(13))
+                                            .foregroundStyle(.secondary)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 8)
+                                            .background(Capsule().fill(Color(.tertiarySystemFill)))
+                                    }
+                                }
+                                .disabled(isSavingToICloud || isRestoringFromICloud)
+                            }
+
+                            if let backupMessage {
+                                Text(backupMessage)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+
                     // 계정
                     settingsCard {
                         VStack(spacing: 0) {
+                            if authManager.userID?.hasPrefix("guest_") == true {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("게스트 데이터는 Apple 로그인 후에도 그대로 유지돼요")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    SignInWithAppleButton(.signIn) { request in
+                                        request.requestedScopes = [.fullName, .email]
+                                    } onCompletion: { result in
+                                        Task { @MainActor in
+                                            switch result {
+                                            case .success(let authorization):
+                                                authManager.handleSignInSuccess(authorization: authorization)
+                                            case .failure(let error):
+                                                authManager.handleSignInError(error)
+                                            }
+                                        }
+                                    }
+                                    .signInWithAppleButtonStyle(colorScheme == .dark ? .white : .black)
+                                    .frame(height: 44)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                .padding(.vertical, 4)
+
+                                Divider()
+                            }
+
                             Button { showResetAlert = true } label: {
                                 HStack {
                                     Label("전체 초기화", systemImage: "arrow.counterclockwise")
@@ -178,6 +264,7 @@ struct SettingsView: View {
             }
             .task(id: authManager.userID) {
                 loadProfile()
+                await refreshICloudBackupDate()
             }
             .sheet(isPresented: $showNicknameEdit) {
                 NicknameChangeView(
@@ -206,6 +293,12 @@ struct SettingsView: View {
                 Button("취소", role: .cancel) {}
             } message: {
                 Text("마지막 확인입니다. 탈퇴 후에는 데이터를 복구할 수 없습니다.")
+            }
+            .alert("iCloud 백업 불러오기", isPresented: $showRestoreAlert) {
+                Button("불러오기", role: .destructive) { restoreProgressFromICloud() }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("현재 기기의 진행상황을 iCloud 백업으로 교체합니다.")
             }
         }
     }
@@ -295,6 +388,73 @@ struct SettingsView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == uid }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         profile = try? modelContext.fetch(descriptor).first
+    }
+
+    private var lastBackupText: String {
+        guard let lastICloudBackupDate else { return "저장 기록 없음" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy.MM.dd HH:mm"
+        return "마지막 저장: \(formatter.string(from: lastICloudBackupDate))"
+    }
+
+    private func refreshICloudBackupDate() async {
+        guard let uid = authManager.userID else {
+            await MainActor.run { lastICloudBackupDate = nil }
+            return
+        }
+        let date = await ICloudProgressBackupService.shared.fetchLastBackupDate(userID: uid)
+        await MainActor.run {
+            lastICloudBackupDate = date
+        }
+    }
+
+    private func saveProgressToICloud() {
+        guard let uid = authManager.userID else { return }
+        isSavingToICloud = true
+        backupMessage = nil
+        Task {
+            do {
+                let savedAt = try await ICloudProgressBackupService.shared.backupProgress(userID: uid, context: modelContext)
+                await MainActor.run {
+                    lastICloudBackupDate = savedAt
+                    backupMessage = "iCloud에 진행상황을 저장했어요."
+                    isSavingToICloud = false
+                }
+            } catch {
+                await MainActor.run {
+                    backupMessage = "저장에 실패했어요. 잠시 후 다시 시도해주세요."
+                    isSavingToICloud = false
+                }
+            }
+        }
+    }
+
+    private func restoreProgressFromICloud() {
+        guard let uid = authManager.userID else { return }
+        isRestoringFromICloud = true
+        backupMessage = nil
+
+        Task {
+            do {
+                let restoredAt = try await ICloudProgressBackupService.shared.restoreProgress(userID: uid, context: modelContext)
+                await MainActor.run {
+                    lastICloudBackupDate = restoredAt
+                    loadProfile()
+                    backupMessage = "iCloud 저장본을 불러왔어요."
+                    isRestoringFromICloud = false
+                }
+            } catch let backupError as ICloudProgressBackupError {
+                await MainActor.run {
+                    backupMessage = backupError.localizedDescription
+                    isRestoringFromICloud = false
+                }
+            } catch {
+                await MainActor.run {
+                    backupMessage = "불러오기에 실패했어요. 잠시 후 다시 시도해주세요."
+                    isRestoringFromICloud = false
+                }
+            }
+        }
     }
 }
 

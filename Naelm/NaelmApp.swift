@@ -106,7 +106,12 @@ final class AuthenticationManager {
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
             return
         }
+        let previousUserID = self.userID
         self.userID = credential.user
+
+        if previousUserID?.hasPrefix("guest_") == true {
+            UserDefaults.standard.removeObject(forKey: Self.guestIDDefaultsKey)
+        }
 
         // 최초 로그인 시에만 fullName이 제공됨
         if let fullName = credential.fullName {
@@ -325,7 +330,14 @@ struct RootView: View {
         } message: {
             Text("학습 데이터를 불러오는 데 실패했습니다. 일부 기능이 정상적으로 작동하지 않을 수 있습니다.")
         }
-        .onChange(of: authManager.userID) { _, newID in
+        .onChange(of: authManager.userID) { oldID, newID in
+            if let oldID,
+               let newID,
+               oldID.hasPrefix("guest_"),
+               !newID.hasPrefix("guest_") {
+                GuestDataMigrationService.shared.migrateIfNeeded(from: oldID, to: newID, context: modelContext)
+            }
+
             if let uid = newID {
                 authManager.needsOnboarding = !isOnboardingComplete(userID: uid)
                 applyPendingNameIfNeeded(userID: uid)
@@ -336,24 +348,18 @@ struct RootView: View {
     private func isOnboardingComplete(userID: String) -> Bool {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-        return (try? modelContext.fetch(descriptor).first?.hasCompletedOnboarding) ?? false
+        guard let profile = try? modelContext.fetch(descriptor).first else { return false }
+        // NicknameSetupView를 통해 닉네임을 직접 설정한 경우만 완료로 인식
+        return profile.hasCompletedOnboarding && profile.hasExplicitlySetNickname
     }
 
-    /// 애플/게스트 로그인 시 pending name을 UserProfile에 저장합니다 (기존 닉네임 있으면 덮어쓰지 않음).
+    /// 로그인 후 pendingName을 초기화합니다.
+    /// 닉네임은 NicknameSetupView에서 유저가 직접 설정합니다.
     private func applyPendingNameIfNeeded(userID: String) {
-        let name = authManager.pendingAppleName ?? authManager.pendingGuestName
-        guard let name, !name.isEmpty else { return }
-        let predicate = #Predicate<UserProfile> { $0.userID == userID }
-        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
-        if let profile = try? modelContext.fetch(descriptor).first {
-            if profile.nickname.isEmpty {
-                profile.nickname = name
-                try? modelContext.save()
-            }
-            authManager.pendingAppleName = nil
-            authManager.pendingGuestName = nil
-        }
-        // 프로필이 아직 없으면 OnboardingView의 finishOnboarding에서 처리됨
+        // pendingAppleName은 NicknameSetupView의 제안값으로만 사용하고
+        // 여기서 자동으로 닉네임에 적용하지 않습니다.
+        // (NicknameSetupView.onAppear에서 제안값으로 pre-fill됨)
+        _ = userID // 향후 확장을 위한 파라미터 유지
     }
 
 }
@@ -598,12 +604,32 @@ struct MainDashboardView: View {
             .tint(AppPalette.forest)
         }
         .task {
-            // 앱 실행 시 CloudKit Public Profile 자동 업데이트
-            if let userID = authManager.userID {
-                FriendSyncService.shared.syncPublicProfileIfNeeded(
+            // 앱 실행 시 CloudKit Public Profile 강제 upsert
+            // (재설치·기기 변경으로 CloudKit에 프로필이 없을 수 있음)
+            guard let userID = authManager.userID,
+                  !userID.hasPrefix("guest_") else { return }
+            let predicate = #Predicate<UserProfile> { $0.userID == userID }
+            let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+            guard let profile = try? modelContext.fetch(descriptor).first,
+                  !profile.nickname.isEmpty else {
+                AppLogger.friend.warning("[Dashboard.task] 로컬 UserProfile 없음 또는 닉네임 비어있음")
+                return
+            }
+            profile.isPublicProfileRegistered = true
+            try? modelContext.save()
+            let nickname = profile.nickname
+            AppLogger.friend.info("[Dashboard.task] upsert 시도: \(nickname)")
+            do {
+                try await FriendService.shared.upsertPublicProfile(
                     userID: userID,
-                    context: modelContext
+                    nickname: nickname,
+                    monthlyXP: 0,
+                    totalXP: 0,
+                    streak: 0
                 )
+                AppLogger.friend.info("[Dashboard.task] CloudKit upsert 성공 ✅")
+            } catch {
+                AppLogger.friend.error("[Dashboard.task] CloudKit upsert 실패 ❌: \(error)")
             }
         }
     }

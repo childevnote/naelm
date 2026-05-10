@@ -147,27 +147,56 @@ final class FriendService {
 
     /// 닉네임으로 Public Profile을 검색합니다.
     func searchUsers(nickname: String) async throws -> [PublicUserInfo] {
-        let predicate = NSPredicate(format: "nickname BEGINSWITH[cd] %@", nickname)
-        let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: "nickname", ascending: true)]
+        let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
 
-        let (results, _) = try await publicDB.records(
-            matching: query,
-            desiredKeys: [
-                CKRecordField.publicID,
-                CKRecordField.nickname,
-                CKRecordField.monthlyXP,
-                CKRecordField.totalXP,
-                CKRecordField.streak,
-                CKRecordField.weeklyXP,
-            ],
-            resultsLimit: 20
-        )
+        let desiredKeys = [
+            CKRecordField.publicID,
+            CKRecordField.nickname,
+            CKRecordField.monthlyXP,
+            CKRecordField.totalXP,
+            CKRecordField.streak,
+            CKRecordField.weeklyXP,
+        ]
 
-        return results.compactMap { _, result in
-            guard let record = try? result.get() else { return nil }
-            return Self.parsePublicProfile(record)
+        // CloudKit에서 [cd] 수식어는 tokenized 인덱스가 필요하므로
+        // 우선 case-sensitive BEGINSWITH (일반 queryable 인덱스로 가능)를 시도하고
+        // 실패 시 lowercase로 변환한 값으로 재시도합니다.
+        // NSPredicate(value: true) 전체조회는 CloudKit Production에서 지원되지 않으므로 사용하지 않습니다.
+        let queries: [NSPredicate] = [
+            NSPredicate(format: "nickname BEGINSWITH[cd] %@", trimmed),
+            NSPredicate(format: "nickname BEGINSWITH %@", trimmed),
+            NSPredicate(format: "nickname BEGINSWITH %@", trimmed.lowercased()),
+        ]
+
+        for predicate in queries {
+            do {
+                let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+                // sortDescriptors를 생략하면 서버 기본 정렬 사용 → 클라이언트 정렬로 보정
+                let (results, _) = try await publicDB.records(
+                    matching: query,
+                    desiredKeys: desiredKeys,
+                    resultsLimit: 20
+                )
+                let profiles = results.compactMap { _, result -> PublicUserInfo? in
+                    guard let record = try? result.get() else { return nil }
+                    return Self.parsePublicProfile(record)
+                }
+                // 클라이언트 사이드 prefix 필터 + 정렬
+                return profiles
+                    .filter { $0.nickname.lowercased().hasPrefix(trimmed.lowercased()) }
+                    .sorted { $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending }
+                    .prefix(20)
+                    .map { $0 }
+            } catch let ckError as CKError {
+                AppLogger.friend.warning("[FriendSearch] predicate 실패(\(ckError.code.rawValue, privacy: .public)): \(ckError.localizedDescription, privacy: .public)")
+                // 다음 predicate 전략 시도
+                continue
+            }
         }
+        // 모든 전략 실패
+        AppLogger.friend.error("[FriendSearch] 모든 검색 전략 실패. CloudKit Dashboard에서 nickname 필드가 Queryable로 설정되어 있는지 확인하세요.")
+        return []
     }
 
     /// 닉네임 중복 여부를 확인합니다. true = 사용 가능.
@@ -175,28 +204,60 @@ final class FriendService {
     /// CloudKit은 ==[cd] 인덱스를 지원하지 않으므로 BEGINSWITH[cd] 후 클라이언트 사이드 정확 매칭으로 처리합니다.
     func isNicknameAvailable(_ nickname: String, excludingPublicID: String? = nil) async throws -> Bool {
         let normalized = nickname.trimmingCharacters(in: .whitespaces).lowercased()
-        let predicate = NSPredicate(format: "nickname BEGINSWITH[cd] %@", normalized)
-        let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
-        query.sortDescriptors = [NSSortDescriptor(key: CKRecordField.nickname, ascending: true)]
+        let desiredKeys = [CKRecordField.publicID, CKRecordField.nickname]
 
-        let (results, _) = try await publicDB.records(
-            matching: query,
-            desiredKeys: [CKRecordField.publicID, CKRecordField.nickname],
-            resultsLimit: 20
-        )
+        let exactMatches: [String]
+        do {
+            let predicate = NSPredicate(format: "nickname BEGINSWITH[cd] %@", normalized)
+            let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+            query.sortDescriptors = [NSSortDescriptor(key: CKRecordField.nickname, ascending: true)]
 
-        // 클라이언트 사이드 정확 매칭 (대소문자 무시)
-        let exactMatches = results.compactMap { _, result -> String? in
-            guard let record = try? result.get(),
-                  let storedNickname = record[CKRecordField.nickname] as? String,
-                  storedNickname.lowercased() == normalized else { return nil }
-            return record[CKRecordField.publicID] as? String
+            let (results, _) = try await publicDB.records(
+                matching: query,
+                desiredKeys: desiredKeys,
+                resultsLimit: 20
+            )
+
+            exactMatches = results.compactMap { _, result -> String? in
+                guard let record = try? result.get(),
+                      let storedNickname = record[CKRecordField.nickname] as? String,
+                      storedNickname.lowercased() == normalized else { return nil }
+                return record[CKRecordField.publicID] as? String
+            }
+        } catch let ckError as CKError {
+            AppLogger.friend.warning("[NicknameAvailability] query 실패(\(ckError.code.rawValue, privacy: .public)): \(ckError.localizedDescription, privacy: .public)")
+            // fallback: monthlyXP >= 0 조건으로 전체 조회 후 클라이언트 필터
+            let allProfiles = try await fetchAllPublicProfiles(limit: 200, desiredKeys: desiredKeys)
+            exactMatches = allProfiles
+                .filter { $0.nickname.lowercased() == normalized }
+                .map(\.publicID)
         }
 
         if let exclude = excludingPublicID {
             return exactMatches.filter { $0 != exclude }.isEmpty
         }
         return exactMatches.isEmpty
+    }
+
+    /// 공개 프로필 전체에서 월간 XP 기준 상위 유저를 가져옵니다.
+    /// 인덱스/정렬 스키마 미배포 환경에서도 동작하도록 클라이언트 사이드 정렬을 사용합니다.
+    func fetchGlobalRankingProfiles(limit: Int = 100) async throws -> [PublicUserInfo] {
+        let desiredKeys = [
+            CKRecordField.publicID,
+            CKRecordField.nickname,
+            CKRecordField.monthlyXP,
+            CKRecordField.totalXP,
+            CKRecordField.streak,
+            CKRecordField.weeklyXP,
+        ]
+        let profiles = try await fetchAllPublicProfiles(limit: max(limit * 2, limit), desiredKeys: desiredKeys)
+        return profiles
+            .sorted {
+                if $0.monthlyXP != $1.monthlyXP { return $0.monthlyXP > $1.monthlyXP }
+                return $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending
+            }
+            .prefix(limit)
+            .map { $0 }
     }
 
     /// 특정 userID의 Public Profile을 가져옵니다.
@@ -400,6 +461,22 @@ final class FriendService {
         for (recordID, result) in results {
             guard (try? result.get()) != nil else { continue }
             _ = try? await publicDB.deleteRecord(withID: recordID)
+        }
+    }
+
+    private func fetchAllPublicProfiles(limit: Int, desiredKeys: [String]) async throws -> [PublicUserInfo] {
+        // NSPredicate(value: true)는 CloudKit Production에서 지원되지 않습니다.
+        // monthlyXP >= 0 조건(Queryable 인덱스 필요)으로 대체하고, 클라이언트 정렬을 사용합니다.
+        let predicate = NSPredicate(format: "monthlyXP >= 0")
+        let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+        let (results, _) = try await publicDB.records(
+            matching: query,
+            desiredKeys: desiredKeys,
+            resultsLimit: limit
+        )
+        return results.compactMap { _, result in
+            guard let record = try? result.get() else { return nil }
+            return Self.parsePublicProfile(record)
         }
     }
 
