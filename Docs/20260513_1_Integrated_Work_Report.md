@@ -142,8 +142,8 @@
 | gram_791 | reviewed | review(능동), reviewing(진행), to review(부정사) → 3개 모두 100% 오답 ✅ |
 | gram_792 | Assuming that | Assumed that(분사, 접속사 불가), To assume that(부정사구), Assumption that(명사, 접속사 불가) → 3개 모두 100% 오답 ✅ |
 | gram_793 | only if | even if(가정적 양보), as if(비사실 비유), only when(시간, 의미 다름) → 3개 모두 100% 오답 ✅ |
-| gram_794 | consecutive | successive(의미 유사하지만 문맥상 적합도 열위), sequential(수학적 순서), continual(간헐적 지속) → 3개 모두 100% 오답 ✅ |
-| gram_795 | not so much | not only(다른 구문), not just(다른 구문), not even(강조 부정, 구조 다름) → 3개 모두 100% 오답 ✅ |
+| gram_794 | consecutive | successive(잇따른, 문맥상 의미 오류), sequential(수학적 순서), continual(간헐적 반복, 의미 모순) → 3개 모두 100% 오답 ✅ |
+| gram_795 | not so much (+ as) | not only(다른 구문), not just(다른 구문), not even(강조 부정) → 3개 모두 100% 오답 ✅ |
 | gram_796 | did the finance director compile | the finance director compiled(도치 없는 평서문), the finance director did compile(강조도 미완성), compiled the finance director(비문) → 3개 모두 100% 오답 ✅ |
 | gram_797 | it | this(한정적 지시, 가목적어 불가), that(한정적 지시), them(목적어 지시) → 3개 모두 100% 오답 ✅ |
 | gram_798 | ever since | until(종료 시점 의미), before(이전 시점), once(일단~하면, 순서) → 3개 모두 100% 오답 ✅ |
