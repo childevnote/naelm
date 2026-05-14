@@ -49,7 +49,8 @@ struct FriendRowView: View {
 
                 if let info = publicInfo {
                     let level = GamificationService.level(fromTotalXP: info.totalXP)
-                    Text("Lv.\(level) · 🔥\(info.streak)일")
+                    let currentLevel = TOEICScoreRange.fromEstimatedLevel(info.estimatedLevel).shortLabel
+                    Text("Lv.\(level) · 🔥\(info.streak)일 · \(currentLevel)→\(info.targetScore)")
                         .font(.pretendard(13))
                         .foregroundStyle(.secondary)
                 } else {
@@ -110,6 +111,9 @@ struct FriendRowView: View {
     let publicInfo = PublicUserInfo(
         publicID: "friend1",
         nickname: "토익왕",
+        friendCode: "NAELM-1234ABCD",
+        estimatedLevel: 3,
+        targetScore: 900,
         monthlyXP: 800,
         totalXP: 3200,
         streak: 12,

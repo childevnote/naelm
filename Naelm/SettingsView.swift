@@ -375,7 +375,9 @@ struct SettingsView: View {
                 nickname: newNickname,
                 monthlyXP: 0,
                 totalXP: 0,
-                streak: 0
+                streak: 0,
+                estimatedLevel: targetProfile.estimatedLevel,
+                targetScore: targetProfile.targetScore
             )
         }
     }

@@ -349,8 +349,11 @@ struct RootView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         guard let profile = try? modelContext.fetch(descriptor).first else { return false }
-        // NicknameSetupView를 통해 닉네임을 직접 설정한 경우만 완료로 인식
-        return profile.hasCompletedOnboarding && profile.hasExplicitlySetNickname
+        // 온보딩 완료는 학습 플로우 완료 여부로 판단하고,
+        // 닉네임 여부는 친구 기능 진입 시 별도로 처리합니다.
+        if profile.hasCompletedOnboarding { return true }
+        // 구버전 호환: 완료 플래그가 없더라도 닉네임이 있으면 완료로 간주
+        return !profile.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     /// 로그인 후 pendingName을 초기화합니다.
@@ -625,7 +628,9 @@ struct MainDashboardView: View {
                     nickname: nickname,
                     monthlyXP: 0,
                     totalXP: 0,
-                    streak: 0
+                    streak: 0,
+                    estimatedLevel: profile.estimatedLevel,
+                    targetScore: profile.targetScore
                 )
                 AppLogger.friend.info("[Dashboard.task] CloudKit upsert 성공 ✅")
             } catch {

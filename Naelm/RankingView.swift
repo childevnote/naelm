@@ -330,6 +330,9 @@ struct RankingView: View {
                         PublicUserInfo(
                             publicID: myPublicID,
                             nickname: nickname.isEmpty ? "나" : nickname,
+                            friendCode: FriendService.friendCode(from: myPublicID),
+                            estimatedLevel: 0,
+                            targetScore: 700,
                             monthlyXP: localMyScore,
                             totalXP: 0,
                             streak: 0,

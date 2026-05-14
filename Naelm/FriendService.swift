@@ -26,6 +26,8 @@ import os
 private enum CKRecordType {
     static let userPublicProfile = "UserPublicProfile"
     static let friendRequest = "FriendRequest"
+    static let streakChallenge = "StreakChallenge"
+    static let friendCodeIndex = "FriendCodeIndex"
 }
 
 private nonisolated enum CKRecordField {
@@ -37,6 +39,9 @@ private nonisolated enum CKRecordField {
     static let legacyToUserID = "toUserID"
     static let fromNickname = "fromNickname"
     static let nickname = "nickname"
+    static let friendCode = "friendCode"
+    static let estimatedLevel = "estimatedLevel"
+    static let targetScore = "targetScore"
     static let monthlyXP = "monthlyXP"
     static let totalXP = "totalXP"
     static let streak = "streak"
@@ -44,6 +49,13 @@ private nonisolated enum CKRecordField {
     static let status = "status"
     static let createdAt = "createdAt"
     static let updatedAt = "updatedAt"
+    static let friendCodeIndexPublicID = "indexedPublicID"
+
+    static let challengerPublicID = "challengerPublicID"
+    static let challengerNickname = "challengerNickname"
+    static let challengerStreak = "challengerStreak"
+    static let opponentPublicID = "opponentPublicID"
+    static let opponentNickname = "opponentNickname"
 }
 
 // MARK: - 공개 프로필 데이터 구조체
@@ -53,11 +65,27 @@ struct PublicUserInfo: Identifiable {
     let id = UUID()
     let publicID: String      // SHA-256 hashed public identifier
     let nickname: String      // 닉네임
+    let friendCode: String    // 친구 추가용 고유 코드
+    let estimatedLevel: Int   // 현재 수준(0~5)
+    let targetScore: Int      // 목표 점수
     let monthlyXP: Int        // 이번 달 XP (랭킹용)
     let totalXP: Int          // 누적 총 XP
     let streak: Int           // 연속 학습일
     let weeklyXP: Int         // 이번 주 XP
     let recordName: String    // CKRecord.ID.recordName (업데이트용)
+}
+
+/// CloudKit의 StreakChallenge 레코드 파싱 결과
+struct StreakChallengeInfo: Identifiable {
+    let id = UUID()
+    let recordName: String
+    let challengerPublicID: String
+    let challengerNickname: String
+    let challengerStreak: Int
+    let opponentPublicID: String
+    let opponentNickname: String
+    let status: String        // "pending" | "active" | "declined" | "completed" | "cancelled"
+    let createdAt: Date
 }
 
 // MARK: - 친구 요청 데이터 구조체
@@ -110,6 +138,27 @@ final class FriendService {
         "profile_\(publicID(from: userIDOrPublicID))"
     }
 
+    nonisolated private static func friendCodeIndexRecordName(for friendCode: String) -> String {
+        "friendcode_\(normalizedFriendCode(friendCode))"
+    }
+
+    /// 고유 친구코드 포맷으로 정규화합니다. 예) naelm-abc12345 -> NAELM-ABC12345
+    nonisolated static func normalizedFriendCode(_ rawValue: String) -> String {
+        let upper = rawValue.uppercased()
+        let trimmed = upper.trimmingCharacters(in: .whitespacesAndNewlines)
+        let withoutPrefix = trimmed.hasPrefix("NAELM-") ? String(trimmed.dropFirst(6)) : trimmed
+        let filtered = withoutPrefix.filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        return "NAELM-\(String(filtered.prefix(8)))"
+    }
+
+    /// publicID 기반 고유 친구코드를 생성합니다. (결정론적)
+    nonisolated static func friendCode(from userIDOrPublicID: String) -> String {
+        let publicID = Self.publicID(from: userIDOrPublicID)
+        let digest = SHA256.hash(data: Data((publicID + "_naelm_friend_code_v1").utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined().uppercased()
+        return "NAELM-\(String(hex.prefix(8)))"
+    }
+
     // ── Public Profile 관리 ──────────────────────────────────
 
     /// UserPublicProfile 레코드를 생성하거나 업데이트합니다.
@@ -120,9 +169,13 @@ final class FriendService {
         monthlyXP: Int,
         totalXP: Int,
         streak: Int,
-        weeklyXP: Int = 0
+        weeklyXP: Int = 0,
+        estimatedLevel: Int = 0,
+        targetScore: Int = 700,
+        friendCode: String? = nil
     ) async throws {
         let publicID = Self.publicID(from: userID)
+        let normalizedCode = Self.normalizedFriendCode(friendCode ?? Self.friendCode(from: publicID))
         let recordName = Self.profileRecordName(for: publicID)
         let recordID = CKRecord.ID(recordName: recordName)
 
@@ -136,13 +189,43 @@ final class FriendService {
 
         record[CKRecordField.publicID] = publicID as CKRecordValue
         record[CKRecordField.nickname] = nickname as CKRecordValue
+        record[CKRecordField.friendCode] = normalizedCode as CKRecordValue
+        record[CKRecordField.estimatedLevel] = Int64(estimatedLevel) as CKRecordValue
+        record[CKRecordField.targetScore] = Int64(targetScore) as CKRecordValue
         record[CKRecordField.monthlyXP] = Int64(monthlyXP) as CKRecordValue
         record[CKRecordField.totalXP] = Int64(totalXP) as CKRecordValue
         record[CKRecordField.streak] = Int64(streak) as CKRecordValue
         record[CKRecordField.weeklyXP] = Int64(weeklyXP) as CKRecordValue
         record[CKRecordField.updatedAt] = Date() as CKRecordValue
 
-        try await publicDB.save(record)
+        do {
+            try await publicDB.save(record)
+            do {
+                try await upsertFriendCodeIndex(friendCode: normalizedCode, publicID: publicID)
+            } catch {
+                AppLogger.friend.warning("[PublicProfileUpsert] friend code index 비활성(fallback): \(error.localizedDescription, privacy: .public)")
+            }
+        } catch let ckError as CKError where ckError.code == .invalidArguments {
+            // Production schema에 신규 필드가 아직 배포되지 않은 경우 레거시 필드만 저장
+            record[CKRecordField.friendCode] = nil
+            record[CKRecordField.estimatedLevel] = nil
+            record[CKRecordField.targetScore] = nil
+            try await publicDB.save(record)
+            do {
+                try await upsertFriendCodeIndex(friendCode: normalizedCode, publicID: publicID)
+            } catch {
+                AppLogger.friend.warning("[PublicProfileUpsert] friend code index 비활성(fallback): \(error.localizedDescription, privacy: .public)")
+            }
+            record[CKRecordField.estimatedLevel] = nil
+            record[CKRecordField.targetScore] = nil
+            try await publicDB.save(record)
+            do {
+                try await upsertFriendCodeIndex(friendCode: normalizedCode, publicID: publicID)
+            } catch let indexError as CKError where indexError.code == .invalidArguments {
+                AppLogger.friend.warning("[PublicProfileUpsert] friend code index 비활성(fallback): \(indexError.localizedDescription, privacy: .public)")
+            }
+            AppLogger.friend.warning("[PublicProfileUpsert] schema fallback 적용: friendCode/estimatedLevel/targetScore 미배포")
+        }
     }
 
     /// 닉네임으로 Public Profile을 검색합니다.
@@ -153,6 +236,9 @@ final class FriendService {
         let desiredKeys = [
             CKRecordField.publicID,
             CKRecordField.nickname,
+            CKRecordField.friendCode,
+            CKRecordField.estimatedLevel,
+            CKRecordField.targetScore,
             CKRecordField.monthlyXP,
             CKRecordField.totalXP,
             CKRecordField.streak,
@@ -197,6 +283,71 @@ final class FriendService {
         // 모든 전략 실패
         AppLogger.friend.error("[FriendSearch] 모든 검색 전략 실패. CloudKit Dashboard에서 nickname 필드가 Queryable로 설정되어 있는지 확인하세요.")
         return []
+    }
+
+    /// 고유코드로 단일 사용자를 조회합니다.
+    func lookupUser(friendCode: String) async throws -> PublicUserInfo? {
+        let normalized = Self.normalizedFriendCode(friendCode)
+        guard normalized.count == 14 else { return nil }
+
+        // 우선 friendCode 전용 인덱스 레코드를 recordID로 직접 조회 (CloudKit 쿼리 인덱스 불필요)
+        if let indexedPublicID = try await fetchIndexedPublicID(for: normalized),
+           let profile = try await fetchPublicProfile(userID: indexedPublicID) {
+            return profile
+        }
+
+        let desiredKeys = [
+            CKRecordField.publicID,
+            CKRecordField.nickname,
+            CKRecordField.friendCode,
+            CKRecordField.estimatedLevel,
+            CKRecordField.targetScore,
+            CKRecordField.monthlyXP,
+            CKRecordField.totalXP,
+            CKRecordField.streak,
+            CKRecordField.weeklyXP,
+        ]
+
+        do {
+            let predicate = NSPredicate(format: "friendCode == %@", normalized)
+            let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+            let (results, _) = try await publicDB.records(matching: query, desiredKeys: desiredKeys, resultsLimit: 1)
+            for (_, result) in results {
+                guard let record = try? result.get() else { continue }
+                if let parsed = Self.parsePublicProfile(record) { return parsed }
+            }
+        } catch let ckError as CKError {
+            // CloudKit schema에서 friendCode를 Queryable로 배포하지 않은 경우(code:12) fallback으로 계속 진행
+            AppLogger.friend.warning("[FriendCodeLookup] code query fallback(\(ckError.code.rawValue, privacy: .public)): \(ckError.localizedDescription, privacy: .public)")
+        }
+
+        // 백필 전 레코드 대응: friendCode 필드가 비어있는 기존 프로필을 클라이언트 계산값으로 보정
+        let fallbackProfiles = try await fetchAllPublicProfiles(limit: 300, desiredKeys: desiredKeys)
+        return fallbackProfiles.first { Self.friendCode(from: $0.publicID) == normalized }
+    }
+
+    /// 연락처에서 추출한 친구코드 목록을 일괄 조회합니다.
+    func lookupUsers(friendCodes: [String], excludingUserID: String? = nil) async -> [PublicUserInfo] {
+        let uniqueCodes = Set(friendCodes.map(Self.normalizedFriendCode).filter { $0.count == 14 })
+        guard !uniqueCodes.isEmpty else { return [] }
+
+        let excludingPublicID = excludingUserID.map(Self.publicID(from:))
+        var users: [PublicUserInfo] = []
+        await withTaskGroup(of: PublicUserInfo?.self) { group in
+            for code in uniqueCodes {
+                group.addTask {
+                    try? await self.lookupUser(friendCode: code)
+                }
+            }
+            for await info in group {
+                guard let info else { continue }
+                if info.publicID == excludingPublicID { continue }
+                users.append(info)
+            }
+        }
+
+        let deduplicated = Dictionary(grouping: users, by: { $0.publicID }).compactMap { $0.value.first }
+        return deduplicated.sorted { $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending }
     }
 
     /// 닉네임 중복 여부를 확인합니다. true = 사용 가능.
@@ -245,6 +396,9 @@ final class FriendService {
         let desiredKeys = [
             CKRecordField.publicID,
             CKRecordField.nickname,
+            CKRecordField.friendCode,
+            CKRecordField.estimatedLevel,
+            CKRecordField.targetScore,
             CKRecordField.monthlyXP,
             CKRecordField.totalXP,
             CKRecordField.streak,
@@ -287,6 +441,9 @@ final class FriendService {
             operation.desiredKeys = [
                 CKRecordField.publicID,
                 CKRecordField.nickname,
+                CKRecordField.friendCode,
+                CKRecordField.estimatedLevel,
+                CKRecordField.targetScore,
                 CKRecordField.monthlyXP,
                 CKRecordField.totalXP,
                 CKRecordField.streak,
@@ -315,6 +472,82 @@ final class FriendService {
 
             publicDB.add(operation)
         }
+    }
+
+    /// 두 사용자 간 대기 중인 스트릭 대결 요청 존재 여부를 확인합니다.
+    func hasPendingStreakChallenge(fromUserID: String, toUserID: String) async throws -> Bool {
+        let challengerPublicID = Self.publicID(from: fromUserID)
+        let opponentPublicID = Self.publicID(from: toUserID)
+
+        let predicate = NSPredicate(
+            format: "%K == %@ AND %K == %@ AND %K == 'pending'",
+            CKRecordField.challengerPublicID, challengerPublicID,
+            CKRecordField.opponentPublicID, opponentPublicID,
+            CKRecordField.status
+        )
+        let query = CKQuery(recordType: CKRecordType.streakChallenge, predicate: predicate)
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 1)
+        return !results.isEmpty
+    }
+
+    /// 1:1 스트릭 대결 요청을 생성합니다.
+    func sendStreakChallenge(
+        fromUserID: String,
+        fromNickname: String,
+        challengerStreak: Int,
+        toPublicID: String,
+        toNickname: String
+    ) async throws -> String {
+        let challengerPublicID = Self.publicID(from: fromUserID)
+        let opponentPublicID = Self.publicID(from: toPublicID)
+        let record = CKRecord(recordType: CKRecordType.streakChallenge)
+        record[CKRecordField.challengerPublicID] = challengerPublicID as CKRecordValue
+        record[CKRecordField.challengerNickname] = fromNickname as CKRecordValue
+        record[CKRecordField.challengerStreak] = Int64(challengerStreak) as CKRecordValue
+        record[CKRecordField.opponentPublicID] = opponentPublicID as CKRecordValue
+        record[CKRecordField.opponentNickname] = toNickname as CKRecordValue
+        record[CKRecordField.status] = "pending" as CKRecordValue
+        record[CKRecordField.createdAt] = Date() as CKRecordValue
+
+        let saved = try await publicDB.save(record)
+        return saved.recordID.recordName
+    }
+
+    /// 내가 받은 대기 중인 스트릭 대결 요청 목록을 가져옵니다.
+    func fetchPendingStreakChallenges(toUserID: String) async throws -> [StreakChallengeInfo] {
+        let myPublicID = Self.publicID(from: toUserID)
+        return try await fetchStreakChallenges(fieldName: CKRecordField.opponentPublicID, value: myPublicID, status: "pending")
+    }
+
+    /// 특정 상대와 진행 중(active) 대결이 있는지 조회합니다.
+    func fetchActiveChallenge(myUserID: String, withFriendPublicID friendPublicID: String) async throws -> StreakChallengeInfo? {
+        let myPublicID = Self.publicID(from: myUserID)
+        let normalizedFriendID = Self.publicID(from: friendPublicID)
+
+        let predicate = NSPredicate(
+            format: "((%K == %@ AND %K == %@) OR (%K == %@ AND %K == %@)) AND %K == 'active'",
+            CKRecordField.challengerPublicID, myPublicID,
+            CKRecordField.opponentPublicID, normalizedFriendID,
+            CKRecordField.challengerPublicID, normalizedFriendID,
+            CKRecordField.opponentPublicID, myPublicID,
+            CKRecordField.status
+        )
+        let query = CKQuery(recordType: CKRecordType.streakChallenge, predicate: predicate)
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 1)
+        for (_, result) in results {
+            guard let record = try? result.get() else { continue }
+            if let info = Self.parseStreakChallenge(record) { return info }
+        }
+        return nil
+    }
+
+    /// 스트릭 대결 요청 상태를 업데이트합니다.
+    func updateStreakChallengeStatus(recordName: String, status: String) async throws {
+        let recordID = CKRecord.ID(recordName: recordName)
+        let record = try await publicDB.record(for: recordID)
+        record[CKRecordField.status] = status as CKRecordValue
+        record[CKRecordField.updatedAt] = Date() as CKRecordValue
+        try await publicDB.save(record)
     }
 
     // ── 친구 요청 관리 ──────────────────────────────────────
@@ -397,10 +630,18 @@ final class FriendService {
         let publicID = Self.publicID(from: userID)
         let recordID = CKRecord.ID(recordName: Self.profileRecordName(for: publicID))
         do {
+            if let record = try? await publicDB.record(for: recordID),
+               let currentCode = record[CKRecordField.friendCode] as? String {
+                let currentIndexRecordID = CKRecord.ID(recordName: Self.friendCodeIndexRecordName(for: currentCode))
+                _ = try? await publicDB.deleteRecord(withID: currentIndexRecordID)
+            }
             _ = try await publicDB.deleteRecord(withID: recordID)
         } catch {
             AppLogger.friend.warning("Failed to delete public profile: \(error.localizedDescription)")
         }
+
+        let derivedCodeRecordID = CKRecord.ID(recordName: Self.friendCodeIndexRecordName(for: Self.friendCode(from: publicID)))
+        _ = try? await publicDB.deleteRecord(withID: derivedCodeRecordID)
 
         do {
             try await deleteFriendRequests(
@@ -422,6 +663,18 @@ final class FriendService {
             )
         } catch {
             AppLogger.friend.warning("Failed to delete legacy friend requests: \(error.localizedDescription)")
+        }
+
+        do {
+            try await deleteStreakChallenges(
+                predicate: NSPredicate(
+                    format: "%K == %@ OR %K == %@",
+                    CKRecordField.challengerPublicID, publicID,
+                    CKRecordField.opponentPublicID, publicID
+                )
+            )
+        } catch {
+            AppLogger.friend.warning("Failed to delete streak challenges: \(error.localizedDescription)")
         }
     }
 
@@ -455,8 +708,61 @@ final class FriendService {
         return !results.isEmpty
     }
 
+    private func fetchStreakChallenges(fieldName: String, value: String, status: String) async throws -> [StreakChallengeInfo] {
+        let predicate = NSPredicate(format: "%K == %@ AND %K == %@", fieldName, value, CKRecordField.status, status)
+        let query = CKQuery(recordType: CKRecordType.streakChallenge, predicate: predicate)
+        query.sortDescriptors = [NSSortDescriptor(key: CKRecordField.createdAt, ascending: false)]
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 100)
+        return results.compactMap { _, result in
+            guard let record = try? result.get() else { return nil }
+            return Self.parseStreakChallenge(record)
+        }
+    }
+
+    private func upsertFriendCodeIndex(friendCode: String, publicID: String) async throws {
+        let normalizedCode = Self.normalizedFriendCode(friendCode)
+        let recordID = CKRecord.ID(recordName: Self.friendCodeIndexRecordName(for: normalizedCode))
+
+        let record: CKRecord
+        do {
+            record = try await publicDB.record(for: recordID)
+        } catch let ckError as CKError where ckError.code == .unknownItem {
+            record = CKRecord(recordType: CKRecordType.friendCodeIndex, recordID: recordID)
+        }
+
+        record[CKRecordField.friendCode] = normalizedCode as CKRecordValue
+        record[CKRecordField.friendCodeIndexPublicID] = publicID as CKRecordValue
+        record[CKRecordField.updatedAt] = Date() as CKRecordValue
+        try await publicDB.save(record)
+    }
+
+    private func fetchIndexedPublicID(for friendCode: String) async throws -> String? {
+        let recordID = CKRecord.ID(recordName: Self.friendCodeIndexRecordName(for: friendCode))
+        do {
+            let record = try await publicDB.record(for: recordID)
+            if let publicID = record[CKRecordField.friendCodeIndexPublicID] as? String {
+                return publicID
+            }
+            if let publicID = record[CKRecordField.publicID] as? String {
+                return publicID
+            }
+            return nil
+        } catch let ckError as CKError where ckError.code == .unknownItem {
+            return nil
+        }
+    }
+
     private func deleteFriendRequests(predicate: NSPredicate) async throws {
         let query = CKQuery(recordType: CKRecordType.friendRequest, predicate: predicate)
+        let (results, _) = try await publicDB.records(matching: query, resultsLimit: 200)
+        for (recordID, result) in results {
+            guard (try? result.get()) != nil else { continue }
+            _ = try? await publicDB.deleteRecord(withID: recordID)
+        }
+    }
+
+    private func deleteStreakChallenges(predicate: NSPredicate) async throws {
+        let query = CKQuery(recordType: CKRecordType.streakChallenge, predicate: predicate)
         let (results, _) = try await publicDB.records(matching: query, resultsLimit: 200)
         for (recordID, result) in results {
             guard (try? result.get()) != nil else { continue }
@@ -502,10 +808,18 @@ final class FriendService {
         let totalXP = (record[CKRecordField.totalXP] as? Int64).map(Int.init) ?? 0
         let streak = (record[CKRecordField.streak] as? Int64).map(Int.init) ?? 0
         let weeklyXP = (record[CKRecordField.weeklyXP] as? Int64).map(Int.init) ?? 0
+        let estimatedLevel = (record[CKRecordField.estimatedLevel] as? Int64).map(Int.init) ?? 0
+        let targetScore = (record[CKRecordField.targetScore] as? Int64).map(Int.init) ?? 700
+        let friendCode = (record[CKRecordField.friendCode] as? String)
+            .map(Self.normalizedFriendCode)
+            ?? Self.friendCode(from: publicID)
 
         return PublicUserInfo(
             publicID: publicID,
             nickname: nickname,
+            friendCode: friendCode,
+            estimatedLevel: estimatedLevel,
+            targetScore: targetScore,
             monthlyXP: monthlyXP,
             totalXP: totalXP,
             streak: streak,
@@ -531,6 +845,27 @@ final class FriendService {
             fromPublicID: fromPublicID,
             fromNickname: fromNickname,
             toPublicID: toPublicID,
+            status: status,
+            createdAt: createdAt
+        )
+    }
+
+    nonisolated static func parseStreakChallenge(_ record: CKRecord) -> StreakChallengeInfo? {
+        guard let challengerPublicID = record[CKRecordField.challengerPublicID] as? String,
+              let challengerNickname = record[CKRecordField.challengerNickname] as? String,
+              let opponentPublicID = record[CKRecordField.opponentPublicID] as? String,
+              let opponentNickname = record[CKRecordField.opponentNickname] as? String,
+              let status = record[CKRecordField.status] as? String else { return nil }
+
+        let challengerStreak = (record[CKRecordField.challengerStreak] as? Int64).map(Int.init) ?? 0
+        let createdAt = record[CKRecordField.createdAt] as? Date ?? Date()
+        return StreakChallengeInfo(
+            recordName: record.recordID.recordName,
+            challengerPublicID: challengerPublicID,
+            challengerNickname: challengerNickname,
+            challengerStreak: challengerStreak,
+            opponentPublicID: opponentPublicID,
+            opponentNickname: opponentNickname,
             status: status,
             createdAt: createdAt
         )
