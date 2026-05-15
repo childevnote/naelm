@@ -12286,16 +12286,16 @@
   },
   {
     "grammarID": "gram_820",
-    "title": "명사절 접속사 that 생략 - S + V + ∅ + S + V (목적어 that 생략)",
-    "explanation": "목적어 자리의 명사절을 이끄는 접속사 'that'은 구어체·비격식 문장에서 생략 가능하다. 단, 주어절·보어절 that('That ~ is true'), 동사와 명사절 사이에 부사구가 끼어 있을 때, 또는 be동사 보어절('The fact is that')에서는 생략하면 의미 혼동이 생겨 오답이 된다. 토익 Part 5에서 생략된 that을 인식하는 능력을 묻는다.",
+    "title": "명사절 접속사 that 보유 vs 생략 - 부사구 끼임 시 that 생략 불가",
+    "explanation": "목적어 명사절의 접속사 'that'은 비격식 구어체에서 생략 가능하다. 단, '동사 + 부사(구) + 절' 형태처럼 동사와 명사절 사이에 부사(구)가 끼어 있으면 that을 생략했을 때 부사가 절의 주어처럼 보이는 구조적 혼동이 생긴다. 이 경우 that은 반드시 유지해야 한다. indicate/confirm/believe + (that): that 생략 가능. emphasize/announce/state + 부사(강조) + (that): that 생략 시 혼동 → 유지 필수.",
     "toeicPart": "Part 5",
     "difficultyLevel": 4,
-    "correctExample": "The survey results clearly indicate the majority of customers prefer online support channels over traditional phone-based customer service.",
-    "incorrectExample": "The survey results clearly indicate the majority of customers will prefer online support channels over traditional phone-based customer service.",
-    "tip": "indicate/show/believe/suggest + (that) + S + V: 'that' 생략 가능. 단, 생략 후 의미가 불분명하거나 부사구가 동사·명사절 사이에 있으면 'that' 유지. 빈칸 뒤 완전한 절 구조 확인이 핵심.",
+    "correctExample": "The HR director emphasized strongly that all employees must complete the mandatory safety training by the end of the current quarter.",
+    "incorrectExample": "The HR director emphasized strongly all employees must complete the mandatory safety training by the end of the current quarter.",
+    "tip": "'emphasized strongly + that + S + V': 부사 'strongly'가 동사와 that절 사이에 위치 → that 생략 시 'strongly all employees'로 오독 가능 → that 유지 필수. 부사(구) 없이 동사 바로 뒤 절 → that 생략 가능(indicate/confirm/believe + ∅ + S + V).",
     "category": "Noun Clause",
-    "blankTarget": "indicate (that)",
-    "distractors": "indicate what,indicate which,indicate whether or not",
+    "blankTarget": "that",
+    "distractors": "∅ (that 생략),what,which",
     "quizType": "grammar",
     "dataVersion": 7
   }
