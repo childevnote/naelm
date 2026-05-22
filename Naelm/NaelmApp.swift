@@ -607,8 +607,7 @@ struct MainDashboardView: View {
             .tint(AppPalette.forest)
         }
         .task {
-            // 앱 실행 시 CloudKit Public Profile 강제 upsert
-            // (재설치·기기 변경으로 CloudKit에 프로필이 없을 수 있음)
+            // 앱 실행 시 Public Profile/친구요청 상태 동기화
             guard let userID = authManager.userID,
                   !userID.hasPrefix("guest_") else { return }
             let predicate = #Predicate<UserProfile> { $0.userID == userID }
@@ -620,22 +619,7 @@ struct MainDashboardView: View {
             }
             profile.isPublicProfileRegistered = true
             try? modelContext.save()
-            let nickname = profile.nickname
-            AppLogger.friend.info("[Dashboard.task] upsert 시도: \(nickname)")
-            do {
-                try await FriendService.shared.upsertPublicProfile(
-                    userID: userID,
-                    nickname: nickname,
-                    monthlyXP: 0,
-                    totalXP: 0,
-                    streak: 0,
-                    estimatedLevel: profile.estimatedLevel,
-                    targetScore: profile.targetScore
-                )
-                AppLogger.friend.info("[Dashboard.task] CloudKit upsert 성공 ✅")
-            } catch {
-                AppLogger.friend.error("[Dashboard.task] CloudKit upsert 실패 ❌: \(error)")
-            }
+            FriendSyncService.shared.syncPublicProfileIfNeeded(userID: userID, context: modelContext)
         }
     }
 }

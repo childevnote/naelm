@@ -302,6 +302,7 @@ struct RankingView: View {
         guard let userID = authManager.userID else { return }
 
         RankingService.updateMonthlyScore(userID: userID, context: modelContext)
+        FriendSyncService.shared.syncPublicProfileIfNeeded(userID: userID, context: modelContext)
         let localMyScore = RankingService.fetchOrCreateMonthlyScore(userID: userID, context: modelContext).score
         let myPublicID = FriendService.publicID(from: userID)
         myScore = localMyScore
@@ -369,6 +370,29 @@ struct RankingView: View {
                 }
             } catch {
                 AppLogger.friend.warning("Failed to load ranking from CloudKit: \(error.localizedDescription)")
+                let fallbackMe = PublicUserInfo(
+                    publicID: myPublicID,
+                    nickname: fetchMyNickname(userID: userID).isEmpty ? "나" : fetchMyNickname(userID: userID),
+                    friendCode: FriendService.friendCode(from: myPublicID),
+                    estimatedLevel: 0,
+                    targetScore: 700,
+                    monthlyXP: localMyScore,
+                    totalXP: 0,
+                    streak: 0,
+                    weeklyXP: 0,
+                    recordName: "local_\(myPublicID)"
+                )
+                let fallbackFriends = (try? await FriendService.shared.fetchPublicProfiles(userIDs: Array(friendIDs))) ?? []
+                let merged = ([fallbackMe] + fallbackFriends)
+                let unique = Dictionary(grouping: merged, by: { $0.publicID }).compactMap { $0.value.first }
+                await MainActor.run {
+                    globalRanking = unique.sorted {
+                        if $0.monthlyXP != $1.monthlyXP { return $0.monthlyXP > $1.monthlyXP }
+                        return $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending
+                    }
+                    myRank = (globalRanking.firstIndex { $0.publicID == myPublicID } ?? -1) + 1
+                    friendRanking = globalRanking.filter { friendIDs.contains($0.publicID) || $0.publicID == myPublicID }
+                }
             }
         }
     }

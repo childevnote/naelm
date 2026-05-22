@@ -771,19 +771,34 @@ final class FriendService {
     }
 
     private func fetchAllPublicProfiles(limit: Int, desiredKeys: [String]) async throws -> [PublicUserInfo] {
-        // NSPredicate(value: true)는 CloudKit Production에서 지원되지 않습니다.
-        // monthlyXP >= 0 조건(Queryable 인덱스 필요)으로 대체하고, 클라이언트 정렬을 사용합니다.
-        let predicate = NSPredicate(format: "monthlyXP >= 0")
-        let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
-        let (results, _) = try await publicDB.records(
-            matching: query,
-            desiredKeys: desiredKeys,
-            resultsLimit: limit
-        )
-        return results.compactMap { _, result in
-            guard let record = try? result.get() else { return nil }
-            return Self.parsePublicProfile(record)
+        // Production 스키마 인덱스 상태가 환경마다 달라질 수 있어 여러 predicate를 순차 시도합니다.
+        let predicates: [NSPredicate] = [
+            NSPredicate(format: "monthlyXP >= 0"),
+            NSPredicate(format: "totalXP >= 0"),
+            NSPredicate(format: "createdAt >= %@", Date(timeIntervalSince1970: 0) as NSDate),
+            NSPredicate(format: "updatedAt >= %@", Date(timeIntervalSince1970: 0) as NSDate),
+        ]
+
+        for predicate in predicates {
+            do {
+                let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+                let (results, _) = try await publicDB.records(
+                    matching: query,
+                    desiredKeys: desiredKeys,
+                    resultsLimit: limit
+                )
+                return results.compactMap { _, result in
+                    guard let record = try? result.get() else { return nil }
+                    return Self.parsePublicProfile(record)
+                }
+            } catch let ckError as CKError {
+                AppLogger.friend.warning("[PublicProfileFetchAll] predicate 실패(\(ckError.code.rawValue, privacy: .public)): \(ckError.localizedDescription, privacy: .public)")
+                continue
+            }
         }
+
+        AppLogger.friend.error("[PublicProfileFetchAll] 모든 조회 전략 실패. CloudKit Dashboard에서 UserPublicProfile 조회 인덱스를 확인하세요.")
+        return []
     }
 
     // MARK: - 정적 파싱 헬퍼

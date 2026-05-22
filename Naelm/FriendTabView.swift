@@ -164,6 +164,7 @@ struct FriendTabView: View {
             loadPendingCount()
             loadPendingChallengeCount()
             loadFriendPublicInfos()
+            syncAcceptedOutgoingRequestsIfNeeded()
         }
         .sheet(isPresented: $showFriendSearch) {
             FriendSearchView()
@@ -184,6 +185,7 @@ struct FriendTabView: View {
         .refreshable {
             loadPendingCount()
             loadPendingChallengeCount()
+            syncAcceptedOutgoingRequestsIfNeeded()
             await loadFriendPublicInfosAsync()
         }
     }
@@ -270,6 +272,11 @@ struct FriendTabView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == myID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         return (try? modelContext.fetch(descriptor).first?.nickname) ?? ""
+    }
+
+    private func syncAcceptedOutgoingRequestsIfNeeded() {
+        guard let myID = authManager.userID else { return }
+        FriendSyncService.shared.syncAcceptedOutgoingRequests(userID: myID, context: modelContext)
     }
 }
 
