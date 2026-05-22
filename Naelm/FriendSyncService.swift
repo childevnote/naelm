@@ -59,7 +59,9 @@ final class FriendSyncService {
                     monthlyXP: monthlyXP,
                     totalXP: totalXP,
                     streak: streak,
-                    weeklyXP: weeklyXP
+                    weeklyXP: weeklyXP,
+                    estimatedLevel: profile.estimatedLevel,
+                    targetScore: profile.targetScore
                 )
                 AppLogger.friend.info("Public profile synced")
             } catch {

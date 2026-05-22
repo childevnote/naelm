@@ -2,94 +2,79 @@
 //  FriendSearchView.swift
 //  Naelm
 //
-//  닉네임으로 친구를 검색하고 친구 요청을 보내는 Sheet.
+//  고유코드로 친구를 추가하고, 연락처에서 코드가 저장된 회원을 추천받는 Sheet.
 //
 
 import SwiftUI
 import SwiftData
+import Contacts
+import UIKit
 
 // MARK: - FriendSearchView
 
 struct FriendSearchView: View {
+    private enum SearchMode: String, CaseIterable, Identifiable {
+        case code
+        case contacts
+
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .code: return "코드로 추가"
+            case .contacts: return "연락처 추천"
+            }
+        }
+    }
+
     @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
 
-    @State private var searchText: String = ""
-    @State private var searchResults: [PublicUserInfo] = []
+    @State private var mode: SearchMode = .code
+    @State private var friendCodeInput: String = ""
+    @State private var lookupResult: PublicUserInfo?
+    @State private var contactRecommendations: [PublicUserInfo] = []
     @State private var isSearching: Bool = false
-    @State private var searchError: String? = nil
-    @State private var pendingRequestIDs: Set<String> = []  // 이미 요청한 friendID 집합
-
-    /// 기존 친구 ID 집합 (친구 여부 판단)
+    @State private var isLoadingContacts: Bool = false
+    @State private var searchError: String?
+    @State private var pendingRequestIDs: Set<String> = []
     @State private var existingFriendIDs: Set<String> = []
-
-    /// 검색 debounce용 Task
-    @State private var searchTask: Task<Void, Never>? = nil
-
-    /// 에러 알림
     @State private var showError: Bool = false
+
+    private var myFriendCode: String {
+        guard let myID = authManager.userID else { return "" }
+        return FriendService.friendCode(from: myID)
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 AppGradient.background(scheme: colorScheme).ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // 검색 바
-                    searchBar
+                VStack(spacing: 12) {
+                    myCodeCard
                         .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.top, 8)
 
-                    // 검색 결과
-                    if isSearching {
-                        Spacer()
-                        ProgressView()
-                            .tint(AppPalette.forest)
-                        Spacer()
-                    } else if let error = searchError {
-                        Spacer()
-                        Text(error)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding()
-                        Spacer()
-                    } else if searchResults.isEmpty && !searchText.isEmpty {
-                        Spacer()
-                        VStack(spacing: 8) {
-                            Image(systemName: "magnifyingglass")
-                                .font(.system(size: 36))
-                                .foregroundStyle(.secondary)
-                            Text("검색 결과가 없어요")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                    Picker("검색 방식", selection: $mode) {
+                        ForEach(SearchMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
                         }
-                        Spacer()
-                    } else {
-                        ScrollView {
-                            let currentPublicID = authManager.userID.map { FriendService.publicID(from: $0) }
-                            LazyVStack(spacing: 8) {
-                                ForEach(searchResults.filter { info in
-                                    guard let currentPublicID else { return true }
-                                    return info.publicID != currentPublicID
-                                }) { info in
-                                    SearchResultRowView(
-                                        isAlreadyFriend: existingFriendIDs.contains(info.publicID),
-                                        isPending: pendingRequestIDs.contains(info.publicID),
-                                        info: info,
-                                        onAddFriend: { addFriend(info) }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 16)
+                    }
+                    .pickerStyle(.segmented)
+                    .padding(.horizontal, 16)
+
+                    Group {
+                        if mode == .code {
+                            codeLookupContent
+                        } else {
+                            contactRecommendationContent
                         }
                     }
                 }
             }
-            .navigationTitle("친구 찾기")
+            .navigationTitle("친구 추가")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -108,68 +93,231 @@ struct FriendSearchView: View {
         }
     }
 
-    // MARK: - 검색 바
-
-    private var searchBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
+    private var myCodeCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("내 친구 코드")
+                .font(.pretendardSemiBold(14))
                 .foregroundStyle(.secondary)
 
-            TextField("닉네임으로 검색", text: $searchText)
-                .font(.pretendardMedium(16))
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .onChange(of: searchText) { _, newValue in
-                    scheduleSearch(query: newValue)
-                }
-
-            if !searchText.isEmpty {
+            HStack {
+                Text(myFriendCode)
+                    .font(.pretendardBold(18))
+                    .foregroundStyle(AppPalette.forest)
+                Spacer()
                 Button {
-                    searchText = ""
-                    searchResults = []
-                    searchError = nil
+                    UIPasteboard.general.string = myFriendCode
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
+                    Label("복사", systemImage: "doc.on.doc")
+                        .font(.pretendardSemiBold(13))
+                }
+                .buttonStyle(.bordered)
+                .tint(AppPalette.forest)
+            }
+        }
+        .padding(14)
+        .glassCard(cornerRadius: 16, scheme: colorScheme)
+    }
+
+    private var codeLookupContent: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: "number")
+                    .foregroundStyle(.secondary)
+
+                TextField("예: NAELM-12AB34CD", text: $friendCodeInput)
+                    .font(.pretendardMedium(16))
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.characters)
+                    .onSubmit {
+                        lookupByCode()
+                    }
+
+                Button("조회") {
+                    lookupByCode()
+                }
+                .font(.pretendardSemiBold(13))
+                .buttonStyle(.borderedProminent)
+                .tint(AppPalette.forest)
+                .disabled(friendCodeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSearching)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(.secondarySystemBackground))
+            )
+            .padding(.horizontal, 16)
+
+            if isSearching {
+                Spacer()
+                ProgressView().tint(AppPalette.forest)
+                Spacer()
+            } else if let error = searchError {
+                Spacer()
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                Spacer()
+            } else if let result = lookupResult {
+                ScrollView {
+                    SearchResultRowView(
+                        isAlreadyFriend: existingFriendIDs.contains(result.publicID),
+                        isPending: pendingRequestIDs.contains(result.publicID),
+                        info: result,
+                        onAddFriend: { addFriend(result) }
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                }
+            } else {
+                Spacer()
+                VStack(spacing: 8) {
+                    Image(systemName: "person.crop.circle.badge.questionmark")
+                        .font(.system(size: 36))
                         .foregroundStyle(.secondary)
+                    Text("친구 코드를 입력해서 정확히 찾을 수 있어요")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    private var contactRecommendationContent: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("내 연락처에 있는 사람 중 NAELM을 사용 중인 친구를 찾아요")
+                    .font(.pretendard(12))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("새로고침") {
+                    loadContactRecommendations()
+                }
+                .font(.pretendardSemiBold(12))
+                .disabled(isLoadingContacts)
+            }
+            .padding(.horizontal, 16)
+
+            if isLoadingContacts {
+                Spacer()
+                ProgressView().tint(AppPalette.forest)
+                Spacer()
+            } else if let error = searchError {
+                Spacer()
+                Text(error)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+                Spacer()
+            } else if contactRecommendations.isEmpty {
+                Spacer()
+                VStack(spacing: 10) {
+                    Image(systemName: "person.crop.circle.badge.clock")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("주변에 NAELM을 사용하는 친구가 아직 없어요")
+                        .font(.pretendardSemiBold(14))
+                    Text("친구를 초대해서 같이 공부해보세요!")
+                        .font(.pretendard(12))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                Spacer()
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(contactRecommendations) { info in
+                            SearchResultRowView(
+                                isAlreadyFriend: existingFriendIDs.contains(info.publicID),
+                                isPending: pendingRequestIDs.contains(info.publicID),
+                                info: info,
+                                onAddFriend: { addFriend(info) }
+                            )
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
                 }
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.secondarySystemBackground))
-        )
+        .onAppear {
+            if contactRecommendations.isEmpty && !isLoadingContacts {
+                loadContactRecommendations()
+            }
+        }
     }
 
-    // MARK: - 0.5초 debounce 검색
-
-    private func scheduleSearch(query: String) {
-        searchTask?.cancel()
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
-            searchResults = []
-            searchError = nil
+    private func lookupByCode() {
+        let code = FriendService.normalizedFriendCode(friendCodeInput)
+        friendCodeInput = code
+        guard code.count == 14 else {
+            lookupResult = nil
+            searchError = "친구 코드 형식이 올바르지 않아요"
             return
         }
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5초
-            guard !Task.isCancelled else { return }
-            await performSearch(query: query)
-        }
-    }
 
-    @MainActor
-    private func performSearch(query: String) async {
         isSearching = true
         searchError = nil
-        do {
-            searchResults = try await FriendService.shared.searchUsers(nickname: query)
-        } catch {
-            searchError = "검색에 실패했어요. 다시 시도해주세요."
+        lookupResult = nil
+        Task {
+            do {
+                let user = try await FriendService.shared.lookupUser(friendCode: code)
+                
+                await MainActor.run {
+                    guard let user else {
+                        searchError = "해당 코드의 사용자를 찾지 못했어요"
+                        isSearching = false
+                        return
+                    }
+
+                    let myPublicID = authManager.userID.map { FriendService.publicID(from: $0) }
+                    if user.publicID == myPublicID {
+                        searchError = "내 코드는 친구 추가 대상이 아니에요"
+                        lookupResult = nil
+                    } else {
+                        lookupResult = user
+                    }
+                    isSearching = false
+                }
+            } catch {
+                await MainActor.run {
+                    searchError = "조회에 실패했어요. 잠시 후 다시 시도해주세요."
+                    isSearching = false
+                }
+            }
         }
-        isSearching = false
     }
 
-    // MARK: - 기존 친구 로드
+    private func loadContactRecommendations() {
+        guard let myID = authManager.userID else { return }
+        isLoadingContacts = true
+        searchError = nil
+
+        Task {
+            do {
+                let hashes = try await ContactRecommendationService.fetchContactHashes()
+                let users = try await FriendService.shared.findUsersByContactHashes(hashes: Array(hashes), excludingUserID: myID)
+                await MainActor.run {
+                    contactRecommendations = users
+                }
+            } catch ContactRecommendationService.ContactError.denied {
+                await MainActor.run {
+                    searchError = "연락처 권한이 꺼져 있어요. 설정에서 권한을 허용해주세요."
+                }
+            } catch {
+                await MainActor.run {
+                    searchError = "연락처 추천을 불러오지 못했어요"
+                }
+            }
+            await MainActor.run {
+                isLoadingContacts = false
+            }
+        }
+    }
 
     private func loadExistingFriends() {
         guard let myID = authManager.userID else { return }
@@ -181,21 +329,17 @@ struct FriendSearchView: View {
         pendingRequestIDs = Set(friendships.filter { $0.isPending }.map { FriendService.publicID(from: $0.friendID) })
     }
 
-    // MARK: - 친구 추가
-
     private func addFriend(_ info: PublicUserInfo) {
         guard let myID = authManager.userID else { return }
         let myNickname = fetchMyNickname()
 
         Task {
             do {
-                // 앱 재설치/기기 변경 상황에서 CloudKit 중복 요청 방지
                 let alreadySent = try await FriendService.shared.hasPendingRequest(
                     fromUserID: myID,
                     toUserID: info.publicID
                 )
                 guard !alreadySent else {
-                    // CloudKit에 이미 요청이 있으면 로컬 상태만 업데이트
                     pendingRequestIDs.insert(info.publicID)
                     return
                 }
@@ -206,7 +350,6 @@ struct FriendSearchView: View {
                     toPublicID: info.publicID
                 )
 
-                // 로컬 Friendship 레코드 생성
                 let friendship = Friendship(
                     userID: myID,
                     friendID: info.publicID,
@@ -252,6 +395,10 @@ private struct SearchResultRowView: View {
         GamificationService.level(fromTotalXP: info.totalXP)
     }
 
+    private var currentLevelLabel: String {
+        TOEICScoreRange.fromEstimatedLevel(info.estimatedLevel).label
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // 아바타
@@ -270,12 +417,15 @@ private struct SearchResultRowView: View {
                     .foregroundStyle(.white)
             }
 
-            // 닉네임 + 레벨
+            // 닉네임 + 레벨/코드
             VStack(alignment: .leading, spacing: 3) {
                 Text(info.nickname)
                     .font(.pretendardSemiBold(15))
-                Text("Lv.\(level)")
+                Text("\(info.friendCode) · Lv.\(level)")
                     .font(.pretendard(13))
+                    .foregroundStyle(.secondary)
+                Text("현재 \(currentLevelLabel) / 목표 \(info.targetScore)점")
+                    .font(.pretendard(12))
                     .foregroundStyle(.secondary)
             }
 
@@ -332,6 +482,68 @@ private struct SearchResultRowView: View {
                     )
             }
         )
+    }
+}
+
+// MARK: - ContactRecommendationService
+
+private enum ContactRecommendationService {
+    enum ContactError: Error {
+        case denied
+    }
+
+    static func fetchContactHashes() async throws -> Set<String> {
+        let store = CNContactStore()
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+
+        if status == .notDetermined {
+            let granted: Bool = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                store.requestAccess(for: .contacts) { granted, error in
+                    if let error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: granted)
+                    }
+                }
+            }
+            if !granted { throw ContactError.denied }
+        } else if status != .authorized {
+            throw ContactError.denied
+        }
+
+        return try await Task.detached {
+            let keys: [CNKeyDescriptor] = [
+                CNContactPhoneNumbersKey as CNKeyDescriptor,
+                CNContactEmailAddressesKey as CNKeyDescriptor
+            ]
+            let request = CNContactFetchRequest(keysToFetch: keys)
+
+            var hashes = Set<String>()
+            try store.enumerateContacts(with: request) { contact, _ in
+                // 1. 전화번호 추출 (숫자만 남기고, 국가코드 정규화 등 가능하나 여기선 단순 숫자만 사용)
+                for phoneNumber in contact.phoneNumbers {
+                    let digits = phoneNumber.value.stringValue.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+                    if !digits.isEmpty {
+                        hashes.insert(FriendService.hashContactIdentifier(digits))
+                        // 국가 코드 없이 저장된 경우 대비 010 형태도 추가 (한국 기준)
+                        if digits.hasPrefix("010") {
+                            let withCountryCode = "82" + digits.dropFirst()
+                            hashes.insert(FriendService.hashContactIdentifier(withCountryCode))
+                        }
+                    }
+                }
+                
+                // 2. 이메일 주소 추출
+                for email in contact.emailAddresses {
+                    let address = email.value as String
+                    let normalizedEmail = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    if !normalizedEmail.isEmpty {
+                        hashes.insert(FriendService.hashContactIdentifier(normalizedEmail))
+                    }
+                }
+            }
+            return hashes
+        }.value
     }
 }
 

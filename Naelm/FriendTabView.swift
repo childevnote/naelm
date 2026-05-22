@@ -22,7 +22,9 @@ struct FriendTabView: View {
 
     @State private var showFriendSearch: Bool = false
     @State private var showFriendRequests: Bool = false
+    @State private var showChallengeRequests: Bool = false
     @State private var pendingRequestCount: Int = 0
+    @State private var pendingChallengeCount: Int = 0
     @State private var friendPublicInfos: [String: PublicUserInfo] = [:]  // publicID → 공개 정보
 
     /// 현재 친구 목록 (isFriend && !isBlocked)
@@ -96,6 +98,26 @@ struct FriendTabView: View {
 
                 Spacer()
 
+                Button {
+                    showChallengeRequests = true
+                } label: {
+                    ZStack(alignment: .topTrailing) {
+                        Image(systemName: "flame.circle")
+                            .font(.system(size: 22))
+                            .foregroundStyle(AppPalette.forest)
+                            .padding(10)
+
+                        if pendingChallengeCount > 0 {
+                            Text("\(pendingChallengeCount)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                                .background(Circle().fill(Color.red))
+                                .offset(x: 4, y: -4)
+                        }
+                    }
+                }
+
                 // 받은 친구 요청 배지 버튼
                 Button {
                     showFriendRequests = true
@@ -140,7 +162,9 @@ struct FriendTabView: View {
         }
         .onAppear {
             loadPendingCount()
+            loadPendingChallengeCount()
             loadFriendPublicInfos()
+            syncAcceptedOutgoingRequestsIfNeeded()
         }
         .sheet(isPresented: $showFriendSearch) {
             FriendSearchView()
@@ -152,8 +176,16 @@ struct FriendTabView: View {
             FriendRequestListView()
                 .environment(authManager)
         }
+        .sheet(isPresented: $showChallengeRequests, onDismiss: {
+            loadPendingChallengeCount()
+        }) {
+            StreakChallengeInboxView()
+                .environment(authManager)
+        }
         .refreshable {
             loadPendingCount()
+            loadPendingChallengeCount()
+            syncAcceptedOutgoingRequestsIfNeeded()
             await loadFriendPublicInfosAsync()
         }
     }
@@ -203,6 +235,18 @@ struct FriendTabView: View {
         }
     }
 
+    private func loadPendingChallengeCount() {
+        guard let myID = authManager.userID else { return }
+        Task {
+            do {
+                let requests = try await FriendService.shared.fetchPendingStreakChallenges(toUserID: myID)
+                pendingChallengeCount = requests.count
+            } catch {
+                pendingChallengeCount = 0
+            }
+        }
+    }
+
     private func loadFriendPublicInfos() {
         Task {
             await loadFriendPublicInfosAsync()
@@ -228,6 +272,107 @@ struct FriendTabView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == myID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         return (try? modelContext.fetch(descriptor).first?.nickname) ?? ""
+    }
+
+    private func syncAcceptedOutgoingRequestsIfNeeded() {
+        guard let myID = authManager.userID else { return }
+        FriendSyncService.shared.syncAcceptedOutgoingRequests(userID: myID, context: modelContext)
+    }
+}
+
+private struct StreakChallengeInboxView: View {
+    @Environment(AuthenticationManager.self) var authManager
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var requests: [StreakChallengeInfo] = []
+    @State private var isLoading = true
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppGradient.background(scheme: colorScheme).ignoresSafeArea()
+                Group {
+                    if isLoading {
+                        ProgressView().tint(AppPalette.forest)
+                    } else if requests.isEmpty {
+                        VStack(spacing: 10) {
+                            Image(systemName: "flame")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary)
+                            Text("받은 대결 요청이 없어요")
+                                .font(.pretendardMedium(14))
+                                .foregroundStyle(.secondary)
+                        }
+                    } else {
+                        ScrollView {
+                            LazyVStack(spacing: 8) {
+                                ForEach(requests) { request in
+                                    challengeRow(request)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("대결 요청함")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("닫기") { dismiss() }
+                        .foregroundStyle(AppPalette.forest)
+                }
+            }
+            .onAppear { loadRequests() }
+        }
+    }
+
+    private func challengeRow(_ request: StreakChallengeInfo) -> some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(request.challengerNickname)
+                    .font(.pretendardSemiBold(15))
+                Text("상대 streak: \(request.challengerStreak)일")
+                    .font(.pretendard(12))
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("수락") {
+                update(request, status: "active")
+            }
+            .font(.pretendardSemiBold(12))
+            .buttonStyle(.borderedProminent)
+            .tint(AppPalette.forest)
+
+            Button("거절") {
+                update(request, status: "declined")
+            }
+            .font(.pretendardSemiBold(12))
+            .buttonStyle(.bordered)
+        }
+        .padding(14)
+        .glassCard(cornerRadius: 16, scheme: colorScheme)
+    }
+
+    private func loadRequests() {
+        guard let myID = authManager.userID else {
+            isLoading = false
+            return
+        }
+        isLoading = true
+        Task {
+            requests = (try? await FriendService.shared.fetchPendingStreakChallenges(toUserID: myID)) ?? []
+            isLoading = false
+        }
+    }
+
+    private func update(_ request: StreakChallengeInfo, status: String) {
+        Task {
+            try? await FriendService.shared.updateStreakChallengeStatus(recordName: request.recordName, status: status)
+            requests.removeAll { $0.recordName == request.recordName }
+        }
     }
 }
 

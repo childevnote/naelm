@@ -14,6 +14,7 @@ import SwiftData
 struct FriendDetailView: View {
     let friendship: Friendship
 
+    @Environment(AuthenticationManager.self) var authManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
@@ -22,6 +23,9 @@ struct FriendDetailView: View {
     @State private var isLoading: Bool = true
     @State private var levelGaugeProgress: Double = 0.0
     @State private var showDeleteConfirm: Bool = false
+    @State private var isSendingChallenge: Bool = false
+    @State private var challengeMessage: String?
+    @State private var activeChallenge: StreakChallengeInfo?
 
     private var displayNickname: String {
         if let info = publicInfo { return info.nickname }
@@ -35,6 +39,8 @@ struct FriendDetailView: View {
     private var level: Int { GamificationService.level(fromTotalXP: totalXP) }
     private var levelProgress: Double { GamificationService.levelProgress(fromTotalXP: totalXP) }
     private var xpToNext: Int { GamificationService.xpToNextLevel(fromTotalXP: totalXP) }
+    private var currentLevelLabel: String { TOEICScoreRange.fromEstimatedLevel(publicInfo?.estimatedLevel ?? 0).label }
+    private var targetScore: Int { publicInfo?.targetScore ?? 700 }
 
     var body: some View {
         ScrollView {
@@ -48,9 +54,12 @@ struct FriendDetailView: View {
 
                     // 3. 레벨 프로그레스 바
                     levelProgressCard
+
+                    // 4. 스트릭 대결 카드
+                    challengeCard
                 }
 
-                // 4. 하단 액션 버튼
+                // 5. 하단 액션 버튼
                 deleteButton
 
                 Spacer(minLength: 32)
@@ -62,6 +71,7 @@ struct FriendDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadPublicInfo()
+            loadActiveChallenge()
         }
         .confirmationDialog(
             "'\(displayNickname)'님을 친구 목록에서 삭제하시겠어요?",
@@ -135,6 +145,8 @@ struct FriendDetailView: View {
             statItem(icon: "star.fill", label: "총 획득 XP", value: "\(totalXP) XP", color: AppPalette.gold)
             statItem(icon: "calendar.badge.plus", label: "이번 주 XP", value: "\(weeklyXP) XP", color: AppPalette.forest)
             statItem(icon: "chart.bar.fill", label: "레벨", value: "Lv.\(level)", color: AppPalette.leaf)
+            statItem(icon: "graduationcap.fill", label: "현재 수준", value: currentLevelLabel, color: .blue)
+            statItem(icon: "target", label: "목표 점수", value: "\(targetScore)점", color: .purple)
         }
     }
 
@@ -258,6 +270,45 @@ struct FriendDetailView: View {
         .buttonStyle(.plain)
     }
 
+    private var challengeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("연속학습일 대결")
+                .font(.pretendardSemiBold(15))
+
+            if let activeChallenge {
+                Text("진행 중: \(activeChallenge.challengerNickname) vs \(activeChallenge.opponentNickname)")
+                    .font(.pretendard(13))
+                    .foregroundStyle(.secondary)
+            } else {
+                Button {
+                    sendChallenge()
+                } label: {
+                    HStack {
+                        if isSendingChallenge {
+                            ProgressView()
+                                .tint(.white)
+                        }
+                        Text("1:1 대결 요청 보내기")
+                            .font(.pretendardSemiBold(14))
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(AppPalette.forest))
+                }
+                .disabled(isSendingChallenge)
+            }
+
+            if let challengeMessage {
+                Text(challengeMessage)
+                    .font(.pretendard(12))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .glassCard(cornerRadius: 24, scheme: colorScheme)
+    }
+
     // MARK: - 데이터 로딩
 
     private func loadPublicInfo() {
@@ -267,6 +318,52 @@ struct FriendDetailView: View {
             publicInfo = try? await FriendService.shared.fetchPublicProfile(userID: publicID)
             isLoading = false
         }
+    }
+
+    private func loadActiveChallenge() {
+        guard let myID = authManager.userID else { return }
+        Task {
+            let friendPublicID = FriendService.publicID(from: friendship.friendID)
+            activeChallenge = try? await FriendService.shared.fetchActiveChallenge(myUserID: myID, withFriendPublicID: friendPublicID)
+        }
+    }
+
+    private func sendChallenge() {
+        guard let myID = authManager.userID else { return }
+        let friendPublicID = FriendService.publicID(from: friendship.friendID)
+        let myNickname = fetchMyNickname(userID: myID)
+        let myStreak = GamificationService.currentStreak(userID: myID, context: modelContext)
+
+        isSendingChallenge = true
+        challengeMessage = nil
+        Task {
+            do {
+                let pendingExists = try await FriendService.shared.hasPendingStreakChallenge(fromUserID: myID, toUserID: friendPublicID)
+                guard !pendingExists else {
+                    challengeMessage = "이미 보낸 대결 요청이 있어요"
+                    isSendingChallenge = false
+                    return
+                }
+
+                _ = try await FriendService.shared.sendStreakChallenge(
+                    fromUserID: myID,
+                    fromNickname: myNickname,
+                    challengerStreak: myStreak,
+                    toPublicID: friendPublicID,
+                    toNickname: displayNickname
+                )
+                challengeMessage = "대결 요청을 보냈어요. 상대가 수락하면 시작됩니다."
+            } catch {
+                challengeMessage = "대결 요청 전송에 실패했어요"
+            }
+            isSendingChallenge = false
+        }
+    }
+
+    private func fetchMyNickname(userID: String) -> String {
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
+        return (try? modelContext.fetch(descriptor).first?.nickname) ?? "익명"
     }
 
     // MARK: - 친구 삭제

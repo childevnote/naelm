@@ -45,6 +45,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    
                     // 화면 모드
                     settingsCard {
                         HStack {
@@ -375,7 +376,9 @@ struct SettingsView: View {
                 nickname: newNickname,
                 monthlyXP: 0,
                 totalXP: 0,
-                streak: 0
+                streak: 0,
+                estimatedLevel: targetProfile.estimatedLevel,
+                targetScore: targetProfile.targetScore
             )
         }
     }

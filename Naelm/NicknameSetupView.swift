@@ -190,7 +190,9 @@ struct NicknameSetupView: View {
                 nickname: trimmed,
                 monthlyXP: 0,
                 totalXP: 0,
-                streak: 0
+                streak: 0,
+                estimatedLevel: profile.estimatedLevel,
+                targetScore: profile.targetScore
             )
         }
     }

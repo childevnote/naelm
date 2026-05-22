@@ -18,6 +18,7 @@ import SwiftUI
 import SwiftData
 import AuthenticationServices
 import UserNotifications
+import CloudKit
 import os
 
 // MARK: - App Entry Point
@@ -66,11 +67,32 @@ struct NaelmApp: App {
         }
     }()
 
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var authManager = AuthenticationManager()
+
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environment(authManager)
         }
         .modelContainer(sharedModelContainer)
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                guard let uid = authManager.userID else {
+                    print("[AutoBackup] userID nil, 백업 스킵")
+                    return
+                }
+                print("[AutoBackup] 앱 백그라운드 진입, 자동 백업 시도 (userID: \(uid))")
+                Task {
+                    do {
+                        _ = try await ICloudProgressBackupService.shared.backupProgress(userID: uid, context: sharedModelContainer.mainContext)
+                        print("[AutoBackup] 백업 성공")
+                    } catch {
+                        print("[AutoBackup] 백업 실패: \(error)")
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -252,24 +274,20 @@ struct RootView: View {
     @State private var authManager = AuthenticationManager()
     @AppStorage("appearanceMode") private var appearanceMode: Int = 0
 
-    /// 시드 데이터 로딩 완료 여부
     @State private var isDataLoaded = false
-    /// 스플래시 화면 표시 여부 (처음 실행 시만)
     @State private var showSplash = true
-    /// 데이터 로드 실패 알림
     @State private var showDataLoadError = false
 
     private var colorSchemeOverride: ColorScheme? {
         switch appearanceMode {
         case 1: return .light
         case 2: return .dark
-        default: return nil  // 시스템 설정 따름
+        default: return nil
         }
     }
 
     var body: some View {
         ZStack {
-            // 메인 앱 컨텐츠
             Group {
                 if authManager.isAuthenticated {
                     if authManager.needsOnboarding {
@@ -288,7 +306,6 @@ struct RootView: View {
             }
             .opacity(showSplash ? 0 : 1)
 
-            // 스플래시 오버레이
             if showSplash {
                 SplashView {
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -314,9 +331,7 @@ struct RootView: View {
                 #endif
                 isDataLoaded = true
             }
-            // 알림 권한 요청 (최초 1회, 이미 결정된 경우 OS가 무시)
             await NotificationService.shared.requestPermissionIfNeeded()
-            // 앱 실행 시 앱 배지 초기화
             try? await UNUserNotificationCenter.current().setBadgeCount(0)
         }
         .alert("데이터 로드 오류", isPresented: $showDataLoadError) {
@@ -337,7 +352,6 @@ struct RootView: View {
                !newID.hasPrefix("guest_") {
                 GuestDataMigrationService.shared.migrateIfNeeded(from: oldID, to: newID, context: modelContext)
             }
-
             if let uid = newID {
                 authManager.needsOnboarding = !isOnboardingComplete(userID: uid)
                 applyPendingNameIfNeeded(userID: uid)
@@ -349,19 +363,13 @@ struct RootView: View {
         let predicate = #Predicate<UserProfile> { $0.userID == userID }
         let descriptor = FetchDescriptor<UserProfile>(predicate: predicate)
         guard let profile = try? modelContext.fetch(descriptor).first else { return false }
-        // NicknameSetupView를 통해 닉네임을 직접 설정한 경우만 완료로 인식
-        return profile.hasCompletedOnboarding && profile.hasExplicitlySetNickname
+        if profile.hasCompletedOnboarding { return true }
+        return !profile.nickname.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// 로그인 후 pendingName을 초기화합니다.
-    /// 닉네임은 NicknameSetupView에서 유저가 직접 설정합니다.
     private func applyPendingNameIfNeeded(userID: String) {
-        // pendingAppleName은 NicknameSetupView의 제안값으로만 사용하고
-        // 여기서 자동으로 닉네임에 적용하지 않습니다.
-        // (NicknameSetupView.onAppear에서 제안값으로 pre-fill됨)
-        _ = userID // 향후 확장을 위한 파라미터 유지
+        _ = userID
     }
-
 }
 
 
@@ -604,8 +612,7 @@ struct MainDashboardView: View {
             .tint(AppPalette.forest)
         }
         .task {
-            // 앱 실행 시 CloudKit Public Profile 강제 upsert
-            // (재설치·기기 변경으로 CloudKit에 프로필이 없을 수 있음)
+            // 앱 실행 시 Public Profile/친구요청 상태 동기화
             guard let userID = authManager.userID,
                   !userID.hasPrefix("guest_") else { return }
             let predicate = #Predicate<UserProfile> { $0.userID == userID }
@@ -617,20 +624,7 @@ struct MainDashboardView: View {
             }
             profile.isPublicProfileRegistered = true
             try? modelContext.save()
-            let nickname = profile.nickname
-            AppLogger.friend.info("[Dashboard.task] upsert 시도: \(nickname)")
-            do {
-                try await FriendService.shared.upsertPublicProfile(
-                    userID: userID,
-                    nickname: nickname,
-                    monthlyXP: 0,
-                    totalXP: 0,
-                    streak: 0
-                )
-                AppLogger.friend.info("[Dashboard.task] CloudKit upsert 성공 ✅")
-            } catch {
-                AppLogger.friend.error("[Dashboard.task] CloudKit upsert 실패 ❌: \(error)")
-            }
+            FriendSyncService.shared.syncPublicProfileIfNeeded(userID: userID, context: modelContext)
         }
     }
 }
