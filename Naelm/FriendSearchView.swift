@@ -188,7 +188,7 @@ struct FriendSearchView: View {
     private var contactRecommendationContent: some View {
         VStack(spacing: 10) {
             HStack {
-                Text("연락처 메모에 저장된 NAELM 코드를 기준으로 추천해요")
+                Text("내 연락처에 있는 사람 중 NAELM을 사용 중인 친구를 찾아요")
                     .font(.pretendard(12))
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -218,9 +218,9 @@ struct FriendSearchView: View {
                     Image(systemName: "person.crop.circle.badge.clock")
                         .font(.system(size: 36))
                         .foregroundStyle(.secondary)
-                    Text("추천 가능한 연락처가 없어요")
+                    Text("주변에 NAELM을 사용하는 친구가 아직 없어요")
                         .font(.pretendardSemiBold(14))
-                    Text("연락처 메모에 NAELM-XXXXXXXX 형식의 코드를 저장한 뒤 다시 시도해보세요")
+                    Text("친구를 초대해서 같이 공부해보세요!")
                         .font(.pretendard(12))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -266,23 +266,29 @@ struct FriendSearchView: View {
         Task {
             do {
                 let user = try await FriendService.shared.lookupUser(friendCode: code)
-                guard let user else {
-                    searchError = "해당 코드의 사용자를 찾지 못했어요"
-                    isSearching = false
-                    return
-                }
+                
+                await MainActor.run {
+                    guard let user else {
+                        searchError = "해당 코드의 사용자를 찾지 못했어요"
+                        isSearching = false
+                        return
+                    }
 
-                let myPublicID = authManager.userID.map { FriendService.publicID(from: $0) }
-                if user.publicID == myPublicID {
-                    searchError = "내 코드는 친구 추가 대상이 아니에요"
-                    lookupResult = nil
-                } else {
-                    lookupResult = user
+                    let myPublicID = authManager.userID.map { FriendService.publicID(from: $0) }
+                    if user.publicID == myPublicID {
+                        searchError = "내 코드는 친구 추가 대상이 아니에요"
+                        lookupResult = nil
+                    } else {
+                        lookupResult = user
+                    }
+                    isSearching = false
                 }
             } catch {
-                searchError = "조회에 실패했어요. 잠시 후 다시 시도해주세요."
+                await MainActor.run {
+                    searchError = "조회에 실패했어요. 잠시 후 다시 시도해주세요."
+                    isSearching = false
+                }
             }
-            isSearching = false
         }
     }
 
@@ -293,15 +299,23 @@ struct FriendSearchView: View {
 
         Task {
             do {
-                let codes = try await ContactRecommendationService.fetchFriendCodesFromContacts()
-                let users = await FriendService.shared.lookupUsers(friendCodes: Array(codes), excludingUserID: myID)
-                contactRecommendations = users
+                let hashes = try await ContactRecommendationService.fetchContactHashes()
+                let users = try await FriendService.shared.findUsersByContactHashes(hashes: Array(hashes), excludingUserID: myID)
+                await MainActor.run {
+                    contactRecommendations = users
+                }
             } catch ContactRecommendationService.ContactError.denied {
-                searchError = "연락처 권한이 꺼져 있어요. 설정에서 권한을 허용해주세요."
+                await MainActor.run {
+                    searchError = "연락처 권한이 꺼져 있어요. 설정에서 권한을 허용해주세요."
+                }
             } catch {
-                searchError = "연락처 추천을 불러오지 못했어요"
+                await MainActor.run {
+                    searchError = "연락처 추천을 불러오지 못했어요"
+                }
             }
-            isLoadingContacts = false
+            await MainActor.run {
+                isLoadingContacts = false
+            }
         }
     }
 
@@ -478,7 +492,7 @@ private enum ContactRecommendationService {
         case denied
     }
 
-    static func fetchFriendCodesFromContacts() async throws -> Set<String> {
+    static func fetchContactHashes() async throws -> Set<String> {
         let store = CNContactStore()
         let status = CNContactStore.authorizationStatus(for: .contacts)
 
@@ -497,33 +511,39 @@ private enum ContactRecommendationService {
             throw ContactError.denied
         }
 
-        let keys: [CNKeyDescriptor] = [
-            CNContactGivenNameKey as CNKeyDescriptor,
-            CNContactFamilyNameKey as CNKeyDescriptor,
-            CNContactNoteKey as CNKeyDescriptor,
-        ]
-        let request = CNContactFetchRequest(keysToFetch: keys)
+        return try await Task.detached {
+            let keys: [CNKeyDescriptor] = [
+                CNContactPhoneNumbersKey as CNKeyDescriptor,
+                CNContactEmailAddressesKey as CNKeyDescriptor
+            ]
+            let request = CNContactFetchRequest(keysToFetch: keys)
 
-        var codes = Set<String>()
-        try store.enumerateContacts(with: request) { contact, _ in
-            let text = "\(contact.familyName) \(contact.givenName) \(contact.note)"
-            let matches = parseCodes(from: text)
-            for code in matches {
-                codes.insert(code)
+            var hashes = Set<String>()
+            try store.enumerateContacts(with: request) { contact, _ in
+                // 1. 전화번호 추출 (숫자만 남기고, 국가코드 정규화 등 가능하나 여기선 단순 숫자만 사용)
+                for phoneNumber in contact.phoneNumbers {
+                    let digits = phoneNumber.value.stringValue.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+                    if !digits.isEmpty {
+                        hashes.insert(FriendService.hashContactIdentifier(digits))
+                        // 국가 코드 없이 저장된 경우 대비 010 형태도 추가 (한국 기준)
+                        if digits.hasPrefix("010") {
+                            let withCountryCode = "82" + digits.dropFirst()
+                            hashes.insert(FriendService.hashContactIdentifier(withCountryCode))
+                        }
+                    }
+                }
+                
+                // 2. 이메일 주소 추출
+                for email in contact.emailAddresses {
+                    let address = email.value as String
+                    let normalizedEmail = address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    if !normalizedEmail.isEmpty {
+                        hashes.insert(FriendService.hashContactIdentifier(normalizedEmail))
+                    }
+                }
             }
-        }
-        return codes
-    }
-
-    private static func parseCodes(from text: String) -> [String] {
-        let pattern = "NAELM-[A-Za-z0-9]{8}"
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let nsText = text as NSString
-        let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
-        return matches.map { match in
-            let raw = nsText.substring(with: match.range)
-            return FriendService.normalizedFriendCode(raw)
-        }
+            return hashes
+        }.value
     }
 }
 

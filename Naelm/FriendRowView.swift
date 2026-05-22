@@ -118,9 +118,10 @@ struct FriendRowView: View {
         totalXP: 3200,
         streak: 12,
         weeklyXP: 350,
-        recordName: "profile_friend1"
+        recordName: "profile_friend1",
+        contactHashes: []
     )
 
-    return FriendRowView(friendship: friendship, publicInfo: publicInfo)
+    FriendRowView(friendship: friendship, publicInfo: publicInfo)
         .padding()
 }

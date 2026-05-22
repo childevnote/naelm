@@ -45,6 +45,7 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    
                     // 화면 모드
                     settingsCard {
                         HStack {

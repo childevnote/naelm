@@ -325,7 +325,24 @@ struct RankingView: View {
                 var fetchedGlobal = try await FriendService.shared.fetchGlobalRankingProfiles(limit: 100)
                 guard !Task.isCancelled else { return }
 
-                if !fetchedGlobal.contains(where: { $0.publicID == myPublicID }) {
+                if let idx = fetchedGlobal.firstIndex(where: { $0.publicID == myPublicID }) {
+                    // SwiftData와 CloudKit 동기화 지연(Bottleneck) 방지
+                    // 로컬 통계(localMyScore)를 내 랭킹 스코어에 즉시 덮어씌워서 최신화된 점수 반영
+                    let old = fetchedGlobal[idx]
+                    fetchedGlobal[idx] = PublicUserInfo(
+                        publicID: old.publicID,
+                        nickname: old.nickname,
+                        friendCode: old.friendCode,
+                        estimatedLevel: old.estimatedLevel,
+                        targetScore: old.targetScore,
+                        monthlyXP: localMyScore,
+                        totalXP: old.totalXP,
+                        streak: old.streak,
+                        weeklyXP: old.weeklyXP,
+                        recordName: old.recordName,
+                        contactHashes: old.contactHashes
+                    )
+                } else {
                     let nickname = fetchMyNickname(userID: userID)
                     fetchedGlobal.append(
                         PublicUserInfo(
@@ -338,7 +355,8 @@ struct RankingView: View {
                             totalXP: 0,
                             streak: 0,
                             weeklyXP: 0,
-                            recordName: "local_\(myPublicID)"
+                            recordName: "local_\(myPublicID)",
+                            contactHashes: []
                         )
                     )
                 }
@@ -347,6 +365,8 @@ struct RankingView: View {
                     if $0.monthlyXP != $1.monthlyXP { return $0.monthlyXP > $1.monthlyXP }
                     return $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending
                 }
+
+                guard !Task.isCancelled else { return }
 
                 await MainActor.run {
                     globalRanking = fetchedGlobal
@@ -380,7 +400,8 @@ struct RankingView: View {
                     totalXP: 0,
                     streak: 0,
                     weeklyXP: 0,
-                    recordName: "local_\(myPublicID)"
+                    recordName: "local_\(myPublicID)",
+                    contactHashes: []
                 )
                 let fallbackFriends = (try? await FriendService.shared.fetchPublicProfiles(userIDs: Array(friendIDs))) ?? []
                 let merged = ([fallbackMe] + fallbackFriends)

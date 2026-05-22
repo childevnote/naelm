@@ -56,6 +56,9 @@ private nonisolated enum CKRecordField {
     static let challengerStreak = "challengerStreak"
     static let opponentPublicID = "opponentPublicID"
     static let opponentNickname = "opponentNickname"
+    
+    // 연락처 기반 매칭을 위한 해시 배열 (전화번호, 이메일 해시)
+    static let contactHashes = "contactHashes"
 }
 
 // MARK: - 공개 프로필 데이터 구조체
@@ -73,6 +76,7 @@ struct PublicUserInfo: Identifiable {
     let streak: Int           // 연속 학습일
     let weeklyXP: Int         // 이번 주 XP
     let recordName: String    // CKRecord.ID.recordName (업데이트용)
+    let contactHashes: [String] // 매칭용 해시 배열
 }
 
 /// CloudKit의 StreakChallenge 레코드 파싱 결과
@@ -132,6 +136,12 @@ final class FriendService {
         let lower = userIDOrPublicID.lowercased()
         return isLikelyPublicID(lower) ? lower : hashedPublicID(from: userIDOrPublicID)
     }
+    
+    /// 전화번호나 이메일 등의 개인정보를 해시(SHA-256)하여 반환합니다.
+    nonisolated static func hashContactIdentifier(_ value: String) -> String {
+        let digest = SHA256.hash(data: Data(value.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
 
     /// UserPublicProfile 레코드 이름 (해시 기반)
     nonisolated private static func profileRecordName(for userIDOrPublicID: String) -> String {
@@ -172,7 +182,8 @@ final class FriendService {
         weeklyXP: Int = 0,
         estimatedLevel: Int = 0,
         targetScore: Int = 700,
-        friendCode: String? = nil
+        friendCode: String? = nil,
+        contactHashes: [String] = []
     ) async throws {
         let publicID = Self.publicID(from: userID)
         let normalizedCode = Self.normalizedFriendCode(friendCode ?? Self.friendCode(from: publicID))
@@ -196,6 +207,7 @@ final class FriendService {
         record[CKRecordField.totalXP] = Int64(totalXP) as CKRecordValue
         record[CKRecordField.streak] = Int64(streak) as CKRecordValue
         record[CKRecordField.weeklyXP] = Int64(weeklyXP) as CKRecordValue
+        record[CKRecordField.contactHashes] = contactHashes as CKRecordValue
         record[CKRecordField.updatedAt] = Date() as CKRecordValue
 
         do {
@@ -224,7 +236,7 @@ final class FriendService {
             } catch let indexError as CKError where indexError.code == .invalidArguments {
                 AppLogger.friend.warning("[PublicProfileUpsert] friend code index 비활성(fallback): \(indexError.localizedDescription, privacy: .public)")
             }
-            AppLogger.friend.warning("[PublicProfileUpsert] schema fallback 적용: friendCode/estimatedLevel/targetScore 미배포")
+            AppLogger.friend.warning("[PublicProfileUpsert] schema fallback 적용: friendCode/estimatedLevel/targetScore/contactHashes 미배포")
         }
     }
 
@@ -243,6 +255,7 @@ final class FriendService {
             CKRecordField.totalXP,
             CKRecordField.streak,
             CKRecordField.weeklyXP,
+            CKRecordField.contactHashes,
         ]
 
         // CloudKit에서 [cd] 수식어는 tokenized 인덱스가 필요하므로
@@ -306,6 +319,7 @@ final class FriendService {
             CKRecordField.totalXP,
             CKRecordField.streak,
             CKRecordField.weeklyXP,
+            CKRecordField.contactHashes,
         ]
 
         do {
@@ -347,6 +361,55 @@ final class FriendService {
         }
 
         let deduplicated = Dictionary(grouping: users, by: { $0.publicID }).compactMap { $0.value.first }
+        return deduplicated.sorted { $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending }
+    }
+    
+    /// 여러 연락처 해시(전화번호/이메일 해시)를 기반으로 사용자 목록을 조회합니다. (현업 스탠다드 로직)
+    func findUsersByContactHashes(hashes: [String], excludingUserID: String? = nil) async throws -> [PublicUserInfo] {
+        guard !hashes.isEmpty else { return [] }
+        
+        let desiredKeys = [
+            CKRecordField.publicID,
+            CKRecordField.nickname,
+            CKRecordField.friendCode,
+            CKRecordField.estimatedLevel,
+            CKRecordField.targetScore,
+            CKRecordField.monthlyXP,
+            CKRecordField.totalXP,
+            CKRecordField.streak,
+            CKRecordField.weeklyXP,
+            CKRecordField.contactHashes,
+        ]
+
+        let uniqueHashes = Array(Set(hashes))
+        var allUsers: [PublicUserInfo] = []
+        let excludingPublicID = excludingUserID.map(Self.publicID(from:))
+
+        // CloudKit IN 쿼리는 250개 제약이 있으므로 청크 단위로 검색
+        let chunkSize = 200
+        for i in stride(from: 0, to: uniqueHashes.count, by: chunkSize) {
+            let chunk = Array(uniqueHashes[i..<min(i + chunkSize, uniqueHashes.count)])
+            let predicate = NSPredicate(format: "ANY %K IN %@", CKRecordField.contactHashes, chunk)
+            let query = CKQuery(recordType: CKRecordType.userPublicProfile, predicate: predicate)
+            
+            do {
+                let (results, _) = try await publicDB.records(matching: query, desiredKeys: desiredKeys, resultsLimit: 100)
+                let profiles = results.compactMap { _, result -> PublicUserInfo? in
+                    guard let record = try? result.get() else { return nil }
+                    let profile = Self.parsePublicProfile(record)
+                    // 본인은 제외
+                    if let profile, profile.publicID != excludingPublicID {
+                        return profile
+                    }
+                    return nil
+                }
+                allUsers.append(contentsOf: profiles)
+            } catch let ckError as CKError {
+                AppLogger.friend.warning("[ContactHashMatching] query failed(\(ckError.code.rawValue, privacy: .public)): \(ckError.localizedDescription, privacy: .public)")
+            }
+        }
+        
+        let deduplicated = Dictionary(grouping: allUsers, by: { $0.publicID }).compactMap { $0.value.first }
         return deduplicated.sorted { $0.nickname.localizedCaseInsensitiveCompare($1.nickname) == .orderedAscending }
     }
 
@@ -448,6 +511,7 @@ final class FriendService {
                 CKRecordField.totalXP,
                 CKRecordField.streak,
                 CKRecordField.weeklyXP,
+                CKRecordField.contactHashes,
             ]
 
             var infos: [PublicUserInfo] = []
@@ -773,10 +837,10 @@ final class FriendService {
     private func fetchAllPublicProfiles(limit: Int, desiredKeys: [String]) async throws -> [PublicUserInfo] {
         // Production 스키마 인덱스 상태가 환경마다 달라질 수 있어 여러 predicate를 순차 시도합니다.
         let predicates: [NSPredicate] = [
-            NSPredicate(format: "monthlyXP >= 0"),
-            NSPredicate(format: "totalXP >= 0"),
-            NSPredicate(format: "createdAt >= %@", Date(timeIntervalSince1970: 0) as NSDate),
-            NSPredicate(format: "updatedAt >= %@", Date(timeIntervalSince1970: 0) as NSDate),
+            NSPredicate(format: "monthlyXP >= -1"),
+            NSPredicate(format: "totalXP >= -1"),
+            NSPredicate(format: "friendCode != ''"),
+            NSPredicate(value: true) // 최후의 수단 (recordName 인덱스가 Queryable 이어야 함)
         ]
 
         for predicate in predicates {
@@ -825,6 +889,7 @@ final class FriendService {
         let weeklyXP = (record[CKRecordField.weeklyXP] as? Int64).map(Int.init) ?? 0
         let estimatedLevel = (record[CKRecordField.estimatedLevel] as? Int64).map(Int.init) ?? 0
         let targetScore = (record[CKRecordField.targetScore] as? Int64).map(Int.init) ?? 700
+        let contactHashes = (record[CKRecordField.contactHashes] as? [String]) ?? []
         let friendCode = (record[CKRecordField.friendCode] as? String)
             .map(Self.normalizedFriendCode)
             ?? Self.friendCode(from: publicID)
@@ -839,7 +904,8 @@ final class FriendService {
             totalXP: totalXP,
             streak: streak,
             weeklyXP: weeklyXP,
-            recordName: record.recordID.recordName
+            recordName: record.recordID.recordName,
+            contactHashes: contactHashes
         )
     }
 
