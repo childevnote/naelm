@@ -115,6 +115,11 @@ final class UserProfile {
     /// 0=미측정, 1=600점미만, 2=600점대, 3=700점대, 4=800점대, 5=900점대
     var estimatedLevel: Int = 0
 
+    /// 세션 학습 결과로 누적되는 정밀 추정 점수 (5점 단위, 0~targetScore)
+    /// GamificationService.calculateScoreDelta / applyScoreDelta로만 변경.
+    /// estimatedLevel과 병행 관리: 이 값 변경 시 estimatedLevel도 동기화.
+    var estimatedScore: Int = 0
+
     /// 온보딩 완료 여부
     var hasCompletedOnboarding: Bool = false
 

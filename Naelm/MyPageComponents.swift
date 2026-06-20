@@ -65,15 +65,14 @@ struct ProfileCardView: View {
             }
 
             if let p = profile {
-                let level = TOEICScoreRange.fromEstimatedLevel(p.estimatedLevel)
                 let targetLabel = TOEICScoreRange.rangesUpTo(target: p.targetScore).last?.plusLabel ?? "\(p.targetScore)++"
 
                 VStack(spacing: 6) {
-                    Text("현재 수준")
+                    Text("현재 추정 점수")
                         .font(.pretendardMedium(12))
                         .foregroundStyle(.secondary)
 
-                    Text(level.plusLabel)
+                    Text("\(p.estimatedScore)점")
                         .font(.pretendardBold(26))
                         .foregroundStyle(
                             LinearGradient(

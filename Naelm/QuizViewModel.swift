@@ -45,6 +45,8 @@ final class QuizViewModel {
     var isQuizComplete: Bool = false
     var showExplanation: Bool = false
     var isLoading: Bool = false
+    /// endSession 후 변동된 추정 점수 (GrammarQuizView → LessonResult 전달용)
+    var lastScoreDelta: Int = 0
 
     /// 현재 문제 시작 시각 (응답 시간 측정용)
     private var questionStartTime: Date = Date()
@@ -185,7 +187,7 @@ final class QuizViewModel {
         isAnswerRevealed = false
         showExplanation = false
         if currentIndex + 1 >= questions.count {
-            sessionManager.endSession(context: context)
+            lastScoreDelta = sessionManager.endSession(context: context)
             isQuizComplete = true
             HapticManager.shared.playCelebration()
         } else {
@@ -220,7 +222,7 @@ final class QuizViewModel {
         HapticManager.shared.playIncorrect()
 
         if currentIndex + 1 >= questions.count {
-            sessionManager.endSession(context: context)
+            lastScoreDelta = sessionManager.endSession(context: context)
             isQuizComplete = true
             HapticManager.shared.playCelebration()
         } else {

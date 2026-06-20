@@ -242,15 +242,22 @@ struct VocabularyStudyView: View {
     private func buildAndShowResult() {
         guard let userID = authManager.userID else { dismiss(); return }
         let xp = viewModel.sessionStats.xpEarned
+        // endSession은 handleAllCardsSwiped에서 이미 호출됨 → lastScoreDelta 사용
+        let scoreDelta = viewModel.lastScoreDelta
         let streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         // 오늘 처음 학습인지 판단: 학습 전후 wordsStudied가 처음인지 체크
         let activity = GamificationService.todayActivity(userID: userID, context: modelContext)
         let isFirst = (activity?.wordsStudied ?? 0) <= viewModel.sessionStats.wordsStudied
+        // 현재 추정 점수 로드 (endSession 후 갱신된 값)
+        let profilePredicate = #Predicate<UserProfile> { $0.userID == userID }
+        let updatedScore = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePredicate)).first?.estimatedScore) ?? 0
         lessonResult = LessonResult(
             xpEarned: xp,
             isFirstStudyToday: isFirst,
             streakDays: streak,
-            sessionLabel: "단어 학습"
+            sessionLabel: "단어 학습",
+            scoreDelta: scoreDelta,
+            updatedEstimatedScore: updatedScore
         )
         showLessonComplete = true
     }

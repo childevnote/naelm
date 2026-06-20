@@ -23,6 +23,8 @@ final class CardViewModel {
 var cardDeck: [Vocabulary] = []
 var sessionStats: SessionStats = SessionStats()
 var isSessionComplete: Bool = false
+/// 마지막 endSession 후 변동된 추정 점수 (5의 배수, View → LessonResult 전달용)
+var lastScoreDelta: Int = 0
 var isLoading: Bool = false
 
 /// 오늘 학습한 단어 수 (전체 세션 합산)
@@ -162,7 +164,7 @@ func handleSwipe(vocabulary: Vocabulary, direction: SwipeDirection, context: Mod
 }
 
 func handleAllCardsSwiped(context: ModelContext) {
-    sessionManager.endSession(context: context)
+    lastScoreDelta = sessionManager.endSession(context: context, isVocabularyOnly: true)
     sessionStats = sessionManager.stats
     isSessionComplete = true
     stopTimer()

@@ -271,14 +271,21 @@ struct GrammarQuizView: View {
         // 퀴즈 완주 날짜 저장 → DashboardView.grammarCompleted를 true로 만듦
         lastGrammarQuizCompletedDateRaw = Date().timeIntervalSince1970
         let xp = sessionManager.stats.xpEarned
+        // endSession은 QuizViewModel.moveToNext/skipQuestion에서 이미 호출됨 → lastScoreDelta 사용
+        let scoreDelta = viewModel.lastScoreDelta
         let streak = GamificationService.currentStreak(userID: userID, context: modelContext)
         let activity = GamificationService.todayActivity(userID: userID, context: modelContext)
         let isFirst = (activity?.grammarStudied ?? 0) <= viewModel.questions.count
+        // 현재 추정 점수 로드 (endSession 후 갱신된 값)
+        let profilePredicate = #Predicate<UserProfile> { $0.userID == userID }
+        let updatedScore = (try? modelContext.fetch(FetchDescriptor<UserProfile>(predicate: profilePredicate)).first?.estimatedScore) ?? 0
         lessonResult = LessonResult(
             xpEarned: xp,
             isFirstStudyToday: isFirst,
             streakDays: streak,
-            sessionLabel: "문법 퀴즈"
+            sessionLabel: "문법 퀴즈",
+            scoreDelta: scoreDelta,
+            updatedEstimatedScore: updatedScore
         )
         showLessonComplete = true
     }

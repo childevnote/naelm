@@ -55,6 +55,12 @@ final class MyPageViewModel {
             p.timerEnabled = true
             p.vocabTimerSeconds = 15
             p.grammarTimerSeconds = 15
+            
+            // 기존 사용자의 estimatedScore가 0인 경우 estimatedLevel 기반 점수로 보정
+            if p.estimatedScore == 0 {
+                p.estimatedScore = GamificationService.defaultScore(forLevel: p.estimatedLevel)
+                try? modelContext.save()
+            }
         }
 
         streak = GamificationService.currentStreak(userID: userID, context: modelContext)

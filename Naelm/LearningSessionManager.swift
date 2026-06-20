@@ -118,8 +118,10 @@ final class LearningSessionManager {
     }
 
     /// 세션을 종료하고 모든 학습 결과를 DB에 일괄 반영합니다.
-    func endSession(context: ModelContext) {
-        guard isSessionActive else { return }
+    /// - Returns: 이번 세션으로 변동된 추정 점수 (5의 배수, 음수 가능)
+    @discardableResult
+    func endSession(context: ModelContext, isVocabularyOnly: Bool = false) -> Int {
+        guard isSessionActive else { return 0 }
         isSessionActive = false
 
         // 대기 중인 단어 기록을 DB에 반영
@@ -173,11 +175,22 @@ final class LearningSessionManager {
         // UserActivity에 오늘 학습 기록 저장
         saveUserActivity(context: context)
 
+        // ── 추정 점수 업데이트 ───────────────────────────────
+        let scoreDelta: Int
+        if isVocabularyOnly {
+            scoreDelta = 0
+        } else {
+            let streakDays = GamificationService.currentStreak(userID: userID, context: context)
+            scoreDelta = updateEstimatedScore(context: context, streakDays: streakDays)
+        }
+
         // 대기 목록 초기화
         pendingVocab = []
         pendingGrammar = []
 
-        AppLogger.session.info("Session ended — Words: \(self.stats.wordsStudied), Grammar: \(self.stats.grammarStudied), XP: \(self.stats.xpEarned)")
+        AppLogger.session.info("Session ended — Words: \(self.stats.wordsStudied), Grammar: \(self.stats.grammarStudied), XP: \(self.stats.xpEarned), ScoreDelta: \(scoreDelta)")
+
+        return scoreDelta
     }
 
     // MARK: - 단어 학습 기록 (메모리에만 저장)
@@ -312,5 +325,42 @@ final class LearningSessionManager {
         try? context.save()
 
         AppLogger.session.info("UserActivity updated — XP today: \(activity.xpEarned)")
+    }
+
+    // MARK: - 추정 점수 업데이트
+
+    /// 세션 통계를 기반으로 UserProfile의 estimatedScore/estimatedLevel을 갱신합니다.
+    /// - Returns: 실제 적용된 점수 변동값 (5의 배수)
+    @discardableResult
+    private func updateEstimatedScore(context: ModelContext, streakDays: Int) -> Int {
+        // UserProfile 조회
+        let predicate = #Predicate<UserProfile> { $0.userID == userID }
+        guard let profile = try? context.fetch(FetchDescriptor<UserProfile>(predicate: predicate)).first else {
+            return 0
+        }
+
+        let delta = GamificationService.calculateScoreDelta(
+            accuracy: stats.accuracy,
+            wordsStudied: stats.wordsStudied,
+            grammarStudied: stats.grammarStudied,
+            dailyVocabGoal: profile.dailyVocabGoal,
+            dailyGrammarGoal: profile.dailyGrammarGoal,
+            streakDays: streakDays
+        )
+
+        guard delta != 0 else { return 0 }
+
+        let newScore = GamificationService.applyScoreDelta(
+            currentScore: profile.estimatedScore,
+            delta: delta,
+            targetScore: profile.targetScore
+        )
+        profile.estimatedScore = newScore
+        profile.estimatedLevel = GamificationService.estimatedLevel(fromScore: newScore)
+
+        try? context.save()
+
+        AppLogger.session.info("EstimatedScore updated: \(profile.estimatedScore - delta) → \(profile.estimatedScore) (delta: \(delta))")
+        return delta
     }
 }

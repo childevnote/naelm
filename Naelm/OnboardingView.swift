@@ -349,6 +349,7 @@ struct OnboardingView: View {
 
         profile.targetScore = selectedTarget
         profile.estimatedLevel = estimatedLevel
+        profile.estimatedScore = GamificationService.defaultScore(forLevel: estimatedLevel)
         profile.hasCompletedPlacementTest = true
 
         let gap = max(0, selectedTarget - estimatedLevel * 100 - 400)
@@ -375,6 +376,7 @@ struct OnboardingView: View {
 
         profile.targetScore = selectedTarget
         profile.estimatedLevel = level
+        profile.estimatedScore = GamificationService.defaultScore(forLevel: level)
         profile.hasCompletedOnboarding = true
         profile.hasCompletedPlacementTest = true
 
@@ -405,6 +407,7 @@ struct OnboardingView: View {
 
         profile.targetScore = selectedTarget
         profile.estimatedLevel = level
+        profile.estimatedScore = GamificationService.defaultScore(forLevel: level)
         profile.hasCompletedOnboarding = true
         profile.hasCompletedPlacementTest = (step == .result || step == .nickname || step == .welcome)
 

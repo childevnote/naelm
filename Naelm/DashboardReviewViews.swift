@@ -245,7 +245,7 @@ struct VocabReviewContent: View {
         .alert("복습을 종료할까요?", isPresented: $showLeaveAlert) {
             Button("계속 진행하기", role: .cancel) {}
             Button("종료하기", role: .destructive) {
-                sessionManager.endSession(context: modelContext)
+                sessionManager.endSession(context: modelContext, isVocabularyOnly: true)
                 dismiss()
             }
         } message: {
@@ -267,7 +267,7 @@ struct VocabReviewContent: View {
 
     private func handleRoundComplete() {
         if currentRoundStudyWords.isEmpty {
-            sessionManager.endSession(context: modelContext)
+            sessionManager.endSession(context: modelContext, isVocabularyOnly: true)
             clearReviewFlagForKnownWords()
             awardVocabReviewBonusXP()
             isComplete = true
