@@ -32,3 +32,7 @@ Pods/
 *.pem
 *.p12
 *.key
+
+# === 로그 / 로컬 캐시 ===
+build.log
+.wrangler/
