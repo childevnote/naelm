@@ -200,6 +200,35 @@ SM-2(SuperMemo 2) 알고리즘을 구현한 순수 함수 기반 서비스입니
 
 - Sign in with Apple 인증 정보 Keychain 저장/조회/삭제
 
+### FriendService
+
+- 닉네임 기반 친구 검색, 친구 요청/수락/차단 관리
+- CloudKit Public DB에서 공개 프로필 조회 (랭킹 연동)
+
+### FriendSyncService
+
+- 앱 실행 시 XP/스트릭/주간 XP를 계산해 CloudKit Public DB 공개 프로필에 자동 동기화
+
+### ICloudProgressBackupService
+
+- 학습 진행 상황의 iCloud 백업 및 복원
+
+### GuestDataMigrationService
+
+- 게스트 계정으로 학습한 데이터를 Sign in with Apple 로그인 계정으로 이전
+
+### NotificationService
+
+- 일일 학습 알림: 권한 요청, 학습 미완료 시 당일 저녁 알림 예약, 완료 시 예약 취소
+
+### WidgetDataProvider
+
+- App Group UserDefaults를 통해 홈 화면 위젯과 스트릭/학습 현황 공유
+
+### AppleTokenServerClient
+
+- 계정 삭제 시 Apple 인증 토큰 폐기를 위한 Cloudflare Worker(AppleTokenRevokeWorker) 연동 클라이언트
+
 ---
 
 ## 기술 스택
