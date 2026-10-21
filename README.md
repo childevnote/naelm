@@ -216,34 +216,73 @@ SM-2(SuperMemo 2) 알고리즘을 구현한 순수 함수 기반 서비스입니
 ## 프로젝트 구조
 
 ```
-Naelm/
-├── NaelmApp.swift                  # 앱 진입점, ModelContainer 설정, RootView
-├── ContentView.swift               # RootView 래퍼
-├── Models.swift                    # SwiftData 모델 전체 정의
-├── DataLoader.swift                # JSON 시드 데이터 로딩
-├── SplashView.swift                # 스플래시 화면
-├── OnboardingView.swift            # 온보딩 (목표 점수 선택 + 수준 파악 테스트)
-├── DashboardView.swift             # 학습 홈 대시보드
-├── VocabularyStudyView.swift       # 단어 학습 (스와이프 카드)
-├── VocabularyCardView.swift        # 단어 카드 UI 컴포넌트
-├── SwipeableCardStack.swift        # 스와이프 카드 스택 컴포넌트
-├── GrammarQuizView.swift           # 문법 퀴즈
-├── BookmarkListView.swift          # 북마크 단어 목록
-├── RankingView.swift               # 랭킹
-├── MyPageView.swift                # 마이페이지
-├── LessonCompleteView.swift        # 세션 완료 결과 화면
-├── FeedbackView.swift              # 피드백 입력
-├── CardViewModel.swift             # 단어 카드 뷰모델
-├── QuizViewModel.swift             # 문법 퀴즈 뷰모델
-├── LearningSessionManager.swift    # 학습 세션 관리
-├── SpacedRepetitionService.swift   # SM-2 알고리즘
-├── GamificationService.swift       # XP, 레벨, 스트릭
-├── KeychainHelper.swift            # Keychain 인증 정보 관리
-├── HapticManager.swift             # 햅틱 피드백
-├── AppFonts.swift                  # Pretendard 폰트 설정
-├── AppLogger.swift                 # 로깅
-├── BrandColors.swift               # 색상 및 테마 정의
-├── Vocabulary.json                 # 단어 시드 데이터
-├── Grammar.json                    # 문법 시드 데이터
-└── Assets.xcassets/                # 앱 아이콘, 색상 에셋
+.
+├── .github/                          # Copilot 에이전트/프롬프트 (TOEIC 콘텐츠 생성 자동화)
+│   ├── agents/
+│   └── prompts/
+├── AppleTokenRevokeWorker/           # 계정 삭제용 Apple 토큰 폐기 Cloudflare Worker
+│   ├── src/index.mjs
+│   ├── scripts/local-runner.mjs
+│   ├── tests/basic.test.mjs
+│   └── wrangler.toml
+├── Docs/                             # 개발 보고서 (작업 보고서, 코드 리뷰, 알고리즘 분석 등)
+├── Naelm.xcodeproj/
+├── Naelm/
+│   ├── NaelmApp.swift                # 앱 진입점, ModelContainer 설정, 인증/루트 화면
+│   ├── ContentView.swift             # RootView 래퍼
+│   ├── Models.swift                  # SwiftData 모델 전체 정의
+│   ├── DataLoader.swift              # JSON 시드 데이터 로딩
+│   ├── SplashView.swift              # 스플래시 화면
+│   ├── OnboardingView.swift          # 온보딩 컨테이너 (목표 점수 선택 + 수준 파악 테스트)
+│   ├── Onboarding/                   # 온보딩 단계별 화면 (환영, 목표 점수, 레벨 테스트 인트로/진행, 결과)
+│   ├── DashboardView.swift           # 학습 홈 대시보드
+│   ├── DashboardSections.swift       # 대시보드 섹션 컴포넌트
+│   ├── DashboardReviewViews.swift    # 복습 세션 화면
+│   ├── DashboardLaunchAction.swift   # 딥링크(naelm://) 실행 액션 파싱
+│   ├── VocabularyStudyView.swift     # 단어 학습 (스와이프 카드)
+│   ├── VocabularyCardView.swift      # 단어 카드 UI 컴포넌트
+│   ├── SwipeableCardStack.swift      # 스와이프 카드 스택 컴포넌트
+│   ├── GrammarQuizView.swift         # 문법 퀴즈
+│   ├── GrammarQuiz/                  # 문법 퀴즈 하위 컴포넌트 (콘텐츠, 해설 시트, 빈 상태, FlowLayout)
+│   ├── BookmarkListView.swift        # 북마크 단어 목록
+│   ├── RankingView.swift             # 랭킹
+│   ├── FriendTabView.swift           # 친구 탭
+│   ├── FriendSearchView.swift        # 친구 검색
+│   ├── FriendDetailView.swift        # 친구 상세
+│   ├── FriendRequestListView.swift   # 친구 요청 목록
+│   ├── FriendRowView.swift           # 친구 목록 행 컴포넌트
+│   ├── MyPageView.swift              # 마이페이지
+│   ├── MyPageComponents.swift        # 마이페이지 UI 컴포넌트
+│   ├── MyPageViewModel.swift         # 마이페이지 뷰모델
+│   ├── SettingsView.swift            # 설정
+│   ├── NicknameSetupView.swift       # 닉네임 설정
+│   ├── LessonCompleteView.swift      # 세션 완료 결과 화면
+│   ├── FeedbackView.swift            # 피드백 입력
+│   ├── HelpPageView.swift            # 도움말
+│   ├── CardViewModel.swift           # 단어 카드 뷰모델
+│   ├── QuizViewModel.swift           # 문법 퀴즈 뷰모델
+│   ├── LearningSessionManager.swift  # 학습 세션 관리
+│   ├── SpacedRepetitionService.swift # SM-2 알고리즘
+│   ├── GamificationService.swift     # XP, 레벨, 스트릭
+│   ├── FriendService.swift           # 친구/공개 프로필 (CloudKit Public DB)
+│   ├── FriendSyncService.swift       # 친구 관계 동기화
+│   ├── ICloudProgressBackupService.swift # 학습 진행 iCloud 백업/복원
+│   ├── GuestDataMigrationService.swift   # 게스트 → 로그인 계정 데이터 이전
+│   ├── NotificationService.swift     # 로컬 알림
+│   ├── WidgetDataProvider.swift      # 위젯 데이터 공유 (App Group UserDefaults)
+│   ├── AppleTokenServerClient.swift  # 토큰 폐기 Worker 클라이언트
+│   ├── KeychainHelper.swift          # Keychain 인증 정보 관리
+│   ├── HapticManager.swift           # 햅틱 피드백
+│   ├── AppFonts.swift                # Pretendard 폰트 설정
+│   ├── AppLogger.swift               # 로깅
+│   ├── BrandColors.swift             # 색상 및 테마 정의
+│   ├── Vocabulary.json               # 단어 시드 데이터
+│   ├── Grammar.json                  # 문법 시드 데이터
+│   ├── Fonts/                        # Pretendard (Regular, Medium, SemiBold, Bold)
+│   ├── Assets.xcassets/              # 앱 아이콘, 색상 에셋
+│   ├── Info.plist
+│   └── Naelm.entitlements
+├── NaelmWidget/                      # 홈 화면 위젯 익스텐션
+├── NaelmTests/                       # 단위 테스트
+└── NaelmUITests/                     # UI 테스트
 ```
